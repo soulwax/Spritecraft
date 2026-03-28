@@ -58,6 +58,10 @@ MISMATCHED_QUOTE="oops
         path.join(root.path, 'build', 'exports'),
       );
       expect(
+        config.projectPackageDirectory.path,
+        path.join(root.path, 'build', 'exports', 'projects'),
+      );
+      expect(
         config.lpcDefinitionsDirectory.path,
         path.join(root.path, 'lpc-spritesheet-creator', 'sheet_definitions'),
       );

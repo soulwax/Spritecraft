@@ -108,6 +108,11 @@ const projectTemplates = [
   },
 ];
 
+const spriteCraftSchema = {
+  renderVersion: 2,
+  projectVersion: 2,
+};
+
 const elements = {
   projectName: document.querySelector("#projectName"),
   prompt: document.querySelector("#prompt"),
@@ -284,7 +289,7 @@ async function refreshRender() {
     );
     const payload = payloads.find((item) => item.animation === state.animation) ?? payloads[0];
     state.latestImageBase64 = payload.imageBase64;
-    state.latestMetadata = payload.metadata;
+    state.latestMetadata = migrateRenderMetadata(payload.metadata ?? {});
     state.lastRenderedRequest = snapshotRenderableState();
     updateBuilderActionState();
     elements.previewImage.src = `data:image/png;base64,${payload.imageBase64}`;
@@ -475,7 +480,7 @@ function renderCredits(credits) {
 
 function renderHistory(items) {
   ensureHistoryControls();
-  state.historyItems = items;
+  state.historyItems = items.map(migrateProjectRecord);
   syncHistoryControls();
   elements.historyList.innerHTML = "";
   const visibleItems = getVisibleHistoryItems();
@@ -513,11 +518,19 @@ function renderHistory(items) {
       ${(item.exportHistory ?? []).length ? `<div class="muted">${item.exportHistory.length} export${item.exportHistory.length === 1 ? "" : "s"} recorded</div>` : ""}
       <div class="selected-actions">
         <button class="mini ghost" data-action="restore">Restore</button>
+        <button class="mini ghost" data-action="duplicate">Duplicate</button>
+        <button class="mini ghost" data-action="export-package">Export Package</button>
         <button class="mini ghost" data-action="delete">Delete</button>
       </div>
     `;
     card.querySelector('[data-action="restore"]').addEventListener("click", async () => {
       await restoreHistory(item.id);
+    });
+    card.querySelector('[data-action="duplicate"]').addEventListener("click", async () => {
+      await duplicateHistory(item.id);
+    });
+    card.querySelector('[data-action="export-package"]').addEventListener("click", async () => {
+      await exportProjectPackage(item.id);
     });
     card.querySelector('[data-action="delete"]').addEventListener("click", async () => {
       await deleteHistory(item.id);
@@ -552,6 +565,10 @@ function buildRequest() {
 
 function buildDraftPayload() {
   return {
+    schema: {
+      name: "spritecraft.project",
+      version: spriteCraftSchema.projectVersion,
+    },
     savedAt: new Date().toISOString(),
     bodyType: state.bodyType,
     animation: state.animation,
@@ -665,7 +682,7 @@ async function restoreHistory(id) {
       body: JSON.stringify({ id }),
     });
 
-    const restored = payload.restored;
+    const restored = migrateProjectRecord(payload.restored);
     state.bodyType = restored.bodyType;
     state.animation = restored.animation;
     state.selections = restored.selections ?? {};
@@ -693,7 +710,7 @@ async function restoreHistory(id) {
     queueDraftSave();
 
     state.latestImageBase64 = payload.imageBase64;
-    state.latestMetadata = payload.metadata;
+    state.latestMetadata = migrateRenderMetadata(payload.metadata ?? {});
     state.lastRenderedRequest = snapshotRenderableState();
     elements.previewImage.src = `data:image/png;base64,${payload.imageBase64}`;
     elements.previewMeta.textContent = `${payload.width} x ${payload.height} px, ${payload.usedLayers.length} layers · restored`;
@@ -719,6 +736,59 @@ async function deleteHistory(id) {
     showToast("History entry deleted.");
   } catch (error) {
     const message = actionableMessage("Delete failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
+}
+
+async function duplicateHistory(id) {
+  try {
+    await api(`/api/history/${id}/duplicate`, {
+      method: "POST",
+    });
+    const history = await api("/api/history");
+    renderHistory(history.items ?? []);
+    showToast("Project duplicated.");
+  } catch (error) {
+    const message = actionableMessage("Duplicate failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
+}
+
+async function exportProjectPackage(id) {
+  try {
+    const payload = await api(`/api/history/${id}/export-package`, {
+      method: "POST",
+    });
+    elements.planOutput.textContent = `Project package exported:\n${payload.packagePath}`;
+    showToast("Project package written to build/exports/projects.");
+  } catch (error) {
+    const message = actionableMessage("Package export failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
+}
+
+async function importProjectPackage() {
+  const packagePath = window.prompt(
+    "Path to .spritecraft-project.json package",
+    "",
+  );
+  if (!packagePath || !packagePath.trim()) {
+    return;
+  }
+
+  try {
+    await api("/api/history/import", {
+      method: "POST",
+      body: JSON.stringify({ packagePath: packagePath.trim() }),
+    });
+    const history = await api("/api/history");
+    renderHistory(history.items ?? []);
+    showToast("Project package imported.");
+  } catch (error) {
+    const message = actionableMessage("Package import failed.", error);
     elements.planOutput.textContent = message;
     showToast(message, "error");
   }
@@ -1386,6 +1456,7 @@ function ensureHistoryControls() {
       <option value="prompt">Prompt A-Z</option>
       <option value="layers">Most layers</option>
     </select>
+    <button class="mini ghost" type="button" data-role="history-import">Import Package</button>
   `;
 
   elements.historyList.parentElement.insertBefore(controls, elements.historyList);
@@ -1404,6 +1475,9 @@ function ensureHistoryControls() {
       state.historySort = event.target.value || "newest";
       renderHistory(state.historyItems);
     });
+  controls
+    .querySelector('[data-role="history-import"]')
+    .addEventListener("click", importProjectPackage);
 }
 
 function syncHistoryControls() {
@@ -1609,7 +1683,7 @@ function loadDraft() {
       return;
     }
 
-    const draft = JSON.parse(raw);
+    const draft = migrateDraftRecord(JSON.parse(raw));
     state.bodyType = draft.bodyType ?? state.bodyType;
     state.animation = draft.animation ?? state.animation;
     state.category = draft.category ?? state.category;
@@ -1708,6 +1782,75 @@ function parseProjectTags(value) {
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 12);
+}
+
+function migrateProjectRecord(input = {}) {
+  const createdAt = input.createdAt || input.savedAt || new Date().toISOString();
+  const prompt = String(input.prompt || "").trim();
+  return {
+    schema: {
+      name: "spritecraft.project",
+      version: spriteCraftSchema.projectVersion,
+    },
+    id: input.id || "",
+    createdAt,
+    updatedAt: input.updatedAt || createdAt,
+    bodyType: input.bodyType || "male",
+    animation: input.animation || "idle",
+    prompt: prompt || null,
+    projectName: input.projectName || input.name || prompt || "Untitled project",
+    notes: input.notes || "",
+    enginePreset: input.enginePreset || input.exportSettings?.enginePreset || "none",
+    tags: Array.isArray(input.tags) ? input.tags : [],
+    selections: input.selections || {},
+    renderSettings: {
+      previewMode: input.renderSettings?.previewMode || input.previewMode || "single",
+      category: input.renderSettings?.category || input.category || "all",
+      animationFilter: input.renderSettings?.animationFilter || input.animationFilter || "current",
+      tagFilter: input.renderSettings?.tagFilter || input.tagFilter || "all",
+    },
+    exportSettings: {
+      enginePreset: input.exportSettings?.enginePreset || input.enginePreset || "none",
+    },
+    promptHistory: Array.isArray(input.promptHistory)
+      ? input.promptHistory
+      : (prompt ? [prompt] : []),
+    exportHistory: Array.isArray(input.exportHistory) ? input.exportHistory : [],
+    usedLayers: Array.isArray(input.usedLayers) ? input.usedLayers : [],
+    credits: Array.isArray(input.credits) ? input.credits : [],
+  };
+}
+
+function migrateDraftRecord(input = {}) {
+  const migrated = migrateProjectRecord(input);
+  return {
+    ...migrated,
+    savedAt: input.savedAt || migrated.updatedAt || new Date().toISOString(),
+    previewMode: migrated.renderSettings.previewMode,
+    category: migrated.renderSettings.category,
+    animationFilter: migrated.renderSettings.animationFilter,
+    tagFilter: migrated.renderSettings.tagFilter,
+  };
+}
+
+function migrateRenderMetadata(input = {}) {
+  return {
+    ...input,
+    schema: {
+      name: input.schema?.name || "spritecraft.render",
+      version: spriteCraftSchema.renderVersion,
+    },
+    content: {
+      projectSchemaVersion:
+        input.content?.projectSchemaVersion || spriteCraftSchema.projectVersion,
+      bodyType: input.content?.bodyType || "male",
+      animation: input.content?.animation || "idle",
+      prompt: input.content?.prompt || null,
+      selections: input.content?.selections || {},
+    },
+    layers: Array.isArray(input.layers) ? input.layers : [],
+    credits: Array.isArray(input.credits) ? input.credits : [],
+  };
 }
 
 async function applyProjectTemplate(template) {
@@ -1854,6 +1997,7 @@ async function fetchRenderPayload(animation) {
   });
   return {
     ...payload,
+    metadata: migrateRenderMetadata(payload.metadata ?? {}),
     animation,
   };
 }

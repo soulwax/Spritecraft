@@ -12,20 +12,20 @@ This roadmap is meant to take SpriteCraft from a promising prototype to a full-f
 
 Goal: make the current app dependable enough for real early use.
 
-- [ ] Make `dart run bin/spritecraft.dart studio` consistently start without hanging in local environments
+- [x] Make `dart run bin/spritecraft.dart studio` consistently start without hanging in local environments
 - [x] Add startup diagnostics for missing submodule assets, bad `.env`, DB connection failures, and Gemini failures
 - [x] Add `GET /health` and a simple app status panel in Studio
 - [x] Normalize render/export error handling and show actionable messages in the UI
 - [x] Add render caching so repeated preview refreshes are fast
 - [x] Add stronger tests for export naming, zip bundles, and engine preset generation
-- [ ] Add snapshot-style tests for metadata schema stability
-- [ ] Finalize the current `build/exports` bundle flow and verify it end-to-end
+- [x] Add snapshot-style tests for metadata schema stability
+- [x] Finalize the current `build/exports` bundle flow and verify it end-to-end
 
 ## Phase 2 — Usable Character Builder
 
 Goal: make the Studio genuinely comfortable for building sprites, not just technically capable.
 
-- [ ] Replace raw item-id selection display with human-friendly selected item cards
+- [x] Replace raw item-id selection display with human-friendly selected item cards
 - [x] Group catalog results by category such as body, head, hair, torso, weapons, and accessories
 - [x] Add filters for body type, animation compatibility, tags, and category
 - [x] Add search result ranking that favors likely creator intent, not only keyword hits
@@ -39,10 +39,10 @@ Goal: make the Studio genuinely comfortable for building sprites, not just techn
 Goal: turn one-off renders into reusable projects creators can come back to.
 
 - [x] Introduce a formal SpriteCraft project model with name, notes, tags, created/updated timestamps, and export history
-- [ ] Add `findById()`, `delete()`, `restore()`, and `duplicate()` project actions in persistence and API
+- [x] Add `findById()`, `delete()`, `restore()`, and `duplicate()` project actions in persistence and API
 - [x] Add project browser UI with search, sorting, and quick previews
 - [x] Store render settings, export settings, chosen presets, and prompt history per project
-- [ ] Add import/export of a SpriteCraft project package for sharing between machines
+- [x] Add import/export of a SpriteCraft project package for sharing between machines
 - [x] Add automatic draft saving and explicit named snapshots
 - [x] Support project templates such as NPC base, player character, enemy, portrait, and animation study
 
@@ -51,7 +51,7 @@ Goal: turn one-off renders into reusable projects creators can come back to.
 Goal: make SpriteCraft exports production-grade for engines and asset pipelines.
 
 - [ ] Lock the metadata schema and document it as a stable contract
-- [ ] Add schema version migration handling for older saved projects and exports
+- [x] Add schema version migration handling for older saved projects and exports
 - [ ] Export animated spritesheets with explicit frame sequences, timing, pivots, and per-frame tags
 - [ ] Add atlas export options beyond uniform fullsheet render output
 - [ ] Improve Godot export toward native `SpriteFrames`-oriented output

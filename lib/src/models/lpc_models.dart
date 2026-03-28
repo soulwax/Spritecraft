@@ -2,6 +2,9 @@
 
 import 'dart:convert';
 
+const int kSpriteCraftRenderSchemaVersion = 2;
+const int kSpriteCraftProjectSchemaVersion = 2;
+
 class LpcLayerDefinition {
   const LpcLayerDefinition({
     required this.id,
@@ -299,7 +302,10 @@ class LpcRenderResult {
     String imageName = 'spritecraft-render.png',
   }) {
     return <String, Object>{
-      'schema': <String, Object>{'name': 'spritecraft.render', 'version': 1},
+      'schema': <String, Object>{
+        'name': 'spritecraft.render',
+        'version': kSpriteCraftRenderSchemaVersion,
+      },
       'image': <String, Object>{
         'path': imageName,
         'width': width,
@@ -314,6 +320,7 @@ class LpcRenderResult {
         'tileHeight': height,
       },
       'content': <String, Object?>{
+        'projectSchemaVersion': kSpriteCraftProjectSchemaVersion,
         'bodyType': request.bodyType,
         'animation': request.animation,
         'prompt': request.prompt,
@@ -366,8 +373,81 @@ class StudioHistoryEntry {
   final List<String> promptHistory;
   final List<Map<String, Object?>> exportHistory;
 
+  factory StudioHistoryEntry.fromJson(Map<String, dynamic> json) {
+    final Map<String, Object?> migrated =
+        SpriteCraftSchemaMigrations.migrateProjectRecord(json);
+
+    return StudioHistoryEntry(
+      id: migrated['id']?.toString() ?? '',
+      createdAt: DateTime.parse(
+        migrated['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        migrated['updatedAt']?.toString() ??
+            migrated['createdAt']?.toString() ??
+            DateTime.now().toIso8601String(),
+      ),
+      bodyType: migrated['bodyType']?.toString() ?? 'male',
+      animation: migrated['animation']?.toString() ?? 'idle',
+      prompt: migrated['prompt']?.toString(),
+      selections:
+          (migrated['selections'] as Map<String, dynamic>? ??
+                  <String, dynamic>{})
+              .map(
+                (String key, dynamic value) => MapEntry(key, value.toString()),
+              ),
+      usedLayers: (migrated['usedLayers'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (Map<String, dynamic> layer) => UsedLpcLayer(
+              itemId: layer['itemId']?.toString() ?? '',
+              itemName: layer['itemName']?.toString() ?? '',
+              typeName: layer['typeName']?.toString() ?? '',
+              variant: layer['variant']?.toString() ?? '',
+              layerId: layer['layerId']?.toString() ?? '',
+              zPos: (layer['zPos'] as num?)?.toInt() ?? 0,
+              assetPath: layer['assetPath']?.toString() ?? '',
+            ),
+          )
+          .toList(),
+      credits: (migrated['credits'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(LpcCreditRecord.fromJson)
+          .toList(),
+      projectName: migrated['projectName']?.toString(),
+      notes: migrated['notes']?.toString(),
+      enginePreset: migrated['enginePreset']?.toString(),
+      tags: (migrated['tags'] as List<dynamic>? ?? <dynamic>[])
+          .map((dynamic value) => value.toString())
+          .toList(),
+      renderSettings: Map<String, Object?>.from(
+        migrated['renderSettings'] as Map<String, dynamic>? ??
+            <String, dynamic>{},
+      ),
+      exportSettings: Map<String, Object?>.from(
+        migrated['exportSettings'] as Map<String, dynamic>? ??
+            <String, dynamic>{},
+      ),
+      promptHistory: (migrated['promptHistory'] as List<dynamic>? ?? <dynamic>[])
+          .map((dynamic value) => value.toString())
+          .toList(),
+      exportHistory:
+          (migrated['exportHistory'] as List<dynamic>? ?? <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(
+                (Map<String, dynamic> entry) =>
+                    Map<String, Object?>.from(entry),
+              )
+              .toList(),
+    );
+  }
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
+      'schema': <String, Object>{
+        'name': 'spritecraft.project',
+        'version': kSpriteCraftProjectSchemaVersion,
+      },
       'id': id,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -389,6 +469,95 @@ class StudioHistoryEntry {
       'credits': credits
           .map((LpcCreditRecord credit) => credit.toJson())
           .toList(),
+    };
+  }
+}
+
+class SpriteCraftSchemaMigrations {
+  const SpriteCraftSchemaMigrations._();
+
+  static Map<String, Object?> migrateProjectRecord(Map<String, dynamic> input) {
+    final Map<String, dynamic> working = Map<String, dynamic>.from(input);
+    final DateTime now = DateTime.now().toUtc();
+    final List<dynamic> rawPromptHistory =
+        working['promptHistory'] as List<dynamic>? ??
+        <dynamic>[
+          if ((working['prompt']?.toString().trim().isNotEmpty ?? false))
+            working['prompt'].toString(),
+        ];
+
+    return <String, Object?>{
+      'schema': <String, Object>{
+        'name': 'spritecraft.project',
+        'version': kSpriteCraftProjectSchemaVersion,
+      },
+      'id': working['id']?.toString() ?? '',
+      'createdAt':
+          working['createdAt']?.toString() ?? now.toIso8601String(),
+      'updatedAt':
+          working['updatedAt']?.toString() ??
+          working['createdAt']?.toString() ??
+          now.toIso8601String(),
+      'bodyType': working['bodyType']?.toString() ?? 'male',
+      'animation': working['animation']?.toString() ?? 'idle',
+      'prompt': working['prompt']?.toString(),
+      'projectName':
+          working['projectName']?.toString() ??
+          working['name']?.toString() ??
+          working['prompt']?.toString(),
+      'notes': working['notes']?.toString() ?? '',
+      'enginePreset': working['enginePreset']?.toString() ?? 'none',
+      'tags': (working['tags'] as List<dynamic>? ?? <dynamic>[]),
+      'selections':
+          working['selections'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      'renderSettings': Map<String, Object?>.from(
+        working['renderSettings'] as Map<String, dynamic>? ??
+            <String, dynamic>{
+              'previewMode': 'single',
+              'category': 'all',
+              'animationFilter': 'current',
+              'tagFilter': 'all',
+            },
+      ),
+      'exportSettings': Map<String, Object?>.from(
+        working['exportSettings'] as Map<String, dynamic>? ??
+            <String, dynamic>{
+              'enginePreset': working['enginePreset']?.toString() ?? 'none',
+            },
+      ),
+      'promptHistory': rawPromptHistory,
+      'exportHistory':
+          working['exportHistory'] as List<dynamic>? ?? <dynamic>[],
+      'usedLayers': working['usedLayers'] as List<dynamic>? ?? <dynamic>[],
+      'credits': working['credits'] as List<dynamic>? ?? <dynamic>[],
+    };
+  }
+
+  static Map<String, Object?> migrateRenderMetadata(Map<String, dynamic> input) {
+    final Map<String, dynamic> working = Map<String, dynamic>.from(input);
+    final Map<String, dynamic> content =
+        working['content'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> schema =
+        working['schema'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    return <String, Object?>{
+      ...working,
+      'schema': <String, Object>{
+        'name': schema['name']?.toString() ?? 'spritecraft.render',
+        'version': kSpriteCraftRenderSchemaVersion,
+      },
+      'content': <String, Object?>{
+        'projectSchemaVersion':
+            content['projectSchemaVersion'] ?? kSpriteCraftProjectSchemaVersion,
+        'bodyType': content['bodyType']?.toString() ?? 'male',
+        'animation': content['animation']?.toString() ?? 'idle',
+        'prompt': content['prompt']?.toString(),
+        'selections':
+            content['selections'] as Map<String, dynamic>? ??
+            <String, dynamic>{},
+      },
+      'layers': working['layers'] as List<dynamic>? ?? <dynamic>[],
+      'credits': working['credits'] as List<dynamic>? ?? <dynamic>[],
     };
   }
 }

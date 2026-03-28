@@ -89,6 +89,77 @@ class HistoryRepository {
     required LpcRenderResult renderResult,
     Map<String, Object?> details = const <String, Object?>{},
   }) async {
+    return _insertHistoryRow(
+      parameters: <String, Object?>{
+        'id': _createId(),
+        'updatedAt': DateTime.now().toUtc(),
+        'bodyType': request.bodyType,
+        'animation': request.animation,
+        'prompt': request.prompt,
+        'projectName': details['projectName']?.toString(),
+        'notes': details['notes']?.toString(),
+        'enginePreset': details['enginePreset']?.toString(),
+        'tags': details['tags'] ?? <String>[],
+        'selections': request.selections,
+        'renderSettings': details['renderSettings'] ?? <String, Object?>{},
+        'exportSettings': details['exportSettings'] ?? <String, Object?>{},
+        'promptHistory': details['promptHistory'] ?? <String>[],
+        'exportHistory': details['exportHistory'] ?? <Map<String, Object?>>[],
+        'usedLayers': renderResult.usedLayers
+            .map((UsedLpcLayer layer) => layer.toJson())
+            .toList(),
+        'credits': renderResult.credits
+            .map((LpcCreditRecord credit) => credit.toJson())
+            .toList(),
+      },
+    );
+  }
+
+  Future<StudioHistoryEntry?> duplicate(String id) async {
+    final StudioHistoryEntry? entry = await findById(id);
+    if (entry == null) {
+      return null;
+    }
+
+    return importEntry(
+      entry,
+      projectNameOverride: '${entry.projectName ?? entry.prompt ?? 'Project'} Copy',
+    );
+  }
+
+  Future<StudioHistoryEntry> importEntry(
+    StudioHistoryEntry entry, {
+    String? projectNameOverride,
+  }) async {
+    return _insertHistoryRow(
+      parameters: <String, Object?>{
+        'id': _createId(),
+        'updatedAt': DateTime.now().toUtc(),
+        'bodyType': entry.bodyType,
+        'animation': entry.animation,
+        'prompt': entry.prompt,
+        'projectName': projectNameOverride ?? entry.projectName,
+        'notes': entry.notes,
+        'enginePreset': entry.enginePreset,
+        'tags': entry.tags,
+        'selections': entry.selections,
+        'renderSettings': entry.renderSettings,
+        'exportSettings': entry.exportSettings,
+        'promptHistory': entry.promptHistory,
+        'exportHistory': entry.exportHistory,
+        'usedLayers': entry.usedLayers
+            .map((UsedLpcLayer layer) => layer.toJson())
+            .toList(),
+        'credits': entry.credits
+            .map((LpcCreditRecord credit) => credit.toJson())
+            .toList(),
+      },
+    );
+  }
+
+  Future<StudioHistoryEntry> _insertHistoryRow({
+    required Map<String, Object?> parameters,
+  }) async {
     final Result result = await _connection.execute(
       Sql.named('''
         INSERT INTO sprite_history (
@@ -128,28 +199,7 @@ class HistoryRepository {
         )
         RETURNING id, created_at, updated_at, body_type, animation, prompt, project_name, notes, engine_preset, tags, selections, render_settings, export_settings, prompt_history, export_history, used_layers, credits
       '''),
-      parameters: <String, Object?>{
-        'id': _createId(),
-        'updatedAt': DateTime.now().toUtc(),
-        'bodyType': request.bodyType,
-        'animation': request.animation,
-        'prompt': request.prompt,
-        'projectName': details['projectName']?.toString(),
-        'notes': details['notes']?.toString(),
-        'enginePreset': details['enginePreset']?.toString(),
-        'tags': details['tags'] ?? <String>[],
-        'selections': request.selections,
-        'renderSettings': details['renderSettings'] ?? <String, Object?>{},
-        'exportSettings': details['exportSettings'] ?? <String, Object?>{},
-        'promptHistory': details['promptHistory'] ?? <String>[],
-        'exportHistory': details['exportHistory'] ?? <Map<String, Object?>>[],
-        'usedLayers': renderResult.usedLayers
-            .map((UsedLpcLayer layer) => layer.toJson())
-            .toList(),
-        'credits': renderResult.credits
-            .map((LpcCreditRecord credit) => credit.toJson())
-            .toList(),
-      },
+      parameters: parameters,
     );
 
     return _entryFromRow(result.first.toColumnMap());
@@ -215,55 +265,26 @@ class HistoryRepository {
     final List<dynamic> layersList = _normalizeJsonList(row['used_layers']);
     final List<dynamic> creditsList = _normalizeJsonList(row['credits']);
 
-    return StudioHistoryEntry(
-      id: row['id'].toString(),
-      createdAt: row['created_at'] as DateTime,
-      updatedAt: (row['updated_at'] as DateTime?) ?? row['created_at'] as DateTime,
-      bodyType: row['body_type'].toString(),
-      animation: row['animation'].toString(),
-      prompt: row['prompt']?.toString(),
-      projectName: row['project_name']?.toString(),
-      notes: row['notes']?.toString(),
-      enginePreset: row['engine_preset']?.toString(),
-      tags: tagsList.map((dynamic value) => value.toString()).toList(),
-      selections: selectionsMap.map(
-        (String key, dynamic value) => MapEntry(key, value.toString()),
-      ),
-      renderSettings: renderSettingsMap.map(
-        (String key, dynamic value) => MapEntry(key, value),
-      ),
-      exportSettings: exportSettingsMap.map(
-        (String key, dynamic value) => MapEntry(key, value),
-      ),
-      promptHistory: promptHistoryList
-          .map((dynamic value) => value.toString())
-          .toList(),
-      exportHistory: exportHistoryList
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (Map<String, dynamic> json) =>
-                json.map((String key, dynamic value) => MapEntry(key, value)),
-          )
-          .toList(),
-      usedLayers: layersList
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (Map<String, dynamic> json) => UsedLpcLayer(
-              itemId: json['itemId'].toString(),
-              itemName: json['itemName'].toString(),
-              typeName: json['typeName'].toString(),
-              variant: json['variant'].toString(),
-              layerId: json['layerId'].toString(),
-              zPos: (json['zPos'] as num?)?.toInt() ?? 0,
-              assetPath: json['assetPath'].toString(),
-            ),
-          )
-          .toList(),
-      credits: creditsList
-          .whereType<Map<String, dynamic>>()
-          .map(LpcCreditRecord.fromJson)
-          .toList(),
-    );
+    return StudioHistoryEntry.fromJson(<String, dynamic>{
+      'id': row['id'].toString(),
+      'createdAt': (row['created_at'] as DateTime).toIso8601String(),
+      'updatedAt': ((row['updated_at'] as DateTime?) ?? row['created_at'] as DateTime)
+          .toIso8601String(),
+      'bodyType': row['body_type'].toString(),
+      'animation': row['animation'].toString(),
+      'prompt': row['prompt']?.toString(),
+      'projectName': row['project_name']?.toString(),
+      'notes': row['notes']?.toString(),
+      'enginePreset': row['engine_preset']?.toString(),
+      'tags': tagsList,
+      'selections': selectionsMap,
+      'renderSettings': renderSettingsMap,
+      'exportSettings': exportSettingsMap,
+      'promptHistory': promptHistoryList,
+      'exportHistory': exportHistoryList,
+      'usedLayers': layersList,
+      'credits': creditsList,
+    });
   }
 
   Map<String, dynamic>? _normalizeJsonMap(dynamic value) {

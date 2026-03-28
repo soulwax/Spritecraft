@@ -99,7 +99,20 @@ void main() {
         'hero.png',
         'hero.json',
         'hero.godot.json',
+        'bundle-manifest.json',
       ]));
+
+      final ArchiveFile manifest = archive.files.firstWhere(
+        (ArchiveFile file) => file.name == 'bundle-manifest.json',
+      );
+      final Map<String, dynamic> manifestPayload = jsonDecode(
+        utf8.decode(manifest.content as List<int>),
+      ) as Map<String, dynamic>;
+      expect(manifestPayload['bundle']['name'], 'hero-export');
+      expect(
+        manifestPayload['files'],
+        containsAll(<String>['hero.png', 'hero.json', 'hero.godot.json']),
+      );
     });
   });
 }

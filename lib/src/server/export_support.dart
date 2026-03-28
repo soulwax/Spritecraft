@@ -78,16 +78,36 @@ class ExportSupport {
     required List<File> files,
   }) async {
     final Archive archive = Archive();
+    final List<String> archivedNames = <String>[];
     for (final File file in files) {
       final List<int> bytes = await file.readAsBytes();
+      final String fileName = path.basename(file.path);
       archive.add(
         ArchiveFile(
-          path.basename(file.path),
+          fileName,
           bytes.length,
           bytes,
         ),
       );
+      archivedNames.add(fileName);
     }
+
+    final List<int> manifestBytes = utf8.encode(
+      const JsonEncoder.withIndent('  ').convert(<String, Object>{
+        'bundle': <String, Object>{
+          'name': baseName,
+          'version': 1,
+        },
+        'files': archivedNames,
+      }),
+    );
+    archive.add(
+      ArchiveFile(
+        'bundle-manifest.json',
+        manifestBytes.length,
+        manifestBytes,
+      ),
+    );
 
     final List<int> zippedBytes = ZipEncoder().encode(archive) ?? <int>[];
     final File zipFile = File(path.join(exportDirectory.path, '$baseName.zip'));

@@ -59,8 +59,11 @@ class StudioServer {
       ..post('/api/lpc/export', _export)
       ..post('/api/ai/brief', _brief)
       ..get('/api/history', _history)
+      ..post('/api/history/import', _importHistoryPackage)
       ..post('/api/history/save', _saveHistory)
       ..post('/api/history/restore', _restoreHistory)
+      ..post('/api/history/<id>/duplicate', _duplicateHistory)
+      ..post('/api/history/<id>/export-package', _exportHistoryPackage)
       ..get('/api/history/<id>', _historyEntry)
       ..delete('/api/history/<id>', _deleteHistory);
 
@@ -451,6 +454,79 @@ class StudioServer {
       return _json(404, <String, Object>{'error': 'History entry not found.'});
     }
     return _json(200, entry.toJson());
+  }
+
+  Future<Response> _duplicateHistory(Request request, String id) async {
+    if (historyRepository == null) {
+      return _json(503, <String, Object>{
+        'error': 'DATABASE_URL is not configured.',
+      });
+    }
+
+    final StudioHistoryEntry? duplicated = await historyRepository!.duplicate(id);
+    if (duplicated == null) {
+      return _json(404, <String, Object>{'error': 'History entry not found.'});
+    }
+
+    return _json(200, duplicated.toJson());
+  }
+
+  Future<Response> _exportHistoryPackage(Request request, String id) async {
+    if (historyRepository == null) {
+      return _json(503, <String, Object>{
+        'error': 'DATABASE_URL is not configured.',
+      });
+    }
+
+    final StudioHistoryEntry? entry = await historyRepository!.findById(id);
+    if (entry == null) {
+      return _json(404, <String, Object>{'error': 'History entry not found.'});
+    }
+
+    await config.projectPackageDirectory.create(recursive: true);
+    final String baseName = ExportSupport.buildBaseName(
+      prompt: entry.prompt ?? entry.projectName ?? 'spritecraft-project',
+      projectName: entry.projectName ?? '',
+      timestamp: DateTime.now(),
+    );
+    final File packageFile = File(
+      path.join(config.projectPackageDirectory.path, '$baseName.spritecraft-project.json'),
+    );
+    await packageFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(entry.toJson()),
+    );
+
+    return _json(200, <String, Object>{
+      'id': entry.id,
+      'packagePath': path.normalize(packageFile.path),
+      'baseName': baseName,
+    });
+  }
+
+  Future<Response> _importHistoryPackage(Request request) async {
+    if (historyRepository == null) {
+      return _json(503, <String, Object>{
+        'error': 'DATABASE_URL is not configured.',
+      });
+    }
+
+    final Map<String, dynamic> payload = await request.readAsJson();
+    final String packagePath = payload['packagePath']?.toString().trim() ?? '';
+    if (packagePath.isEmpty) {
+      return _json(400, <String, Object>{'error': 'packagePath is required.'});
+    }
+
+    final File packageFile = File(packagePath);
+    if (!await packageFile.exists()) {
+      return _json(404, <String, Object>{'error': 'Project package not found.'});
+    }
+
+    final Map<String, dynamic> packageJson =
+        jsonDecode(await packageFile.readAsString()) as Map<String, dynamic>;
+    final StudioHistoryEntry imported = await historyRepository!.importEntry(
+      StudioHistoryEntry.fromJson(packageJson),
+    );
+    return _json(200, imported.toJson());
   }
 
   Future<Response> _deleteHistory(Request request, String id) async {

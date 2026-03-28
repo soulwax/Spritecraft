@@ -7,7 +7,8 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.2.0';
+const String version = '0.3.0';
+const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
   final ArgParser parser = ArgParser();
@@ -205,12 +206,29 @@ Future<void> _runPlan(ArgResults results) async {
 }
 
 Future<void> _runStudio(ArgResults results) async {
-  final RuntimeConfig config = await RuntimeConfig.load();
-  final StudioServer studioServer = await StudioServer.create(config);
+  final RuntimeConfig config = await RuntimeConfig.load().timeout(
+    _studioStartupTimeout,
+    onTimeout: () => throw StateError(
+      'Studio startup timed out while loading configuration. Check your .env and project paths.',
+    ),
+  );
+  final StudioServer studioServer = await StudioServer.create(config).timeout(
+    _studioStartupTimeout,
+    onTimeout: () => throw StateError(
+      'Studio startup timed out while preparing LPC assets or database connections.',
+    ),
+  );
 
   final String host = results.option('host')!;
   final int port = _parseIntOption(results, 'port') ?? 8080;
-  final HttpServer server = await studioServer.serve(host: host, port: port);
+  final HttpServer server = await studioServer
+      .serve(host: host, port: port)
+      .timeout(
+        _studioStartupTimeout,
+        onTimeout: () => throw StateError(
+          'Studio startup timed out while binding the local web server. Check whether the port is already in use.',
+        ),
+      );
   final Uri studioUri = Uri.parse(
     'http://${server.address.host}:${server.port}',
   );

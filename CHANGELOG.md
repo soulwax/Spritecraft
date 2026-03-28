@@ -19,6 +19,11 @@
 - Formalized SpriteCraft project records with notes, tags, updated timestamps, and export history carried through persistence and the Studio browser.
 - Automatic local draft saving plus explicit named snapshot saves in Studio for safer project iteration.
 - Built-in Studio project templates for NPC base, player character, enemy, portrait, and animation study starting points.
+- Centralized schema migration handling for older saved projects, drafts, and render metadata to keep evolving SpriteCraft data backward-compatible.
+- Project duplication plus import/export of `.spritecraft-project.json` packages for sharing and cloning saved work.
+- Studio startup now fails fast with explicit timeout diagnostics instead of hanging silently during configuration, asset, DB, or server setup.
+- Added metadata snapshot coverage and a self-describing export bundle manifest to harden SpriteCraft’s current export contract.
+- Selected layers now consistently render as human-friendly cards in Studio, matching the rest of the builder UX.
 
 ## 0.2.0 - 2026-03-28
 

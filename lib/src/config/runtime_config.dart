@@ -27,6 +27,8 @@ class RuntimeConfig {
       Directory(path.join(projectRoot.path, 'studio'));
   Directory get exportDirectory =>
       Directory(path.join(projectRoot.path, 'build', 'exports'));
+  Directory get projectPackageDirectory =>
+      Directory(path.join(exportDirectory.path, 'projects'));
   Directory get lpcDefinitionsDirectory =>
       Directory(path.join(lpcProjectRoot.path, 'sheet_definitions'));
   Directory get lpcSpritesheetsDirectory =>
