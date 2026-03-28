@@ -3,6 +3,7 @@ const state = {
   animation: "idle",
   selections: {},
   latestImageBase64: null,
+  latestMetadata: null,
 };
 
 const elements = {
@@ -12,7 +13,7 @@ const elements = {
   aiSuggest: document.querySelector("#aiSuggest"),
   saveProject: document.querySelector("#saveProject"),
   renderNow: document.querySelector("#renderNow"),
-  downloadPng: document.querySelector("#downloadPng"),
+  exportRender: document.querySelector("#exportRender"),
   catalogSearch: document.querySelector("#catalogSearch"),
   catalogList: document.querySelector("#catalogList"),
   catalogCount: document.querySelector("#catalogCount"),
@@ -65,7 +66,7 @@ function bindEvents() {
   elements.renderNow.addEventListener("click", refreshRender);
   elements.aiSuggest.addEventListener("click", runAiBrief);
   elements.saveProject.addEventListener("click", saveProject);
-  elements.downloadPng.addEventListener("click", downloadPng);
+  elements.exportRender.addEventListener("click", exportRender);
 }
 
 async function refreshCatalog() {
@@ -92,6 +93,7 @@ async function refreshRender() {
       body: JSON.stringify(buildRequest()),
     });
     state.latestImageBase64 = payload.imageBase64;
+    state.latestMetadata = payload.metadata;
     elements.previewImage.src = `data:image/png;base64,${payload.imageBase64}`;
     elements.previewMeta.textContent = `${payload.width} x ${payload.height} px, ${payload.usedLayers.length} layers`;
     renderCredits(payload.credits ?? []);
@@ -274,14 +276,16 @@ function hydrateSelect(select, values) {
   }
 }
 
-async function downloadPng() {
+async function exportRender() {
   if (!state.latestImageBase64) {
     return;
   }
-  const link = document.createElement("a");
-  link.href = `data:image/png;base64,${state.latestImageBase64}`;
-  link.download = "sprite.png";
-  link.click();
+  const payload = await api("/api/lpc/export", {
+    method: "POST",
+    body: JSON.stringify(buildRequest()),
+  });
+  elements.previewMeta.textContent = `${elements.previewMeta.textContent} · exported to ${payload.baseName}`;
+  elements.planOutput.textContent = `Exported:\nPNG: ${payload.imagePath}\nJSON: ${payload.metadataPath}`;
 }
 
 async function api(url, options = {}) {

@@ -65,6 +65,7 @@ What the Studio does:
 - asks Gemini for a structured sprite brief
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
+- exports a matched PNG and JSON pair to `build/exports`
 
 ## Pack a normal frame folder
 

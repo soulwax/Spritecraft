@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as path;
 import 'package:mime/mime.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
@@ -49,6 +50,7 @@ class StudioServer {
       ..get('/api/studio/bootstrap', _bootstrap)
       ..get('/api/lpc/catalog', _catalog)
       ..post('/api/lpc/render', _render)
+      ..post('/api/lpc/export', _export)
       ..post('/api/ai/brief', _brief)
       ..get('/api/history', _history)
       ..post('/api/history/save', _saveHistory);
@@ -131,13 +133,53 @@ class StudioServer {
         await request.readAsJson(),
       );
       final LpcRenderResult result = await renderer.render(renderRequest);
+      final String imageName = _defaultExportBaseName(
+        renderRequest,
+        extension: '.png',
+      );
       return _json(
         200,
-        result.toApiJson(
-          request: renderRequest,
-          imageName: 'spritecraft-${renderRequest.animation}.png',
+        result.toApiJson(request: renderRequest, imageName: imageName),
+      );
+    } on StateError catch (error) {
+      return _json(400, <String, Object>{'error': error.message});
+    }
+  }
+
+  Future<Response> _export(Request request) async {
+    try {
+      final Map<String, dynamic> payload = await request.readAsJson();
+      final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(payload);
+      final LpcRenderResult result = await renderer.render(renderRequest);
+
+      final String requestedBaseName =
+          payload['baseName']?.toString() ??
+          _defaultExportBaseName(renderRequest);
+      final String baseName = _sanitizeFileStem(requestedBaseName);
+
+      await config.exportDirectory.create(recursive: true);
+      final File imageFile = File(
+        path.join(config.exportDirectory.path, '$baseName.png'),
+      );
+      final File metadataFile = File(
+        path.join(config.exportDirectory.path, '$baseName.json'),
+      );
+
+      await imageFile.writeAsBytes(result.pngBytes);
+      await metadataFile.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(
+          result.toMetadataJson(
+            request: renderRequest,
+            imageName: path.basename(imageFile.path),
+          ),
         ),
       );
+
+      return _json(200, <String, Object?>{
+        'imagePath': path.normalize(imageFile.path),
+        'metadataPath': path.normalize(metadataFile.path),
+        'baseName': baseName,
+      });
     } on StateError catch (error) {
       return _json(400, <String, Object>{'error': error.message});
     }
@@ -225,6 +267,26 @@ class StudioServer {
       },
       body: jsonEncode(body),
     );
+  }
+
+  String _defaultExportBaseName(
+    LpcRenderRequest request, {
+    String extension = '',
+  }) {
+    final String promptStem = _sanitizeFileStem(request.prompt ?? '');
+    final String base = promptStem.isEmpty
+        ? 'spritecraft-${request.bodyType}-${request.animation}'
+        : 'spritecraft-$promptStem-${request.animation}';
+    return '$base$extension';
+  }
+
+  String _sanitizeFileStem(String value) {
+    final String sanitized = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    return sanitized.isEmpty ? 'spritecraft-export' : sanitized;
   }
 }
 
