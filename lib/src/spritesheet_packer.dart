@@ -25,8 +25,13 @@ class SpritesheetPacker {
   Future<SpritesheetBuildResult> pack(SpritesheetOptions options) async {
     final Directory inputDirectory = Directory(options.inputDirectory);
     if (!await inputDirectory.exists()) {
+      final String resolvedPath = path.normalize(path.absolute(options.inputDirectory));
+      final String currentDirectory = path.normalize(Directory.current.path);
       throw ArgumentError(
-        'Input directory does not exist: ${options.inputDirectory}',
+        'Input directory does not exist: ${options.inputDirectory}\n'
+        'Resolved path: $resolvedPath\n'
+        'Working directory: $currentDirectory\n'
+        'Create the directory with source frames or pass a different --input path.',
       );
     }
 

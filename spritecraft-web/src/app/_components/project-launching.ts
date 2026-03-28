@@ -12,6 +12,7 @@ export type SpriteCraftLaunchConfig = {
 	animationFilter: string;
 	tagFilter: string;
 	catalogSearch?: string;
+	seededSelections?: Record<string, string>;
 };
 
 export const projectTemplates: SpriteCraftLaunchConfig[] = [
@@ -95,6 +96,9 @@ export function buildStudioTemplateUrl(template: SpriteCraftLaunchConfig) {
 	});
 	if (template.catalogSearch?.trim()) {
 		params.set("catalogSearch", template.catalogSearch.trim());
+	}
+	if (template.seededSelections && Object.keys(template.seededSelections).length) {
+		params.set("selections", JSON.stringify(template.seededSelections));
 	}
 	return `http://127.0.0.1:8080/?${params.toString()}`;
 }

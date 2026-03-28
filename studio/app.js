@@ -557,6 +557,7 @@ function applyBuilderParamsFromUrl(bootstrap) {
   const animationFilter = params.get("animationFilter")?.trim();
   const tagFilter = params.get("tagFilter")?.trim();
   const catalogSearch = params.get("catalogSearch")?.trim();
+  const seededSelections = params.get("selections")?.trim();
 
   if (bodyType && (bootstrap.catalog.bodyTypes ?? []).includes(bodyType)) {
     state.bodyType = bodyType;
@@ -587,6 +588,28 @@ function applyBuilderParamsFromUrl(bootstrap) {
   }
   if (catalogSearch && elements.catalogSearch) {
     elements.catalogSearch.value = catalogSearch;
+  }
+  if (seededSelections) {
+    try {
+      const parsedSelections = JSON.parse(seededSelections);
+      if (parsedSelections && typeof parsedSelections === "object") {
+        const normalizedSelections = Object.fromEntries(
+          Object.entries(parsedSelections)
+            .filter(([key, value]) =>
+              typeof key === "string" &&
+              key &&
+              typeof value === "string" &&
+              value,
+            )
+            .map(([key, value]) => [key, value]),
+        );
+        if (Object.keys(normalizedSelections).length) {
+          state.selections = normalizedSelections;
+        }
+      }
+    } catch (error) {
+      console.warn("Could not parse seeded selections from URL.", error);
+    }
   }
 }
 

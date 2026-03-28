@@ -93,6 +93,31 @@ void main() {
       expect(result.sheetWidth, 32);
       expect(result.sheetHeight, 32);
     });
+
+    test('reports resolved path details when the input directory is missing', () async {
+      final String missingPath = path.join('assets', 'frames', 'hero_idle');
+
+      expect(
+        () => const SpritesheetPacker().pack(
+          SpritesheetOptions(
+            inputDirectory: missingPath,
+            outputImagePath: path.join('build', 'sheet.png'),
+            outputMetadataPath: path.join('build', 'sheet.json'),
+          ),
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message.toString(),
+            'message',
+            allOf(
+              contains('Input directory does not exist: $missingPath'),
+              contains('Resolved path:'),
+              contains('Working directory:'),
+            ),
+          ),
+        ),
+      );
+    });
   });
 }
 

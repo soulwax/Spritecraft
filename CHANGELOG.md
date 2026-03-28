@@ -1,3 +1,17 @@
+## 0.4.10 - 2026-03-29
+
+### Changed
+
+- Turned the `spritecraft-web` catalog scout into a persistent web-side selection workspace with local draft storage, workspace naming, and clear/reset controls.
+- Kept the Studio handoff aligned with that workspace so the web app now preserves real builder intent across reloads instead of only across a single launch.
+
+## 0.4.9 - 2026-03-28
+
+### Changed
+
+- Extended the `spritecraft-web` catalog scout into the first real builder slice by allowing staged layer picks with variant choices before launching into Studio.
+- Added deep-link transfer of staged layer selections from `spritecraft-web` into the Dart Studio so handoff now carries real builder state, not only launch/search intent.
+
 ## 0.4.8 - 2026-03-28
 
 ### Changed
