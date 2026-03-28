@@ -88,6 +88,7 @@ async function init() {
   state.bodyType = bootstrap.defaults.bodyType ?? state.bodyType;
   state.animation = bootstrap.defaults.animation ?? state.animation;
   state.selections = bootstrap.defaults.selections ?? {};
+  applyBuilderParamsFromUrl(bootstrap);
 
   elements.bodyType.value = state.bodyType;
   elements.animation.value = state.animation;
@@ -568,6 +569,51 @@ async function restoreProjectFromUrl() {
   const nextQuery = params.toString();
   const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
   window.history.replaceState({}, "", nextUrl);
+}
+
+function applyBuilderParamsFromUrl(bootstrap) {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("restore")) {
+    return;
+  }
+
+  const bodyType = params.get("bodyType")?.trim();
+  const animation = params.get("animation")?.trim();
+  const projectName = params.get("projectName")?.trim();
+  const prompt = params.get("prompt")?.trim();
+  const enginePreset = params.get("enginePreset")?.trim();
+  const previewMode = params.get("previewMode")?.trim();
+  const category = params.get("category")?.trim();
+  const animationFilter = params.get("animationFilter")?.trim();
+  const tagFilter = params.get("tagFilter")?.trim();
+
+  if (bodyType && (bootstrap.catalog.bodyTypes ?? []).includes(bodyType)) {
+    state.bodyType = bodyType;
+  }
+  if (animation && (bootstrap.catalog.animations ?? []).includes(animation)) {
+    state.animation = animation;
+  }
+  if (projectName && elements.projectName) {
+    elements.projectName.value = projectName;
+  }
+  if (prompt && elements.prompt) {
+    elements.prompt.value = prompt;
+  }
+  if (enginePreset && elements.enginePreset) {
+    elements.enginePreset.value = enginePreset;
+  }
+  if (previewMode === "compare" || previewMode === "single") {
+    state.previewMode = previewMode;
+  }
+  if (category) {
+    state.category = category;
+  }
+  if (animationFilter) {
+    state.animationFilter = animationFilter;
+  }
+  if (tagFilter) {
+    state.tagFilter = tagFilter;
+  }
 }
 
 async function api(url, options = {}) {

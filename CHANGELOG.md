@@ -1,3 +1,14 @@
+## 0.4.5 - 2026-03-28
+
+### Added
+
+- Added template-driven project starts in `spritecraft-web`, with direct deep-link handoff into the Dart Studio builder.
+
+### Changed
+
+- The Dart Studio can now accept builder setup via URL parameters for project name, prompt, body type, animation, engine preset, preview mode, and filter defaults.
+- This makes `spritecraft-web` a more natural place to begin a project while keeping the Dart Studio focused on composition and rendering.
+
 ## 0.4.4 - 2026-03-28
 
 ### Changed

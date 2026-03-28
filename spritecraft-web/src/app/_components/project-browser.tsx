@@ -4,6 +4,7 @@
 
 import { useDeferredValue, useMemo, useState, useTransition } from "react";
 import {
+	BadgePlus,
 	Download,
 	ExternalLink,
 	FolderSearch,
@@ -37,6 +38,69 @@ type FeedbackState = {
 	message: string;
 };
 
+const projectTemplates = [
+	{
+		id: "npc-base",
+		label: "NPC Base",
+		description: "Grounded background character with neutral gear and quick readability.",
+		bodyType: "male",
+		animation: "idle",
+		projectName: "NPC Base",
+		prompt:
+			"Create a practical background NPC with simple readable equipment and neutral colors.",
+		enginePreset: "none",
+		previewMode: "single",
+		category: "all",
+		animationFilter: "current",
+		tagFilter: "all",
+	},
+	{
+		id: "player-character",
+		label: "Player Character",
+		description: "Hero-forward starting point with comparison-friendly motion setup.",
+		bodyType: "male",
+		animation: "idle",
+		projectName: "Player Character",
+		prompt:
+			"Create a player-ready hero with distinct silhouette, layered outfit, and animation-friendly accessories.",
+		enginePreset: "both",
+		previewMode: "compare",
+		category: "all",
+		animationFilter: "current",
+		tagFilter: "all",
+	},
+	{
+		id: "enemy",
+		label: "Enemy",
+		description: "Combat-readable threat silhouette with faction identity cues.",
+		bodyType: "male",
+		animation: "slash",
+		projectName: "Enemy Variant",
+		prompt:
+			"Create an enemy with a clear threat silhouette, faction identity, and combat-ready equipment.",
+		enginePreset: "godot",
+		previewMode: "compare",
+		category: "all",
+		animationFilter: "current",
+		tagFilter: "all",
+	},
+	{
+		id: "portrait",
+		label: "Portrait",
+		description: "Identity-first setup focused on the face, hair, and upper body.",
+		bodyType: "male",
+		animation: "idle",
+		projectName: "Portrait Study",
+		prompt:
+			"Create a portrait-focused character emphasizing head, hair, and upper-body identity cues.",
+		enginePreset: "none",
+		previewMode: "single",
+		category: "Head",
+		animationFilter: "any",
+		tagFilter: "all",
+	},
+];
+
 function formatProjectDate(value?: string) {
 	if (!value) return "Unknown";
 	try {
@@ -55,6 +119,21 @@ function getProjectLabel(project: SpriteCraftProjectSummary) {
 
 function buildStudioRestoreUrl(id: string) {
 	return `http://127.0.0.1:8080/?restore=${encodeURIComponent(id)}`;
+}
+
+function buildStudioTemplateUrl(template: (typeof projectTemplates)[number]) {
+	const params = new URLSearchParams({
+		bodyType: template.bodyType,
+		animation: template.animation,
+		projectName: template.projectName,
+		prompt: template.prompt,
+		enginePreset: template.enginePreset,
+		previewMode: template.previewMode,
+		category: template.category,
+		animationFilter: template.animationFilter,
+		tagFilter: template.tagFilter,
+	});
+	return `http://127.0.0.1:8080/?${params.toString()}`;
 }
 
 async function readJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -247,6 +326,48 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
+				<div className="rounded-3xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-soft)]/50 p-5">
+					<div className="mb-4 flex items-center justify-between gap-3">
+						<div>
+							<p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+								Start in Web
+							</p>
+							<h3 className="mt-2 text-lg font-semibold">Project Templates</h3>
+						</div>
+						<BadgePlus className="size-5 text-[color:var(--accent)]" />
+					</div>
+					<div className="grid gap-3 lg:grid-cols-2">
+						{projectTemplates.map((template) => (
+							<div
+								className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4"
+								key={template.id}
+							>
+								<div className="mb-3 flex items-center justify-between gap-3">
+									<h4 className="font-medium">{template.label}</h4>
+									<Badge>{template.animation}</Badge>
+								</div>
+								<p className="mb-4 text-sm text-[color:var(--muted-foreground)]">
+									{template.description}
+								</p>
+								<div className="flex flex-wrap gap-2">
+									<Badge>{template.enginePreset}</Badge>
+									<Badge>{template.previewMode}</Badge>
+								</div>
+								<Button asChild className="mt-4" variant="secondary">
+									<a
+										href={buildStudioTemplateUrl(template)}
+										rel="noreferrer"
+										target="_blank"
+									>
+										<ExternalLink className="mr-2 size-4" />
+										Open Template In Studio
+									</a>
+								</Button>
+							</div>
+						))}
+					</div>
+				</div>
+
 				<div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_auto]">
 					<label className="flex items-center gap-3 text-sm text-[color:var(--muted-foreground)]">
 						<Search className="size-4 shrink-0" />
