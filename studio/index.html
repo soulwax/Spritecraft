@@ -17,6 +17,10 @@
 
       <section class="panel">
         <label class="field">
+          <span>Project name</span>
+          <input id="projectName" type="text" placeholder="forest-ranger, mage-a, npc-villager...">
+        </label>
+        <label class="field">
           <span>Creative brief</span>
           <textarea id="prompt" rows="4" placeholder="Describe the character, mood, class, and visual direction"></textarea>
         </label>
@@ -30,6 +34,15 @@
             <select id="animation"></select>
           </label>
         </div>
+        <label class="field compact">
+          <span>Engine preset</span>
+          <select id="enginePreset">
+            <option value="none">None</option>
+            <option value="godot">Godot</option>
+            <option value="unity">Unity</option>
+            <option value="both">Godot + Unity</option>
+          </select>
+        </label>
         <div class="button-row">
           <button id="aiSuggest" class="primary">Suggest look</button>
           <button id="saveProject">Save history</button>

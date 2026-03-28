@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import 'package:mime/mime.dart';
 import 'package:shelf/shelf.dart';
@@ -133,10 +134,7 @@ class StudioServer {
         await request.readAsJson(),
       );
       final LpcRenderResult result = await renderer.render(renderRequest);
-      final String imageName = _defaultExportBaseName(
-        renderRequest,
-        extension: '.png',
-      );
+      final String imageName = _buildPreviewImageName(renderRequest);
       return _json(
         200,
         result.toApiJson(request: renderRequest, imageName: imageName),
@@ -151,11 +149,14 @@ class StudioServer {
       final Map<String, dynamic> payload = await request.readAsJson();
       final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(payload);
       final LpcRenderResult result = await renderer.render(renderRequest);
+      final String projectName = payload['projectName']?.toString() ?? '';
+      final String enginePreset =
+          payload['enginePreset']?.toString().toLowerCase() ?? 'none';
 
-      final String requestedBaseName =
-          payload['baseName']?.toString() ??
-          _defaultExportBaseName(renderRequest);
-      final String baseName = _sanitizeFileStem(requestedBaseName);
+      final String baseName = _buildExportBaseName(
+        renderRequest,
+        projectName: projectName,
+      );
 
       await config.exportDirectory.create(recursive: true);
       final File imageFile = File(
@@ -175,9 +176,25 @@ class StudioServer {
         ),
       );
 
+      final List<File> extraFiles = await _writeEnginePresetFiles(
+        enginePreset: enginePreset,
+        baseName: baseName,
+        request: renderRequest,
+        renderResult: result,
+      );
+      final File zipFile = await _writeExportBundle(
+        baseName: baseName,
+        files: <File>[imageFile, metadataFile, ...extraFiles],
+      );
+
       return _json(200, <String, Object?>{
         'imagePath': path.normalize(imageFile.path),
         'metadataPath': path.normalize(metadataFile.path),
+        'bundlePath': path.normalize(zipFile.path),
+        'enginePreset': enginePreset,
+        'extraPaths': extraFiles
+            .map((File file) => path.normalize(file.path))
+            .toList(),
         'baseName': baseName,
       });
     } on StateError catch (error) {
@@ -269,15 +286,34 @@ class StudioServer {
     );
   }
 
-  String _defaultExportBaseName(
+  String _buildPreviewImageName(LpcRenderRequest request) {
+    return '${_buildExportBaseName(request, includeTimestamp: false)}.png';
+  }
+
+  String _buildExportBaseName(
     LpcRenderRequest request, {
-    String extension = '',
+    String projectName = '',
+    bool includeTimestamp = true,
   }) {
-    final String promptStem = _sanitizeFileStem(request.prompt ?? '');
-    final String base = promptStem.isEmpty
-        ? 'spritecraft-${request.bodyType}-${request.animation}'
-        : 'spritecraft-$promptStem-${request.animation}';
-    return '$base$extension';
+    final String preferredStem = projectName.trim().isNotEmpty
+        ? projectName
+        : (request.prompt?.trim().isNotEmpty ?? false)
+        ? request.prompt!
+        : 'spritecraft-${request.bodyType}-${request.animation}';
+    final String stem = _sanitizeFileStem(preferredStem);
+    if (!includeTimestamp) {
+      return stem;
+    }
+
+    final DateTime now = DateTime.now();
+    final String timestamp =
+        '${now.year.toString().padLeft(4, '0')}'
+        '${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}-'
+        '${now.hour.toString().padLeft(2, '0')}'
+        '${now.minute.toString().padLeft(2, '0')}'
+        '${now.second.toString().padLeft(2, '0')}';
+    return '$stem-$timestamp';
   }
 
   String _sanitizeFileStem(String value) {
@@ -287,6 +323,104 @@ class StudioServer {
         .replaceAll(RegExp(r'-+'), '-')
         .replaceAll(RegExp(r'^-|-$'), '');
     return sanitized.isEmpty ? 'spritecraft-export' : sanitized;
+  }
+
+  Future<List<File>> _writeEnginePresetFiles({
+    required String enginePreset,
+    required String baseName,
+    required LpcRenderRequest request,
+    required LpcRenderResult renderResult,
+  }) async {
+    final List<File> files = <File>[];
+    final JsonEncoder encoder = const JsonEncoder.withIndent('  ');
+
+    if (enginePreset == 'godot' || enginePreset == 'both') {
+      final File godotFile = File(
+        path.join(config.exportDirectory.path, '$baseName.godot.json'),
+      );
+      await godotFile.writeAsString(
+        encoder.convert(<String, Object?>{
+          'engine': 'godot',
+          'resourceType': 'SpriteFrames',
+          'texture': '$baseName.png',
+          'animations': <Object>[
+            <String, Object>{
+              'name': request.animation,
+              'fps': 8,
+              'loop': true,
+              'frames': <Object>[
+                <String, Object>{
+                  'index': 0,
+                  'duration': 1,
+                  'region': <String, Object>{
+                    'x': 0,
+                    'y': 0,
+                    'width': renderResult.width,
+                    'height': renderResult.height,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      files.add(godotFile);
+    }
+
+    if (enginePreset == 'unity' || enginePreset == 'both') {
+      final File unityFile = File(
+        path.join(config.exportDirectory.path, '$baseName.unity.json'),
+      );
+      await unityFile.writeAsString(
+        encoder.convert(<String, Object?>{
+          'engine': 'unity',
+          'texture': '$baseName.png',
+          'importer': <String, Object>{
+            'spriteMode': 'Multiple',
+            'pixelsPerUnit': 100,
+            'meshType': 'FullRect',
+            'sprites': <Object>[
+              <String, Object>{
+                'name': request.animation,
+                'rect': <String, Object>{
+                  'x': 0,
+                  'y': 0,
+                  'width': renderResult.width,
+                  'height': renderResult.height,
+                },
+                'pivot': <String, double>{'x': 0.5, 'y': 0.5},
+                'alignment': 'Center',
+              },
+            ],
+          },
+        }),
+      );
+      files.add(unityFile);
+    }
+
+    return files;
+  }
+
+  Future<File> _writeExportBundle({
+    required String baseName,
+    required List<File> files,
+  }) async {
+    final Archive archive = Archive();
+    for (final File file in files) {
+      archive.addFile(
+        ArchiveFile(
+          path.basename(file.path),
+          await file.length(),
+          await file.readAsBytes(),
+        ),
+      );
+    }
+
+    final File zipFile = File(
+      path.join(config.exportDirectory.path, '$baseName.zip'),
+    );
+    await zipFile.writeAsBytes(ZipEncoder().encode(archive));
+    return zipFile;
   }
 }
 

@@ -7,9 +7,11 @@ const state = {
 };
 
 const elements = {
+  projectName: document.querySelector("#projectName"),
   prompt: document.querySelector("#prompt"),
   bodyType: document.querySelector("#bodyType"),
   animation: document.querySelector("#animation"),
+  enginePreset: document.querySelector("#enginePreset"),
   aiSuggest: document.querySelector("#aiSuggest"),
   saveProject: document.querySelector("#saveProject"),
   renderNow: document.querySelector("#renderNow"),
@@ -259,6 +261,8 @@ function renderHistory(items) {
 
 function buildRequest() {
   return {
+    projectName: elements.projectName.value.trim(),
+    enginePreset: elements.enginePreset.value,
     bodyType: state.bodyType,
     animation: state.animation,
     prompt: elements.prompt.value.trim(),
@@ -284,8 +288,11 @@ async function exportRender() {
     method: "POST",
     body: JSON.stringify(buildRequest()),
   });
-  elements.previewMeta.textContent = `${elements.previewMeta.textContent} · exported to ${payload.baseName}`;
-  elements.planOutput.textContent = `Exported:\nPNG: ${payload.imagePath}\nJSON: ${payload.metadataPath}`;
+  const extra = (payload.extraPaths ?? []).map((file) => `Preset: ${file}`).join("\n");
+  elements.previewMeta.textContent = `${elements.previewMeta.textContent} · exported`;
+  elements.planOutput.textContent =
+    `Exported bundle:\nPNG: ${payload.imagePath}\nJSON: ${payload.metadataPath}\nZIP: ${payload.bundlePath}` +
+    (extra ? `\n${extra}` : "");
 }
 
 async function api(url, options = {}) {

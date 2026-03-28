@@ -8,6 +8,7 @@ environment:
 
 # Add regular dependencies here.
 dependencies:
+  archive: ^4.0.9
   args: ^2.7.0
   http: ^1.5.0
   image: ^4.5.4

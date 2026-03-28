@@ -66,6 +66,8 @@ What the Studio does:
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
 - exports a matched PNG and JSON pair to `build/exports`
+- builds a zip bundle for every Studio export
+- can emit Godot and Unity companion preset files during export
 
 ## Pack a normal frame folder
 
@@ -84,6 +86,12 @@ The generated JSON is meant to be reconstruction-grade metadata:
 - image path and exact output dimensions
 - layout mode, tile size, columns, rows, and frame count
 - per-frame source path, grid position, tile bounds, actual content bounds, and offsets
+
+Studio export naming is now project-friendly by default:
+
+- prefers the explicit project name from the UI
+- otherwise falls back to the prompt
+- appends a timestamp so exports stay unique
 
 ## Ask Gemini for a sprite plan
 
