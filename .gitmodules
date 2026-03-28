@@ -1,0 +1,3 @@
+[submodule "lpc-spritesheet-creator"]
+	url = https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator
+	path = lpc-spritesheet-creator

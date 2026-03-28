@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpriteCraft Studio</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <p class="eyebrow">Pure Dart Studio</p>
+        <h1>SpriteCraft</h1>
+        <p class="muted">Modern GUI, LPC-inspired layering, AI planning, and persisted history.</p>
+      </div>
+
+      <section class="panel">
+        <label class="field">
+          <span>Creative brief</span>
+          <textarea id="prompt" rows="4" placeholder="Describe the character, mood, class, and visual direction"></textarea>
+        </label>
+        <div class="controls-row">
+          <label class="field compact">
+            <span>Body type</span>
+            <select id="bodyType"></select>
+          </label>
+          <label class="field compact">
+            <span>Animation</span>
+            <select id="animation"></select>
+          </label>
+        </div>
+        <div class="button-row">
+          <button id="aiSuggest" class="primary">Suggest look</button>
+          <button id="saveProject">Save history</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>Selected layers</h2>
+          <button id="renderNow" class="ghost">Refresh</button>
+        </div>
+        <div id="selectedItems" class="selected-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <h2>Recent history</h2>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+    </aside>
+
+    <main class="content">
+      <header class="toolbar">
+        <div>
+          <p class="eyebrow">Studio Preview</p>
+          <h2>Compose and refine</h2>
+        </div>
+        <div class="search-wrap">
+          <input id="catalogSearch" type="search" placeholder="Search head, cloak, wizard, plate, wolf...">
+        </div>
+      </header>
+
+      <section class="hero-grid">
+        <div class="panel preview-panel">
+          <div class="section-title">
+            <h2>Live render</h2>
+            <button id="downloadPng" class="ghost">Download PNG</button>
+          </div>
+          <div class="preview-stage">
+            <img id="previewImage" alt="Rendered spritesheet preview">
+            <div id="previewMeta" class="preview-meta muted"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <h2>AI brief</h2>
+          </div>
+          <pre id="planOutput" class="plan-output muted">No AI brief yet.</pre>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <div class="section-title">
+            <h2>Catalog</h2>
+            <span id="catalogCount" class="badge"></span>
+          </div>
+          <div id="catalogList" class="catalog-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <h2>Credits</h2>
+          </div>
+          <div id="creditsList" class="credits-list muted">Credits will appear after a render.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
