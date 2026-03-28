@@ -3,6 +3,7 @@
 import { useDeferredValue, useMemo, useState, useTransition } from "react";
 import {
 	Download,
+	ExternalLink,
 	FolderSearch,
 	PackagePlus,
 	RefreshCw,
@@ -46,6 +47,10 @@ function formatProjectDate(value?: string) {
 
 function getProjectLabel(project: SpriteCraftProjectSummary) {
 	return project.projectName ?? project.prompt ?? "Untitled project";
+}
+
+function buildStudioRestoreUrl(id: string) {
+	return `http://127.0.0.1:8080/?restore=${encodeURIComponent(id)}`;
 }
 
 async function readJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -481,6 +486,16 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 										</div>
 
 										<div className="flex flex-wrap gap-3">
+											<Button asChild>
+												<a
+													href={buildStudioRestoreUrl(selectedProject.id)}
+													rel="noreferrer"
+													target="_blank"
+												>
+													<ExternalLink className="mr-2 size-4" />
+													Restore In Studio
+												</a>
+											</Button>
 											<Button
 												onClick={() =>
 													void runAction(
@@ -572,9 +587,9 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 								Current migration boundary
 							</p>
 							<p className="mt-2">
-								This web shell now owns browsing, duplication, deletion, and
-								package transfer. Full render restore still lives in the existing
-								Dart Studio until the builder slice moves over.
+								This web shell now owns browsing, restore handoff, duplication,
+								deletion, and package transfer. The Dart Studio remains the active
+								builder and renderer.
 							</p>
 							<Button asChild className="mt-4" variant="ghost">
 								<a

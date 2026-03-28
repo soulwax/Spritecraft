@@ -9,11 +9,12 @@ export const env = createEnv({
 	server: {
 		BETTER_AUTH_SECRET:
 			process.env.NODE_ENV === "production"
-				? z.string()
+				? z.string().optional()
 				: z.string().optional(),
-		BETTER_AUTH_GITHUB_CLIENT_ID: z.string(),
-		BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string(),
-		DATABASE_URL: z.string().url(),
+		BETTER_AUTH_GITHUB_CLIENT_ID: z.string().optional(),
+		BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string().optional(),
+		DATABASE_URL: z.string().url().optional(),
+		GEMINI_API_KEY: z.string().optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -38,6 +39,7 @@ export const env = createEnv({
 		BETTER_AUTH_GITHUB_CLIENT_SECRET:
 			process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
 		DATABASE_URL: process.env.DATABASE_URL,
+		GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 		NEXT_PUBLIC_SPRITECRAFT_API_BASE:
 			process.env.NEXT_PUBLIC_SPRITECRAFT_API_BASE,
 		NODE_ENV: process.env.NODE_ENV,

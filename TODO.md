@@ -48,13 +48,12 @@ Goal: turn one-off renders into reusable projects creators can come back to.
 
 ## Phase 3.5 - Initialise t3 project and translate existing code to t3
 
-[ ] Initialise a t3 project in the repo and translate existing javascript code to the t3 framework, ensuring that all existing functionality is preserved and that the new project structure is properly set up for future development.
-[ ] Use shadcn components for the UI where possible, and create custom components as needed to replicate the current UI design and functionality within the t3 framework. Theme: Kanagawa wave pattern.
-[ ] Test the new t3-based implementation thoroughly to ensure that all features work as expected and that there are no regressions compared to the previous implementation.
-[ ] Implement the new build target and execution mode options in the implementation agent and sub-agents, ensuring that all functionality works correctly in both local and remote contexts, and that the batch execution flow respects the chosen execution mode.
-[ ] Test the new execution modes and build targets thoroughly to ensure stability and correctness across different environments and workflows.
-[ ] Update documentation to reflect the new execution modes and build targets, providing clear instructions for users on how to utilize these options effectively in their migration projects.
-[ ] Ensure that the implementation agent and its sub-agents are properly configured to handle the new execution modes and build targets, including any necessary adjustments to input contracts, output formats, and error handling mechanisms.
+- [ ] Initialise a t3 project in the repo and translate existing javascript code to the t3 framework, ensuring that all existing functionality is preserved and that the new project structure is properly set up for future development. Use shadcn components for the UI where possible, and create custom components as needed to replicate the current UI design and functionality within the t3 framework. Theme: Kanagawa wave pattern.
+- [ ] Test the new t3-based implementation thoroughly to ensure that all features work as expected and that there are no regressions compared to the previous implementation.
+- [ ] Implement the new build target and execution mode options in the implementation agent and sub-agents, ensuring that all functionality works correctly in both local and remote contexts, and that the batch execution flow respects the chosen execution mode.
+- [ ] Test the new execution modes and build targets thoroughly to ensure stability and correctness across different environments and workflows.
+- [ ] Update documentatw execution modes and build targets, providing clear instructions for users on how to utilize these options effectively in their migration projects.
+- [ ] Ensure that the implementation agent and its sub-agents are properly configured to handle the new execution modes and build targets, including any necessary adjustments to input contracts, output formats, and err mechanisms.
 
 ## Phase 4 — Metadata and Export Excellence
 

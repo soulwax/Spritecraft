@@ -1,29 +1,45 @@
-# Create T3 App
+# SpriteCraft Web
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+This app is the parallel Next.js frontend for SpriteCraft.
 
-## What's next? How do I make an app with this?
+It lives alongside the existing Dart Studio and talks to the Dart backend instead
+of replacing it all at once.
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+## Current role
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+- Next.js + TypeScript frontend shell
+- Kanagawa Wave themed UI
+- Live backend health dashboard
+- Project browser for SpriteCraft history, duplication, deletion, and package import/export
+- Uses the Dart backend at `NEXT_PUBLIC_SPRITECRAFT_API_BASE`
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+The actual sprite rendering, exports, LPC catalog loading, AI brief endpoint, and
+history persistence still live in the Dart app.
 
-## Learn More
+## Environment
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+Create `spritecraft-web/.env` with at least:
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+```env
+NEXT_PUBLIC_SPRITECRAFT_API_BASE="http://127.0.0.1:8080"
+```
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+Optional:
 
-## How do I deploy this?
+- `DATABASE_URL` if we later reintroduce web-owned persistence features
+- `GEMINI_API_KEY` for future web-side AI helpers
+- old Better Auth variables can remain, but auth is intentionally not part of the
+  current product flow
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+## Running
+
+1. Start the Dart backend:
+   `dart run bin/spritecraft.dart studio`
+2. Start this web app:
+   `pnpm dev`
+
+## Notes
+
+- This app is intentionally migration-first, not feature-complete yet.
+- Auth has been removed from the active app surface for now.
+- The shared Neon database can be the same one used by the Dart backend.

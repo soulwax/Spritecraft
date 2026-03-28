@@ -3,8 +3,6 @@ import "~/styles/globals.css";
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 
-import { TRPCReactProvider } from "~/trpc/react";
-
 export const metadata: Metadata = {
 	title: "SpriteCraft Web",
 	description: "Kanagawa-themed Next.js shell for the SpriteCraft Studio migration.",
@@ -22,7 +20,7 @@ export default function RootLayout({
 	return (
 		<html className={`${geist.variable}`} lang="en">
 			<body className="antialiased">
-				<TRPCReactProvider>{children}</TRPCReactProvider>
+				{children}
 			</body>
 		</html>
 	);

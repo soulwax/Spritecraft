@@ -1,3 +1,32 @@
+## 0.4.2 - 2026-03-28
+
+### Changed
+
+- Removed the legacy history panel from the Dart Studio now that project browsing has moved to `spritecraft-web`.
+- Added a restore handoff flow from `spritecraft-web` into the Dart Studio using `?restore=<id>` deep links, so the web app can launch saved projects directly into the active builder.
+
+## 0.4.1 - 2026-03-28
+
+### Changed
+
+- Reduced the legacy Dart Studio history panel to quick restore only now that project browsing, duplication, deletion, and project package transfer have moved into `spritecraft-web`.
+- Added explicit messaging in the Studio UI so the migration boundary between the old Studio and the new web app is visible during Phase 3.5 work.
+
+## 0.4.0 - 2026-03-28
+
+### Added
+
+- Introduced `spritecraft-web`, a parallel Next.js/TypeScript frontend shell for the ongoing Studio migration.
+- Added a Kanagawa Wave visual theme for the new web shell, including SpriteCraft branding and favicon support.
+- Added live project-browser actions in the web app for history refresh, duplication, deletion, package export, and package import through the existing Dart backend.
+- Added dedicated Next.js API bridge routes so the web shell can talk to the Dart backend cleanly through one frontend surface.
+
+### Changed
+
+- Reframed the web migration around the existing Dart backend as the source of truth for SpriteCraft project, history, and render flows.
+- Removed auth and local web-backend scaffolding from the active `spritecraft-web` product path so the migration can stay focused on SpriteCraft features instead of unused platform overhead.
+- Made the web app environment model backend-first by treating `NEXT_PUBLIC_SPRITECRAFT_API_BASE` as the primary required integration and making local auth/database variables optional.
+
 ## 0.3.0 - 2026-03-28
 
 ### Added

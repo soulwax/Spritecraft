@@ -12,9 +12,6 @@ const state = {
   favoriteItems: [],
   pinnedItems: [],
   latestCatalogItems: [],
-  historyItems: [],
-  historySearch: "",
-  historySort: "newest",
   promptHistory: [],
   projectNotes: "",
   projectTags: [],
@@ -133,8 +130,6 @@ const elements = {
   catalogList: document.querySelector("#catalogList"),
   catalogCount: document.querySelector("#catalogCount"),
   selectedItems: document.querySelector("#selectedItems"),
-  historyList: document.querySelector("#historyList"),
-  historyControls: null,
   previewImage: document.querySelector("#previewImage"),
   previewMeta: document.querySelector("#previewMeta"),
   creditsList: document.querySelector("#creditsList"),
@@ -178,11 +173,11 @@ async function init() {
   elements.animation.value = state.animation;
 
   bindEvents();
-  renderHistory(bootstrap.recent ?? []);
   renderSelections();
   renderHealth();
   await refreshCatalog();
   await refreshRender();
+  await restoreProjectFromUrl();
 }
 
 function bindEvents() {
@@ -351,8 +346,6 @@ async function saveProject() {
       method: "POST",
       body: JSON.stringify(buildRequest()),
     });
-    const history = await api("/api/history");
-    renderHistory(history.items ?? []);
     elements.planOutput.textContent = `Saved project ${payload.id}`;
     saveDraft({ savedProjectId: payload.id });
     showToast("Project saved to history.");
@@ -475,67 +468,6 @@ function renderCredits(credits) {
       <div class="muted">${escapeHtml((credit.licenses ?? []).join(", "))}</div>
     `;
     elements.creditsList.appendChild(card);
-  }
-}
-
-function renderHistory(items) {
-  ensureHistoryControls();
-  state.historyItems = items.map(migrateProjectRecord);
-  syncHistoryControls();
-  elements.historyList.innerHTML = "";
-  const visibleItems = getVisibleHistoryItems();
-  if (!visibleItems.length) {
-    elements.historyList.innerHTML = '<div class="muted">No saved renders yet.</div>';
-    return;
-  }
-
-  for (const item of visibleItems) {
-    const selectionCount = Object.keys(item.selections ?? {}).length;
-    const promptCount = (item.promptHistory ?? []).length;
-    const promptPreview = item.prompt
-      ? item.prompt.slice(0, 88)
-      : "Saved look";
-    const projectLabel = item.projectName || "Untitled project";
-    const card = document.createElement("article");
-    card.className = "history-card";
-    card.innerHTML = `
-      <header>
-        <div>
-          <h3>${escapeHtml(projectLabel)}</h3>
-          <div class="muted">${escapeHtml(promptPreview)}${item.prompt && item.prompt.length > 88 ? "..." : ""}</div>
-        </div>
-        <span class="chip">${new Date(item.createdAt).toLocaleString()}</span>
-      </header>
-      <div class="chips">
-        <span class="chip">${escapeHtml(item.bodyType)} · ${escapeHtml(item.animation)}</span>
-        <span class="chip">${selectionCount} layer${selectionCount === 1 ? "" : "s"}</span>
-        ${item.enginePreset ? `<span class="chip">${escapeHtml(item.enginePreset)}</span>` : ""}
-        ${promptCount ? `<span class="chip">${promptCount} prompt${promptCount === 1 ? "" : "s"}</span>` : ""}
-        ${(item.tags ?? []).slice(0, 3).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
-        ${item.prompt ? `<span class="chip">Prompted</span>` : `<span class="chip">Manual</span>`}
-      </div>
-      ${item.notes ? `<div class="muted">${escapeHtml(item.notes.slice(0, 120))}${item.notes.length > 120 ? "..." : ""}</div>` : ""}
-      ${(item.exportHistory ?? []).length ? `<div class="muted">${item.exportHistory.length} export${item.exportHistory.length === 1 ? "" : "s"} recorded</div>` : ""}
-      <div class="selected-actions">
-        <button class="mini ghost" data-action="restore">Restore</button>
-        <button class="mini ghost" data-action="duplicate">Duplicate</button>
-        <button class="mini ghost" data-action="export-package">Export Package</button>
-        <button class="mini ghost" data-action="delete">Delete</button>
-      </div>
-    `;
-    card.querySelector('[data-action="restore"]').addEventListener("click", async () => {
-      await restoreHistory(item.id);
-    });
-    card.querySelector('[data-action="duplicate"]').addEventListener("click", async () => {
-      await duplicateHistory(item.id);
-    });
-    card.querySelector('[data-action="export-package"]').addEventListener("click", async () => {
-      await exportProjectPackage(item.id);
-    });
-    card.querySelector('[data-action="delete"]').addEventListener("click", async () => {
-      await deleteHistory(item.id);
-    });
-    elements.historyList.appendChild(card);
   }
 }
 
@@ -728,72 +660,18 @@ async function restoreHistory(id) {
   }
 }
 
-async function deleteHistory(id) {
-  try {
-    await api(`/api/history/${id}`, {
-      method: "DELETE",
-    });
-    const history = await api("/api/history");
-    renderHistory(history.items ?? []);
-    showToast("History entry deleted.");
-  } catch (error) {
-    const message = actionableMessage("Delete failed.", error);
-    elements.planOutput.textContent = message;
-    showToast(message, "error");
-  }
-}
-
-async function duplicateHistory(id) {
-  try {
-    await api(`/api/history/${id}/duplicate`, {
-      method: "POST",
-    });
-    const history = await api("/api/history");
-    renderHistory(history.items ?? []);
-    showToast("Project duplicated.");
-  } catch (error) {
-    const message = actionableMessage("Duplicate failed.", error);
-    elements.planOutput.textContent = message;
-    showToast(message, "error");
-  }
-}
-
-async function exportProjectPackage(id) {
-  try {
-    const payload = await api(`/api/history/${id}/export-package`, {
-      method: "POST",
-    });
-    elements.planOutput.textContent = `Project package exported:\n${payload.packagePath}`;
-    showToast("Project package written to build/exports/projects.");
-  } catch (error) {
-    const message = actionableMessage("Package export failed.", error);
-    elements.planOutput.textContent = message;
-    showToast(message, "error");
-  }
-}
-
-async function importProjectPackage() {
-  const packagePath = window.prompt(
-    "Path to .spritecraft-project.json package",
-    "",
-  );
-  if (!packagePath || !packagePath.trim()) {
+async function restoreProjectFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("restore")?.trim();
+  if (!id) {
     return;
   }
 
-  try {
-    await api("/api/history/import", {
-      method: "POST",
-      body: JSON.stringify({ packagePath: packagePath.trim() }),
-    });
-    const history = await api("/api/history");
-    renderHistory(history.items ?? []);
-    showToast("Project package imported.");
-  } catch (error) {
-    const message = actionableMessage("Package import failed.", error);
-    elements.planOutput.textContent = message;
-    showToast(message, "error");
-  }
+  await restoreHistory(id);
+  params.delete("restore");
+  const nextQuery = params.toString();
+  const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
+  window.history.replaceState({}, "", nextUrl);
 }
 
 async function api(url, options = {}) {
@@ -1456,103 +1334,6 @@ function ensureSnapshotActions() {
   updateDraftStatus();
 }
 
-function ensureHistoryControls() {
-  if (elements.historyControls || !elements.historyList?.parentElement) {
-    return;
-  }
-
-  const controls = document.createElement("div");
-  controls.className = "history-controls";
-  controls.innerHTML = `
-    <input type="search" placeholder="Search saved looks" data-role="history-search">
-    <select data-role="history-sort">
-      <option value="newest">Newest first</option>
-      <option value="oldest">Oldest first</option>
-      <option value="prompt">Prompt A-Z</option>
-      <option value="layers">Most layers</option>
-    </select>
-    <button class="mini ghost" type="button" data-role="history-import">Import Package</button>
-  `;
-
-  elements.historyList.parentElement.insertBefore(controls, elements.historyList);
-  elements.historyControls = controls;
-
-  controls
-    .querySelector('[data-role="history-search"]')
-    .addEventListener("input", (event) => {
-      state.historySearch = event.target.value || "";
-      renderHistory(state.historyItems);
-    });
-
-  controls
-    .querySelector('[data-role="history-sort"]')
-    .addEventListener("change", (event) => {
-      state.historySort = event.target.value || "newest";
-      renderHistory(state.historyItems);
-    });
-  controls
-    .querySelector('[data-role="history-import"]')
-    .addEventListener("click", importProjectPackage);
-}
-
-function syncHistoryControls() {
-  if (!elements.historyControls) {
-    return;
-  }
-
-  elements.historyControls.querySelector('[data-role="history-search"]').value =
-    state.historySearch;
-  elements.historyControls.querySelector('[data-role="history-sort"]').value =
-    state.historySort;
-}
-
-function getVisibleHistoryItems() {
-  const searchTerms = tokenizeIntent(state.historySearch);
-  const visible = state.historyItems.filter((item) => {
-    if (!searchTerms.length) {
-      return true;
-    }
-
-    const haystack = [
-      item.projectName ?? "",
-      item.notes ?? "",
-      item.prompt ?? "",
-      item.enginePreset ?? "",
-      item.bodyType ?? "",
-      item.animation ?? "",
-      ...(item.tags ?? []),
-      ...(item.promptHistory ?? []),
-      ...Object.keys(item.selections ?? {}),
-      ...Object.values(item.selections ?? {}),
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return searchTerms.every((term) => haystack.includes(term));
-  });
-
-  return visible.sort((left, right) => compareHistoryItems(left, right));
-}
-
-function compareHistoryItems(left, right) {
-  if (state.historySort === "oldest") {
-    return new Date(left.createdAt) - new Date(right.createdAt);
-  }
-
-  if (state.historySort === "prompt") {
-    return String(left.prompt || "Saved look").localeCompare(
-      String(right.prompt || "Saved look"),
-    );
-  }
-
-  if (state.historySort === "layers") {
-    return Object.keys(right.selections ?? {}).length -
-      Object.keys(left.selections ?? {}).length;
-  }
-
-  return new Date(right.createdAt) - new Date(left.createdAt);
-}
-
 function ensurePreviewModes() {
   if (elements.previewModes || !elements.previewMeta?.parentElement) {
     return;
@@ -1814,8 +1595,6 @@ async function saveNamedSnapshot() {
           .join("\n\n"),
       }),
     });
-    const history = await api("/api/history");
-    renderHistory(history.items ?? []);
     saveDraft({ savedProjectId: payload.id });
     showToast("Named snapshot saved.");
   } catch (error) {
