@@ -27,84 +27,6 @@ const state = {
   health: null,
 };
 
-const projectTemplates = [
-  {
-    id: "npc-base",
-    label: "NPC Base",
-    description: "Start a grounded background character quickly.",
-    projectName: "NPC Base",
-    notes: "Build a versatile non-player character with readable silhouette and simple gear.",
-    tags: ["npc", "base", "utility"],
-    prompt: "Create a practical background NPC with simple readable equipment and neutral colors.",
-    previewMode: "single",
-    category: "all",
-    animationFilter: "current",
-    tagFilter: "all",
-    enginePreset: "none",
-    animation: "idle",
-  },
-  {
-    id: "player-character",
-    label: "Player Character",
-    description: "Set up a hero build with equipment iteration in mind.",
-    projectName: "Player Character",
-    notes: "Focus on strong identity, readability, and animation-ready gear choices.",
-    tags: ["player", "hero", "core"],
-    prompt: "Create a player-ready hero with distinct silhouette, layered outfit, and animation-friendly accessories.",
-    previewMode: "compare",
-    category: "all",
-    animationFilter: "current",
-    tagFilter: "all",
-    enginePreset: "both",
-    animation: "idle",
-  },
-  {
-    id: "enemy",
-    label: "Enemy",
-    description: "Build an enemy with combat readability first.",
-    projectName: "Enemy Variant",
-    notes: "Prioritize threat silhouette, faction readability, and combat clarity.",
-    tags: ["enemy", "combat", "encounter"],
-    prompt: "Create an enemy with a clear threat silhouette, faction identity, and combat-ready equipment.",
-    previewMode: "compare",
-    category: "all",
-    animationFilter: "current",
-    tagFilter: "all",
-    enginePreset: "godot",
-    animation: "slash",
-  },
-  {
-    id: "portrait",
-    label: "Portrait",
-    description: "Focus on face, hair, and identity details.",
-    projectName: "Portrait Study",
-    notes: "Concentrate on face, headgear, hair, and upper-body silhouette details.",
-    tags: ["portrait", "character", "head"],
-    prompt: "Create a portrait-focused character emphasizing head, hair, and upper-body identity cues.",
-    previewMode: "single",
-    category: "Head",
-    animationFilter: "any",
-    tagFilter: "all",
-    enginePreset: "none",
-    animation: "idle",
-  },
-  {
-    id: "animation-study",
-    label: "Animation Study",
-    description: "Optimize for comparing multiple motion states.",
-    projectName: "Animation Study",
-    notes: "Use this template to compare motion readability across idle, walk, and combat states.",
-    tags: ["animation", "study", "motion"],
-    prompt: "Create a character build intended for comparing idle, walk, and combat animation readability.",
-    previewMode: "compare",
-    category: "all",
-    animationFilter: "current",
-    tagFilter: "all",
-    enginePreset: "unity",
-    animation: "walk",
-  },
-];
-
 const spriteCraftSchema = {
   renderVersion: 2,
   projectVersion: 2,
@@ -208,30 +130,6 @@ function bindEvents() {
   elements.projectName?.addEventListener("input", queueDraftSave);
   elements.prompt?.addEventListener("input", queueDraftSave);
   elements.enginePreset?.addEventListener("change", queueDraftSave);
-  elements.projectMeta
-    ?.querySelector('[data-role="project-template"]')
-    ?.addEventListener("change", async (event) => {
-      const template = projectTemplates.find(
-        (entry) => entry.id === event.target.value,
-      );
-      if (!template) {
-        return;
-      }
-
-      await applyProjectTemplate(template);
-    });
-  elements.projectMeta
-    ?.querySelector('[data-role="project-notes"]')
-    ?.addEventListener("input", (event) => {
-      state.projectNotes = event.target.value || "";
-      queueDraftSave();
-    });
-  elements.projectMeta
-    ?.querySelector('[data-role="project-tags"]')
-    ?.addEventListener("change", (event) => {
-      state.projectTags = parseProjectTags(event.target.value || "");
-      queueDraftSave();
-    });
   document.addEventListener("keydown", handleBuilderShortcuts);
 }
 
@@ -1278,26 +1176,12 @@ function ensureProjectMeta() {
   const section = document.createElement("div");
   section.className = "project-meta";
   section.innerHTML = `
-    <label>
-      <span class="muted">Project template</span>
-      <select data-role="project-template">
-        <option value="">Start from current setup</option>
-        ${projectTemplates.map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.label)} - ${escapeHtml(template.description)}</option>`).join("")}
-      </select>
-    </label>
-    <label>
-      <span class="muted">Project notes</span>
-      <textarea rows="3" data-role="project-notes" placeholder="Add direction, TODOs, or export context for this project"></textarea>
-    </label>
-    <label>
-      <span class="muted">Tags</span>
-      <input type="text" data-role="project-tags" placeholder="ranger, npc, leather, forest">
-    </label>
     <div class="project-activity">
       <div class="catalog-group-header">
         <div>
           <p class="eyebrow">Current project</p>
           <h3>Recent exports</h3>
+          <p class="muted">Metadata editing now happens in SpriteCraft Web.</p>
         </div>
         <span class="chip" data-role="export-count">0 exports</span>
       </div>
@@ -1390,8 +1274,6 @@ function syncBuilderInputsFromState(overrides = {}) {
   const nextPrompt = overrides.prompt ?? elements.prompt?.value ?? "";
   const nextProjectName = overrides.projectName ?? elements.projectName?.value ?? "";
   const nextEnginePreset = overrides.enginePreset ?? elements.enginePreset?.value ?? "none";
-  const nextNotes = overrides.notes ?? state.projectNotes ?? "";
-  const nextTags = overrides.tags ?? state.projectTags ?? [];
 
   elements.bodyType.value = state.bodyType;
   elements.animation.value = state.animation;
@@ -1403,10 +1285,6 @@ function syncBuilderInputsFromState(overrides = {}) {
   }
   if (elements.enginePreset) {
     elements.enginePreset.value = nextEnginePreset;
-  }
-  if (elements.projectMeta) {
-    elements.projectMeta.querySelector('[data-role="project-notes"]').value = nextNotes;
-    elements.projectMeta.querySelector('[data-role="project-tags"]').value = nextTags.join(", ");
   }
   renderProjectMeta();
 }
@@ -1525,14 +1403,6 @@ function updateDraftStatus(savedAt) {
   void savedAt;
 }
 
-function parseProjectTags(value) {
-  return String(value)
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-    .slice(0, 12);
-}
-
 function migrateProjectRecord(input = {}) {
   const createdAt = input.createdAt || input.savedAt || new Date().toISOString();
   const prompt = String(input.prompt || "").trim();
@@ -1600,33 +1470,6 @@ function migrateRenderMetadata(input = {}) {
     layers: Array.isArray(input.layers) ? input.layers : [],
     credits: Array.isArray(input.credits) ? input.credits : [],
   };
-}
-
-async function applyProjectTemplate(template) {
-  pushUndoSnapshot();
-  state.redoStack = [];
-  state.projectNotes = template.notes ?? "";
-  state.projectTags = [...(template.tags ?? [])];
-  state.previewMode = template.previewMode ?? "single";
-  state.category = template.category ?? "all";
-  state.animationFilter = template.animationFilter ?? "current";
-  state.tagFilter = template.tagFilter ?? "all";
-  state.animation = state.availableAnimations.includes(template.animation)
-    ? template.animation
-    : state.animation;
-
-  syncBuilderInputsFromState({
-    projectName: template.projectName ?? "",
-    prompt: template.prompt ?? "",
-    notes: template.notes ?? "",
-    tags: template.tags ?? [],
-    enginePreset: template.enginePreset ?? "none",
-  });
-  syncPreviewModeButtons();
-  queueDraftSave();
-  await refreshCatalog();
-  await refreshRender();
-  showToast(`Applied ${template.label} template.`);
 }
 
 async function applyBuilderSnapshot(snapshot, { announce = "" } = {}) {

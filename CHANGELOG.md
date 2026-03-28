@@ -1,3 +1,10 @@
+## 0.4.4 - 2026-03-28
+
+### Changed
+
+- Removed the remaining editable project metadata controls from the Dart Studio so notes, tags, and snapshot-oriented project management now live in `spritecraft-web`.
+- Kept the Studio focused on live composition, preview, save, and export while the web app becomes the clearer home for saved-project administration.
+
 ## 0.4.3 - 2026-03-28
 
 ### Changed
