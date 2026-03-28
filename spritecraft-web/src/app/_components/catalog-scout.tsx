@@ -66,6 +66,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     [],
   );
   const [replaceByType, setReplaceByType] = useState(true);
+  const [activeTypeFocus, setActiveTypeFocus] = useState<string | null>(null);
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
@@ -118,6 +119,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setSourceProjectLabel(draft.sourceProjectLabel);
     setRelatedProjects(draft.relatedProjects);
     setReplaceByType(draft.replaceByType);
+    setActiveTypeFocus(draft.activeTypeFocus);
     setBodyType(
       bodyTypes.includes(draft.bodyType)
         ? draft.bodyType
@@ -216,6 +218,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         sourceProjectLabel,
         relatedProjects,
         replaceByType,
+        activeTypeFocus,
         bodyType,
         animation,
         category,
@@ -237,6 +240,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     query,
     relatedProjects,
     replaceByType,
+    activeTypeFocus,
     sourceProjectId,
     sourceProjectLabel,
     stagedSelections,
@@ -451,9 +455,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         if (tag !== "all" && !(item.tags ?? []).includes(tag)) {
           return false;
         }
+        if (activeTypeFocus && item.typeName !== activeTypeFocus) {
+          return false;
+        }
         return true;
       }),
-    [category, items, tag],
+    [activeTypeFocus, category, items, tag],
   );
 
   const stagedItems = useMemo(
@@ -527,6 +534,18 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     });
   }
 
+  function focusTypeAlternatives(typeName: string) {
+    setActiveTypeFocus(typeName);
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Browsing alternatives for ${typeName}.`,
+    });
+  }
+
+  function clearTypeFocus() {
+    setActiveTypeFocus(null);
+  }
+
   function clearWorkspace() {
     setWorkspaceName("Web Builder Workspace");
     setQuery("");
@@ -537,6 +556,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setSourceProjectLabel(null);
     setRelatedProjects([]);
     setReplaceByType(true);
+    setActiveTypeFocus(null);
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
@@ -562,6 +582,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       sourceProjectLabel,
       relatedProjects,
       replaceByType,
+      activeTypeFocus,
       bodyType,
       animation,
       category,
