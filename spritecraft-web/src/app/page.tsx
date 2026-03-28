@@ -52,7 +52,7 @@ export default async function Home() {
         <Card className="border-(--accent-soft) bg-transparent">
           <CardHeader className="gap-4">
             <div className="flex flex-wrap items-center gap-3">
-              <Badge variant="success">T3 Migration</Badge>
+              <Badge variant="success">Web Migration</Badge>
               <Badge>Alongside Existing Studio</Badge>
               <Badge>Kanagawa Wave</Badge>
             </div>
@@ -276,7 +276,7 @@ export default async function Home() {
                 <li>
                   {bootstrap?.config.hasDatabase
                     ? "Saved projects and package transfer are available."
-                    : "History persistence is disabled until DATABASE_URL is configured."}
+                    : "History persistence is disabled until the Dart backend has DATABASE_URL configured."}
                 </li>
                 <li>
                   {bootstrap?.config.hasGemini
@@ -312,12 +312,12 @@ export default async function Home() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Why T3</CardTitle>
+            <CardTitle>Why This Stack</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-(--muted-foreground)">
-            Next App Router, TypeScript, tRPC, Tailwind, and shadcn-style
-            components fit the product direction much better than a long-lived
-            vanilla JS frontend.
+            Next App Router, TypeScript, Tailwind, and shadcn-style components
+            fit the product direction much better than a long-lived vanilla JS
+            frontend.
           </CardContent>
         </Card>
         <Card>

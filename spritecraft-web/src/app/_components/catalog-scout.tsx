@@ -11,6 +11,14 @@ import {
 } from "lucide-react";
 
 import { buildStudioTemplateUrl } from "~/app/_components/project-launching";
+import {
+  normalizeWorkspaceDraft,
+  projectToWorkspaceDraft,
+  type CatalogWorkspaceDraft,
+  workspaceLoadEventName,
+  workspacePresetsStorageKey,
+  workspaceStorageKey,
+} from "~/app/_components/web-workspace-bridge";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -37,29 +45,21 @@ type CatalogScoutResponse = {
   items: SpriteCraftCatalogItem[];
 };
 
-type CatalogWorkspaceDraft = {
-  name: string;
-  query: string;
-  bodyType: string;
-  animation: string;
-  category: string;
-  tag: string;
-  stagedSelections: Record<string, string>;
-  variantChoices: Record<string, string>;
-  savedAt: string;
-};
-
 type WorkspaceFeedback = {
   tone: "success" | "warning" | "destructive";
   message: string;
 };
 
-const workspaceStorageKey = "spritecraft-web.catalog-workspace";
-const workspacePresetsStorageKey = "spritecraft-web.catalog-workspace-presets";
-
 export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [workspaceName, setWorkspaceName] = useState("Web Builder Workspace");
   const [query, setQuery] = useState("");
+  const [workspaceNotes, setWorkspaceNotes] = useState("");
+  const [workspaceTags, setWorkspaceTags] = useState<string[]>([]);
+  const [promptHistory, setPromptHistory] = useState<string[]>([]);
+  const [sourceProjectId, setSourceProjectId] = useState<string | null>(null);
+  const [sourceProjectLabel, setSourceProjectLabel] = useState<string | null>(
+    null,
+  );
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
@@ -85,6 +85,32 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [workspaceFeedback, setWorkspaceFeedback] =
     useState<WorkspaceFeedback | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
+  const [saveMode, setSaveMode] = useState<"fresh" | "version" | null>(null);
+
+  function applyWorkspaceDraft(draft: CatalogWorkspaceDraft) {
+    setWorkspaceName(draft.name);
+    setQuery(draft.query);
+    setWorkspaceNotes(draft.notes);
+    setWorkspaceTags(draft.tags);
+    setPromptHistory(draft.promptHistory);
+    setSourceProjectId(draft.sourceProjectId);
+    setSourceProjectLabel(draft.sourceProjectLabel);
+    setBodyType(
+      bodyTypes.includes(draft.bodyType)
+        ? draft.bodyType
+        : (bodyTypes[0] ?? "male"),
+    );
+    setAnimation(
+      animations.includes(draft.animation)
+        ? draft.animation
+        : (animations[0] ?? "idle"),
+    );
+    setCategory(draft.category);
+    setTag(draft.tag);
+    setStagedSelections(draft.stagedSelections);
+    setVariantChoices(draft.variantChoices);
+    setWorkspaceSavedAt(draft.savedAt);
+  }
 
   useEffect(() => {
     try {
@@ -94,63 +120,38 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       }
 
       const parsed = JSON.parse(raw) as Partial<CatalogWorkspaceDraft>;
-      setWorkspaceName(
-        typeof parsed.name === "string" && parsed.name.trim()
-          ? parsed.name
-          : "Web Builder Workspace",
-      );
-      setQuery(typeof parsed.query === "string" ? parsed.query : "");
-      setBodyType(
-        typeof parsed.bodyType === "string" &&
-          bodyTypes.includes(parsed.bodyType)
-          ? parsed.bodyType
-          : (bodyTypes[0] ?? "male"),
-      );
-      setAnimation(
-        typeof parsed.animation === "string" &&
-          animations.includes(parsed.animation)
-          ? parsed.animation
-          : (animations[0] ?? "idle"),
-      );
-      setCategory(
-        typeof parsed.category === "string" ? parsed.category : "all",
-      );
-      setTag(typeof parsed.tag === "string" ? parsed.tag : "all");
-      setStagedSelections(
-        parsed.stagedSelections && typeof parsed.stagedSelections === "object"
-          ? Object.fromEntries(
-              Object.entries(parsed.stagedSelections).filter(
-                ([key, value]) =>
-                  typeof key === "string" &&
-                  key &&
-                  typeof value === "string" &&
-                  value,
-              ),
-            )
-          : {},
-      );
-      setVariantChoices(
-        parsed.variantChoices && typeof parsed.variantChoices === "object"
-          ? Object.fromEntries(
-              Object.entries(parsed.variantChoices).filter(
-                ([key, value]) =>
-                  typeof key === "string" &&
-                  key &&
-                  typeof value === "string" &&
-                  value,
-              ),
-            )
-          : {},
-      );
-      setWorkspaceSavedAt(
-        typeof parsed.savedAt === "string" ? parsed.savedAt : null,
-      );
+      const normalized = normalizeWorkspaceDraft(parsed);
+      if (!normalized) {
+        return;
+      }
+      applyWorkspaceDraft(normalized);
     } catch (error) {
       console.warn(
         "Could not restore SpriteCraft Web catalog workspace.",
         error,
       );
     }
+  }, [animations, bodyTypes]);
+
+  useEffect(() => {
+    function handleWorkspaceLoad(event: Event) {
+      const detail = (event as CustomEvent<SpriteCraftProjectSummary>).detail;
+      if (!detail) {
+        return;
+      }
+
+      const draft = projectToWorkspaceDraft(detail);
+      applyWorkspaceDraft(draft);
+      setWorkspaceFeedback({
+        tone: "success",
+        message: `Loaded ${detail.projectName ?? "saved project"} into the web workspace.`,
+      });
+    }
+
+    window.addEventListener(workspaceLoadEventName, handleWorkspaceLoad);
+    return () => {
+      window.removeEventListener(workspaceLoadEventName, handleWorkspaceLoad);
+    };
   }, [animations, bodyTypes]);
 
   useEffect(() => {
@@ -184,6 +185,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       const payload: CatalogWorkspaceDraft = {
         name: workspaceName.trim() || "Web Builder Workspace",
         query,
+        notes: workspaceNotes,
+        tags: workspaceTags,
+        promptHistory,
+        sourceProjectId,
+        sourceProjectLabel,
         bodyType,
         animation,
         category,
@@ -201,11 +207,16 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     animation,
     bodyType,
     category,
+    promptHistory,
     query,
+    sourceProjectId,
+    sourceProjectLabel,
     stagedSelections,
     tag,
     variantChoices,
+    workspaceNotes,
     workspaceName,
+    workspaceTags,
   ]);
 
   useEffect(() => {
@@ -411,6 +422,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   function clearWorkspace() {
     setWorkspaceName("Web Builder Workspace");
     setQuery("");
+    setWorkspaceNotes("");
+    setWorkspaceTags([]);
+    setPromptHistory([]);
+    setSourceProjectId(null);
+    setSourceProjectLabel(null);
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
@@ -429,6 +445,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     return {
       name: workspaceName.trim() || "Web Builder Workspace",
       query,
+      notes: workspaceNotes,
+      tags: workspaceTags,
+      promptHistory,
+      sourceProjectId,
+      sourceProjectLabel,
       bodyType,
       animation,
       category,
@@ -436,55 +457,6 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       stagedSelections,
       variantChoices,
       savedAt: new Date().toISOString(),
-    };
-  }
-
-  function normalizeWorkspaceDraft(
-    input: unknown,
-  ): CatalogWorkspaceDraft | null {
-    if (!input || typeof input !== "object") {
-      return null;
-    }
-
-    const draft = input as Partial<CatalogWorkspaceDraft>;
-    return {
-      name:
-        typeof draft.name === "string" && draft.name.trim()
-          ? draft.name
-          : "Web Builder Workspace",
-      query: typeof draft.query === "string" ? draft.query : "",
-      bodyType: typeof draft.bodyType === "string" ? draft.bodyType : "male",
-      animation: typeof draft.animation === "string" ? draft.animation : "idle",
-      category: typeof draft.category === "string" ? draft.category : "all",
-      tag: typeof draft.tag === "string" ? draft.tag : "all",
-      stagedSelections:
-        draft.stagedSelections && typeof draft.stagedSelections === "object"
-          ? Object.fromEntries(
-              Object.entries(draft.stagedSelections).filter(
-                ([key, value]) =>
-                  typeof key === "string" &&
-                  key &&
-                  typeof value === "string" &&
-                  value,
-              ),
-            )
-          : {},
-      variantChoices:
-        draft.variantChoices && typeof draft.variantChoices === "object"
-          ? Object.fromEntries(
-              Object.entries(draft.variantChoices).filter(
-                ([key, value]) =>
-                  typeof key === "string" &&
-                  key &&
-                  typeof value === "string" &&
-                  value,
-              ),
-            )
-          : {},
-      savedAt:
-        typeof draft.savedAt === "string"
-          ? draft.savedAt
-          : new Date().toISOString(),
     };
   }
 
@@ -510,7 +482,25 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setWorkspaceSavedAt(draft.savedAt);
   }
 
-  async function saveWorkspaceProject() {
+  function commitPromptHistory(nextQuery: string) {
+    const trimmed = nextQuery.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setPromptHistory((current) => [
+      trimmed,
+      ...current.filter((entry) => entry !== trimmed),
+    ].slice(0, 8));
+  }
+
+  function removePromptHistoryEntry(entryToRemove: string) {
+    setPromptHistory((current) =>
+      current.filter((entry) => entry !== entryToRemove),
+    );
+  }
+
+  async function saveWorkspaceProject(mode: "fresh" | "version") {
     if (!Object.keys(stagedSelections).length) {
       setWorkspaceFeedback({
         tone: "warning",
@@ -521,7 +511,29 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     }
 
     setIsSavingProject(true);
+    setSaveMode(mode);
     setWorkspaceFeedback(null);
+
+    const projectName =
+      workspaceName.trim() ||
+      sourceProjectLabel ||
+      "Web Builder Workspace";
+    const mergedPromptHistory = Array.from(
+      new Set([...(query.trim() ? [query.trim()] : []), ...promptHistory]),
+    ).slice(0, 8);
+    const mergedTags = Array.from(
+      new Set([
+        ...workspaceTags,
+        "web-workspace",
+        ...(sourceProjectId ? ["web-restored"] : ["migration-slice"]),
+        ...(mode == "version" ? ["web-version"] : []),
+      ]),
+    );
+    const mergedNotes =
+      workspaceNotes.trim() ||
+      (mode === "version" && sourceProjectLabel
+        ? `Saved as a new web workspace version of ${sourceProjectLabel}.`
+        : "Created from the SpriteCraft Web workspace before launching into the Dart Studio.");
 
     try {
       const response = await fetch("/api/spritecraft/history/save", {
@@ -530,10 +542,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          projectName: workspaceName.trim() || "Web Builder Workspace",
-          notes:
-            "Created from the SpriteCraft Web workspace before launching into the Dart Studio.",
-          tags: ["web-workspace", "migration-slice"],
+          projectName,
+          notes: mergedNotes,
+          tags: mergedTags,
           enginePreset: "none",
           bodyType,
           animation,
@@ -545,11 +556,13 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             animationFilter: "current",
             tagFilter: tag,
             source: "spritecraft-web-workspace",
+            sourceProjectId,
+            versionMode: mode,
           },
           exportSettings: {
             enginePreset: "none",
           },
-          promptHistory: query.trim() ? [query.trim()] : [],
+          promptHistory: mergedPromptHistory,
           exportHistory: [],
         }),
       });
@@ -563,9 +576,17 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         );
       }
 
+      setSourceProjectId(payload.id);
+      setSourceProjectLabel(payload.projectName ?? projectName);
+      setWorkspaceTags(payload.tags ?? mergedTags);
+      setPromptHistory(payload.promptHistory ?? mergedPromptHistory);
+      setWorkspaceNotes(payload.notes ?? mergedNotes);
       setWorkspaceFeedback({
         tone: "success",
-        message: `Saved ${payload.projectName ?? "workspace project"} to SpriteCraft history.`,
+        message:
+          mode === "version"
+            ? `Saved ${payload.projectName ?? "workspace project"} as a new version from the web workspace.`
+            : `Saved ${payload.projectName ?? "workspace project"} to SpriteCraft history.`,
       });
     } catch (error) {
       setWorkspaceFeedback({
@@ -577,6 +598,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       });
     } finally {
       setIsSavingProject(false);
+      setSaveMode(null);
     }
   }
 
@@ -586,23 +608,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       return;
     }
 
-    setWorkspaceName(preset.name);
-    setQuery(preset.query);
-    setBodyType(
-      bodyTypes.includes(preset.bodyType)
-        ? preset.bodyType
-        : (bodyTypes[0] ?? "male"),
-    );
-    setAnimation(
-      animations.includes(preset.animation)
-        ? preset.animation
-        : (animations[0] ?? "idle"),
-    );
-    setCategory(preset.category);
-    setTag(preset.tag);
-    setStagedSelections(preset.stagedSelections);
-    setVariantChoices(preset.variantChoices);
-    setWorkspaceSavedAt(preset.savedAt);
+    applyWorkspaceDraft(preset);
   }
 
   function deleteWorkspacePreset(presetName: string) {
@@ -679,14 +685,27 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[auto_minmax(0,1fr)]">
+        <div className="grid gap-3 lg:grid-cols-[auto_auto_minmax(0,1fr)]">
+          {sourceProjectId ? (
+            <Button
+              disabled={isSavingProject || !Object.keys(stagedSelections).length}
+              onClick={() => void saveWorkspaceProject("version")}
+              type="button"
+              variant="secondary"
+            >
+              <Save className="mr-2 size-4" />
+              {saveMode === "version"
+                ? "Saving Version..."
+                : "Save As New Version"}
+            </Button>
+          ) : null}
           <Button
             disabled={isSavingProject || !Object.keys(stagedSelections).length}
-            onClick={() => void saveWorkspaceProject()}
+            onClick={() => void saveWorkspaceProject("fresh")}
             type="button"
           >
             <Save className="mr-2 size-4" />
-            {isSavingProject
+            {saveMode === "fresh"
               ? "Saving Project..."
               : "Save Workspace As Project"}
           </Button>
@@ -707,8 +726,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             </div>
           ) : (
             <div className="flex items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-3 text-sm text-[color:var(--muted-foreground)]">
-              Saving here creates a real SpriteCraft project from the current
-              web workspace, even before opening Studio.
+              {sourceProjectId
+                ? "This restored workspace can now save forward as a new version or branch off as a fresh project."
+                : "Saving here creates a real SpriteCraft project from the current web workspace, even before opening Studio."}
             </div>
           )}
         </div>
@@ -772,6 +792,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             <Search className="size-4 shrink-0 text-[color:var(--muted-foreground)]" />
             <Input
               className="border-0 bg-transparent px-0 shadow-none"
+              onBlur={(event) => commitPromptHistory(event.target.value)}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Scout ranger, hood, mage, wolf, plate..."
               value={query}
@@ -803,6 +824,107 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               Scout In Studio
             </a>
           </Button>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_0.9fr]">
+          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Workspace Context
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  Notes, tags, and prompt memory
+                </h3>
+              </div>
+              {sourceProjectLabel ? (
+                <Badge variant="warning">Loaded from {sourceProjectLabel}</Badge>
+              ) : (
+                <Badge>Web-native draft</Badge>
+              )}
+            </div>
+            <div className="grid gap-3">
+              <Input
+                onChange={(event) =>
+                  setWorkspaceTags(
+                    event.target.value
+                      .split(",")
+                      .map((entry) => entry.trim())
+                      .filter(Boolean),
+                  )
+                }
+                placeholder="Tags, comma separated"
+                value={workspaceTags.join(", ")}
+              />
+              <textarea
+                className="min-h-24 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--ring)]"
+                onChange={(event) => setWorkspaceNotes(event.target.value)}
+                placeholder="Workspace notes"
+                value={workspaceNotes}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Prompt Memory
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  Reusable intent trail
+                </h3>
+              </div>
+              <Badge>{promptHistory.length} saved</Badge>
+            </div>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <Button
+                onClick={() => commitPromptHistory(query)}
+                type="button"
+                variant="secondary"
+              >
+                Save Current Prompt
+              </Button>
+              <Button
+                disabled={!promptHistory.length}
+                onClick={() => setPromptHistory([])}
+                type="button"
+                variant="secondary"
+              >
+                Clear Prompt Memory
+              </Button>
+            </div>
+            {promptHistory.length ? (
+              <div className="grid gap-2">
+                {promptHistory.map((entry) => (
+                  <div
+                    className="grid gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+                    key={entry}
+                  >
+                    <button
+                      className="px-2 py-1 text-left text-sm text-[color:var(--muted-foreground)] transition hover:text-[color:var(--foreground)]"
+                      onClick={() => setQuery(entry)}
+                      type="button"
+                    >
+                      {entry}
+                    </button>
+                    <Button
+                      onClick={() => removePromptHistoryEntry(entry)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[color:var(--muted-foreground)]">
+                Save prompts here while iterating so restored web workspaces keep
+                their creative context too.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -884,6 +1006,31 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             </div>
             <Badge>{stagedItems.length} staged</Badge>
           </div>
+          {(workspaceTags.length || workspaceNotes.trim() || sourceProjectLabel) ? (
+            <div className="mb-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+              {sourceProjectLabel ? (
+                <p className="text-sm text-[color:var(--muted-foreground)]">
+                  Restored from{" "}
+                  <span className="font-medium text-[color:var(--foreground)]">
+                    {sourceProjectLabel}
+                  </span>
+                  {sourceProjectId ? ` (${sourceProjectId})` : ""}.
+                </p>
+              ) : null}
+              {workspaceNotes.trim() ? (
+                <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
+                  {workspaceNotes}
+                </p>
+              ) : null}
+              {workspaceTags.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {workspaceTags.map((entry) => (
+                    <Badge key={entry}>{entry}</Badge>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {stagedItems.length ? (
             <div className="grid gap-3">
               {stagedItems.map((item, index) => (

@@ -18,18 +18,11 @@ history persistence still live in the Dart app.
 
 ## Environment
 
-Create `spritecraft-web/.env` with at least:
+Create `spritecraft-web/.env` with:
 
 ```env
 NEXT_PUBLIC_SPRITECRAFT_API_BASE="http://127.0.0.1:8080"
 ```
-
-Optional:
-
-- `DATABASE_URL` if we later reintroduce web-owned persistence features
-- `GEMINI_API_KEY` for future web-side AI helpers
-- old Better Auth variables can remain, but auth is intentionally not part of the
-  current product flow
 
 ## Running
 
@@ -41,5 +34,5 @@ Optional:
 ## Notes
 
 - This app is intentionally migration-first, not feature-complete yet.
-- Auth has been removed from the active app surface for now.
-- The shared Neon database can be the same one used by the Dart backend.
+- Auth is not part of the active app surface.
+- The web app does not need its own database right now; project/history data comes from the Dart backend.

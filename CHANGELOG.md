@@ -1,3 +1,31 @@
+## 0.4.18 - 2026-03-29
+
+### Changed
+
+- Added web-side version saving in the `spritecraft-web` workspace so a restored project can now save forward as a new version directly from the web builder staging surface.
+- Kept the web workspace save flow flexible by supporting both fresh project saves and versioned follow-up saves from the same restored context.
+
+## 0.4.17 - 2026-03-29
+
+### Changed
+
+- Expanded the `spritecraft-web` workspace restore flow so loading a saved project into the web app now carries notes, tags, prompt history, and source-project context instead of only layer selections.
+- Added editable workspace context and prompt-memory controls in the web scout, making the new frontend feel more like a real builder session surface instead of a temporary staging tray.
+
+## 0.4.16 - 2026-03-29
+
+### Changed
+
+- Removed unused auth and Drizzle scaffolding from `spritecraft-web` so the web app now reflects its actual role as a frontend over the Dart backend instead of an inactive full-stack T3 setup.
+- Simplified the web app environment contract to only require `NEXT_PUBLIC_SPRITECRAFT_API_BASE`, with database ownership remaining on the Dart side.
+
+## 0.4.15 - 2026-03-29
+
+### Changed
+
+- Added a direct bridge from the `spritecraft-web` project browser back into the web selection workspace, so saved projects can now repopulate the web builder staging area without first opening the Dart Studio.
+- Continued closing the builder-session loop in `spritecraft-web`, making the new frontend responsible for more of the save, restore, and iterate cycle before full Studio migration.
+
 ## 0.4.14 - 2026-03-29
 
 ### Changed

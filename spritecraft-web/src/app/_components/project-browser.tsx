@@ -27,6 +27,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
 import { buildStudioRestoreUrl } from "~/app/_components/project-launching";
+import { workspaceLoadEventName } from "~/app/_components/web-workspace-bridge";
 import type { SpriteCraftProjectSummary } from "~/server/spritecraft-backend";
 
 type ProjectBrowserProps = {
@@ -234,6 +235,18 @@ export function ProjectBrowser({
       promptHistory: project.promptHistory ?? [],
       exportHistory: project.exportHistory ?? [],
     };
+  }
+
+  function loadProjectIntoWebWorkspace(project: SpriteCraftProjectSummary) {
+    window.dispatchEvent(
+      new CustomEvent<SpriteCraftProjectSummary>(workspaceLoadEventName, {
+        detail: project,
+      }),
+    );
+    setFeedback({
+      tone: "success",
+      message: `Loaded ${getProjectLabel(project)} into the web workspace below.`,
+    });
   }
 
   return (
@@ -572,6 +585,14 @@ export function ProjectBrowser({
                     </div>
 
                     <div className="flex flex-wrap gap-3">
+                      <Button
+                        onClick={() => loadProjectIntoWebWorkspace(selectedProject)}
+                        type="button"
+                        variant="secondary"
+                      >
+                        <Save className="mr-2 size-4" />
+                        Load Into Web Workspace
+                      </Button>
                       <Button
                         onClick={() =>
                           void runAction(
