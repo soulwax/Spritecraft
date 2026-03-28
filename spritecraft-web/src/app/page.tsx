@@ -11,6 +11,7 @@ import {
 	CardTitle,
 } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
+import { ProjectBrowser } from "~/app/_components/project-browser";
 import {
 	getSpriteCraftBootstrap,
 	getSpriteCraftHealth,
@@ -170,30 +171,11 @@ export default async function Home() {
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{bootstrap?.recent.length ? (
-							bootstrap.recent.slice(0, 6).map((project) => (
-								<div
-									className="rounded-2xl border border-[color:var(--border)] bg-white/5 p-4"
-									key={project.id}
-								>
-									<div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-										<h3 className="font-medium">
-											{project.projectName ?? project.prompt ?? "Untitled project"}
-										</h3>
-										<Badge>{new Date(project.createdAt).toLocaleString()}</Badge>
-									</div>
-									<p className="mb-3 text-sm text-[color:var(--muted-foreground)]">
-										{(project.prompt ?? "No prompt saved").slice(0, 140)}
-									</p>
-									<div className="flex flex-wrap gap-2">
-										<Badge>{project.bodyType}</Badge>
-										<Badge>{project.animation}</Badge>
-										<Badge>{Object.keys(project.selections).length} layers</Badge>
-										{project.tags.slice(0, 3).map((tag) => (
-											<Badge key={tag}>{tag}</Badge>
-										))}
-									</div>
-								</div>
-							))
+							<div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-sm text-emerald-50">
+								The dashboard can already see real backend projects. The next step
+								is moving restore, duplicate, and package actions into this
+								browser.
+							</div>
 						) : (
 							<div className="rounded-2xl border border-dashed border-[color:var(--border)] p-6 text-sm text-[color:var(--muted-foreground)]">
 								No backend project data is visible yet. Once the Dart Studio is
@@ -204,6 +186,8 @@ export default async function Home() {
 					</CardContent>
 				</Card>
 			</section>
+
+			<ProjectBrowser projects={bootstrap?.recent ?? []} />
 
 			<section className="grid gap-6 lg:grid-cols-3">
 				<Card>

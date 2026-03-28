@@ -29,6 +29,8 @@ const historyEntrySchema = z.object({
 	exportHistory: z.array(z.record(z.any())).default([]),
 });
 
+export type SpriteCraftProjectSummary = z.infer<typeof historyEntrySchema>;
+
 const bootstrapSchema = z.object({
 	config: z.object({
 		hasGemini: z.boolean(),
