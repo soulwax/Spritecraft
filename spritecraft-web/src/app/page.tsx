@@ -4,8 +4,11 @@ import Link from "next/link";
 import {
 	AlertTriangle,
 	Boxes,
+	Compass,
 	FolderKanban,
 	HeartHandshake,
+	PlayCircle,
+	ShieldCheck,
 	Sparkles,
 	SwatchBook,
 } from "lucide-react";
@@ -153,6 +156,41 @@ export default async function Home() {
 				</Card>
 			</section>
 
+			<section className="grid gap-6 lg:grid-cols-3">
+				{[
+					{
+						icon: PlayCircle,
+						title: "Start From Template",
+						description:
+							"Use the launch templates below to open the Dart builder with a project already framed.",
+					},
+					{
+						icon: FolderKanban,
+						title: "Continue Saved Work",
+						description:
+							"Use the project browser to restore, snapshot, version, duplicate, or package saved work.",
+					},
+					{
+						icon: Compass,
+						title: "Open Builder Directly",
+						description:
+							"Jump straight into the live Studio if you want a blank composition session without dashboard steps.",
+					},
+				].map((item) => (
+					<Card key={item.title}>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-3">
+								<item.icon className="size-5 text-[color:var(--accent)]" />
+								<span>{item.title}</span>
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="text-sm text-[color:var(--muted-foreground)]">
+							{item.description}
+						</CardContent>
+					</Card>
+				))}
+			</section>
+
 			<section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
 				<Card>
 					<CardHeader>
@@ -201,25 +239,37 @@ export default async function Home() {
 
 				<Card>
 					<CardHeader>
-						<CardTitle>Recent Projects</CardTitle>
+						<CardTitle>Launch Readiness</CardTitle>
 						<CardDescription>
-							First live migration slice from the current backend: saved work,
-							tags, prompts, and export activity.
+							What a creator can do right now based on the current backend state.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						{bootstrap?.recent.length ? (
-							<div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/8 p-4 text-sm text-emerald-50">
-								The dashboard can already see real backend projects. The next step
-								is finishing parity with the old Studio builder and export panels.
+						<div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+							<div className="mb-3 flex items-center gap-2">
+								<ShieldCheck className="size-4 text-[color:var(--accent)]" />
+								<p className="font-medium text-[color:var(--foreground)]">
+									Current capabilities
+								</p>
 							</div>
-						) : (
-							<div className="rounded-2xl border border-dashed border-[color:var(--border)] p-6 text-sm text-[color:var(--muted-foreground)]">
-								No backend project data is visible yet. Once the Dart Studio is
-								running with history enabled, this becomes the first meaningful T3
-								workflow surface.
-							</div>
-						)}
+							<ul className="space-y-2 text-sm text-[color:var(--muted-foreground)]">
+								<li>
+									{health
+										? "The backend is reachable, so web-to-builder handoff is live."
+										: "Start the Dart Studio backend first to unlock restore handoff and live project data."}
+								</li>
+								<li>
+									{bootstrap?.config.hasDatabase
+										? "Saved projects and package transfer are available."
+										: "History persistence is disabled until DATABASE_URL is configured."}
+								</li>
+								<li>
+									{bootstrap?.config.hasGemini
+										? "AI-assisted brief generation is available inside the builder."
+										: "AI remains optional; the builder still works without GEMINI_API_KEY."}
+								</li>
+							</ul>
+						</div>
 					</CardContent>
 				</Card>
 			</section>

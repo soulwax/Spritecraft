@@ -24,7 +24,6 @@ const state = {
   latestImageBase64: null,
   latestMetadata: null,
   catalogItemsById: {},
-  health: null,
 };
 
 const spriteCraftSchema = {
@@ -57,7 +56,6 @@ const elements = {
   creditsList: document.querySelector("#creditsList"),
   planOutput: document.querySelector("#planOutput"),
   toastContainer: document.querySelector("#toastContainer"),
-  healthPanel: null,
   previewModes: null,
   comparisonGrid: null,
 };
@@ -69,21 +67,16 @@ init().catch((error) => {
 });
 
 async function init() {
-  ensureStatusPanel();
   ensureBuilderActions();
   ensurePreviewModes();
   ensureProjectMeta();
   ensureQuickAccess();
   loadStudioPreferences();
   loadDraft();
-  const [bootstrap, health] = await Promise.all([
-    api("/api/studio/bootstrap"),
-    refreshHealth(),
-  ]);
+  const bootstrap = await api("/api/studio/bootstrap");
   hydrateSelect(elements.bodyType, bootstrap.catalog.bodyTypes);
   hydrateSelect(elements.animation, bootstrap.catalog.animations);
   state.availableAnimations = bootstrap.catalog.animations ?? [];
-  state.health = health;
 
   state.bodyType = bootstrap.defaults.bodyType ?? state.bodyType;
   state.animation = bootstrap.defaults.animation ?? state.animation;
@@ -95,7 +88,6 @@ async function init() {
 
   bindEvents();
   renderSelections();
-  renderHealth();
   await refreshCatalog();
   await refreshRender();
   await restoreProjectFromUrl();
@@ -483,28 +475,6 @@ async function clearSelections() {
   showToast("Selections cleared.");
 }
 
-async function refreshHealth() {
-  try {
-    const payload = await api("/health");
-    state.health = payload;
-    renderHealth();
-    return payload;
-  } catch (error) {
-    state.health = {
-      status: "error",
-      checks: [
-        {
-          label: "Health endpoint",
-          status: "error",
-          detail: error.message,
-        },
-      ],
-    };
-    renderHealth();
-    throw error;
-  }
-}
-
 async function restoreHistory(id) {
   try {
     const payload = await api("/api/history/restore", {
@@ -670,34 +640,6 @@ function actionableMessage(prefix, error) {
   }
 
   return `${prefix} ${message}`;
-}
-
-function ensureStatusPanel() {
-  if (elements.healthPanel) {
-    return;
-  }
-
-  const host = elements.previewMeta?.parentElement || elements.planOutput?.parentElement || document.body;
-  const panel = document.createElement("section");
-  panel.className = "status-panel";
-  panel.innerHTML = `
-    <div class="status-panel-header">
-      <div>
-        <p class="eyebrow">System status</p>
-        <h2>Runtime health</h2>
-      </div>
-      <button class="mini ghost" type="button" data-action="refresh-health">Refresh</button>
-    </div>
-    <p class="muted" data-role="health-summary">Checking SpriteCraft services...</p>
-    <div class="status-grid" data-role="health-checks"></div>
-  `;
-
-  host.prepend(panel);
-  panel
-    .querySelector('[data-action="refresh-health"]')
-    .addEventListener("click", refreshHealth);
-
-  elements.healthPanel = panel;
 }
 
 function ensureCatalogFilters() {
@@ -1154,38 +1096,6 @@ function togglePinned(itemId) {
   saveStudioPreferences();
   renderQuickAccess();
   void refreshCatalog();
-}
-
-function renderHealth() {
-  if (!elements.healthPanel) {
-    return;
-  }
-
-  const summary = elements.healthPanel.querySelector('[data-role="health-summary"]');
-  const checksHost = elements.healthPanel.querySelector('[data-role="health-checks"]');
-  const health = state.health;
-  const checks = health?.checks ?? [];
-  const status = health?.status ?? "warning";
-  const statusLabel = status === "ok" ? "ready" : status;
-
-  summary.textContent =
-    checks.length
-      ? `SpriteCraft runtime is ${statusLabel}. ${checks.filter((check) => check.status !== "ok").length} attention item(s).`
-      : "No health details are available yet.";
-
-  checksHost.innerHTML = "";
-  for (const check of checks) {
-    const card = document.createElement("article");
-    card.className = `status-card ${check.status || "warning"}`;
-    card.innerHTML = `
-      <header>
-        <strong>${escapeHtml(check.label || "Check")}</strong>
-        <span class="chip">${escapeHtml(check.status || "unknown")}</span>
-      </header>
-      <p>${escapeHtml(check.detail || "")}</p>
-    `;
-    checksHost.appendChild(card);
-  }
 }
 
 function ensureBuilderActions() {

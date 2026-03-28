@@ -453,69 +453,6 @@ button.btn-loading::after {
   color: var(--muted);
   word-break: break-all;
 }
-.status-panel {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, rgba(32, 43, 67, 0.92), rgba(18, 24, 39, 0.96));
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
-}
-
-.status-panel-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-}
-
-.status-panel-header h2 {
-  margin: 0.15rem 0 0;
-  font-size: 1rem;
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.9rem;
-}
-
-.status-card {
-  padding: 0.85rem 0.9rem;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.status-card header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.55rem;
-}
-
-.status-card p {
-  margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.status-card.ok {
-  border-color: rgba(86, 196, 122, 0.28);
-}
-
-.status-card.warning {
-  border-color: rgba(245, 190, 71, 0.3);
-}
-
-.status-card.error {
-  border-color: rgba(232, 94, 106, 0.36);
-}
 .catalog-filters {
   display: grid;
   gap: 0.75rem;

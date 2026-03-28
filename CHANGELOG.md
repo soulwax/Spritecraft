@@ -1,3 +1,10 @@
+## 0.4.6 - 2026-03-28
+
+### Changed
+
+- Promoted `spritecraft-web` further into the role of launch dashboard by sharpening its entry-point messaging around starting, continuing, and directly opening SpriteCraft work.
+- Removed the duplicate runtime-health panel from the Dart Studio so runtime status now lives in the web dashboard while the Studio stays focused on live composition, preview, save, and export.
+
 ## 0.4.5 - 2026-03-28
 
 ### Added
