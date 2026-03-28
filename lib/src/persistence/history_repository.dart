@@ -29,47 +29,120 @@ class HistoryRepository {
       CREATE TABLE IF NOT EXISTS sprite_history (
         id TEXT PRIMARY KEY,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         body_type TEXT NOT NULL,
         animation TEXT NOT NULL,
         prompt TEXT NULL,
+        project_name TEXT NULL,
+        notes TEXT NULL,
+        engine_preset TEXT NULL,
+        tags JSONB NOT NULL DEFAULT '[]'::jsonb,
         selections JSONB NOT NULL,
+        render_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+        export_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+        prompt_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+        export_history JSONB NOT NULL DEFAULT '[]'::jsonb,
         used_layers JSONB NOT NULL,
         credits JSONB NOT NULL
       )
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS project_name TEXT NULL
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS notes TEXT NULL
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS engine_preset TEXT NULL
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS render_settings JSONB NOT NULL DEFAULT '{}'::jsonb
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS export_settings JSONB NOT NULL DEFAULT '{}'::jsonb
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS prompt_history JSONB NOT NULL DEFAULT '[]'::jsonb
+    ''');
+    await _connection.execute('''
+      ALTER TABLE sprite_history
+      ADD COLUMN IF NOT EXISTS export_history JSONB NOT NULL DEFAULT '[]'::jsonb
     ''');
   }
 
   Future<StudioHistoryEntry> save({
     required LpcRenderRequest request,
     required LpcRenderResult renderResult,
+    Map<String, Object?> details = const <String, Object?>{},
   }) async {
     final Result result = await _connection.execute(
       Sql.named('''
         INSERT INTO sprite_history (
           id,
+          updated_at,
           body_type,
           animation,
           prompt,
+          project_name,
+          notes,
+          engine_preset,
+          tags,
           selections,
+          render_settings,
+          export_settings,
+          prompt_history,
+          export_history,
           used_layers,
           credits
         ) VALUES (
           @id:text,
+          @updatedAt:timestamptz,
           @bodyType:text,
           @animation:text,
           @prompt:text,
+          @projectName:text,
+          @notes:text,
+          @enginePreset:text,
+          @tags:jsonb,
           @selections:jsonb,
+          @renderSettings:jsonb,
+          @exportSettings:jsonb,
+          @promptHistory:jsonb,
+          @exportHistory:jsonb,
           @usedLayers:jsonb,
           @credits:jsonb
         )
-        RETURNING id, created_at, body_type, animation, prompt, selections, used_layers, credits
+        RETURNING id, created_at, updated_at, body_type, animation, prompt, project_name, notes, engine_preset, tags, selections, render_settings, export_settings, prompt_history, export_history, used_layers, credits
       '''),
       parameters: <String, Object?>{
         'id': _createId(),
+        'updatedAt': DateTime.now().toUtc(),
         'bodyType': request.bodyType,
         'animation': request.animation,
         'prompt': request.prompt,
+        'projectName': details['projectName']?.toString(),
+        'notes': details['notes']?.toString(),
+        'enginePreset': details['enginePreset']?.toString(),
+        'tags': details['tags'] ?? <String>[],
         'selections': request.selections,
+        'renderSettings': details['renderSettings'] ?? <String, Object?>{},
+        'exportSettings': details['exportSettings'] ?? <String, Object?>{},
+        'promptHistory': details['promptHistory'] ?? <String>[],
+        'exportHistory': details['exportHistory'] ?? <Map<String, Object?>>[],
         'usedLayers': renderResult.usedLayers
             .map((UsedLpcLayer layer) => layer.toJson())
             .toList(),
@@ -85,7 +158,7 @@ class HistoryRepository {
   Future<List<StudioHistoryEntry>> listRecent({int limit = 20}) async {
     final Result result = await _connection.execute(
       Sql.named('''
-        SELECT id, created_at, body_type, animation, prompt, selections, used_layers, credits
+        SELECT id, created_at, updated_at, body_type, animation, prompt, project_name, notes, engine_preset, tags, selections, render_settings, export_settings, prompt_history, export_history, used_layers, credits
         FROM sprite_history
         ORDER BY created_at DESC
         LIMIT @limit:int4
@@ -101,7 +174,7 @@ class HistoryRepository {
   Future<StudioHistoryEntry?> findById(String id) async {
     final Result result = await _connection.execute(
       Sql.named('''
-        SELECT id, created_at, body_type, animation, prompt, selections, used_layers, credits
+        SELECT id, created_at, updated_at, body_type, animation, prompt, project_name, notes, engine_preset, tags, selections, render_settings, export_settings, prompt_history, export_history, used_layers, credits
         FROM sprite_history
         WHERE id = @id:text
         LIMIT 1
@@ -128,18 +201,50 @@ class HistoryRepository {
   StudioHistoryEntry _entryFromRow(Map<String, dynamic> row) {
     final Map<String, dynamic> selectionsMap =
         _normalizeJsonMap(row['selections']) ?? <String, dynamic>{};
+    final Map<String, dynamic> renderSettingsMap =
+        _normalizeJsonMap(row['render_settings']) ?? <String, dynamic>{};
+    final Map<String, dynamic> exportSettingsMap =
+        _normalizeJsonMap(row['export_settings']) ?? <String, dynamic>{};
+    final List<dynamic> tagsList = _normalizeJsonList(row['tags']);
+    final List<dynamic> promptHistoryList = _normalizeJsonList(
+      row['prompt_history'],
+    );
+    final List<dynamic> exportHistoryList = _normalizeJsonList(
+      row['export_history'],
+    );
     final List<dynamic> layersList = _normalizeJsonList(row['used_layers']);
     final List<dynamic> creditsList = _normalizeJsonList(row['credits']);
 
     return StudioHistoryEntry(
       id: row['id'].toString(),
       createdAt: row['created_at'] as DateTime,
+      updatedAt: (row['updated_at'] as DateTime?) ?? row['created_at'] as DateTime,
       bodyType: row['body_type'].toString(),
       animation: row['animation'].toString(),
       prompt: row['prompt']?.toString(),
+      projectName: row['project_name']?.toString(),
+      notes: row['notes']?.toString(),
+      enginePreset: row['engine_preset']?.toString(),
+      tags: tagsList.map((dynamic value) => value.toString()).toList(),
       selections: selectionsMap.map(
         (String key, dynamic value) => MapEntry(key, value.toString()),
       ),
+      renderSettings: renderSettingsMap.map(
+        (String key, dynamic value) => MapEntry(key, value),
+      ),
+      exportSettings: exportSettingsMap.map(
+        (String key, dynamic value) => MapEntry(key, value),
+      ),
+      promptHistory: promptHistoryList
+          .map((dynamic value) => value.toString())
+          .toList(),
+      exportHistory: exportHistoryList
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (Map<String, dynamic> json) =>
+                json.map((String key, dynamic value) => MapEntry(key, value)),
+          )
+          .toList(),
       usedLayers: layersList
           .whereType<Map<String, dynamic>>()
           .map(

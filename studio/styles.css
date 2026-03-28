@@ -692,3 +692,30 @@ button.btn-loading::after {
 .history-card .chips {
   margin: 0.7rem 0 0.2rem;
 }
+.project-meta {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.project-meta label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.project-meta textarea,
+.project-meta input,
+.project-meta select {
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+}
+
+.snapshot-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1rem;
+}

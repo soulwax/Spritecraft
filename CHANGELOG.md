@@ -15,6 +15,10 @@
 - Expanded Studio catalog filtering with category chips plus animation-compatibility and tag filters for faster narrowing of LPC assets.
 - Intent-aware Studio catalog ranking that boosts prompt-aligned, search-aligned, favorited, pinned, and animation-compatible items.
 - Project browser controls in Studio history with search, sorting, and quick preview metadata for saved looks.
+- Saved project history now persists project names, chosen export preset, render/export settings, and prompt history for richer restores and browsing.
+- Formalized SpriteCraft project records with notes, tags, updated timestamps, and export history carried through persistence and the Studio browser.
+- Automatic local draft saving plus explicit named snapshot saves in Studio for safer project iteration.
+- Built-in Studio project templates for NPC base, player character, enemy, portrait, and animation study starting points.
 
 ## 0.2.0 - 2026-03-28
 

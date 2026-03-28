@@ -395,13 +395,46 @@ class StudioServer {
       });
     }
 
-    final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(
-      await request.readAsJson(),
-    );
+    final Map<String, dynamic> payload = await request.readAsJson();
+    final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(payload);
     final LpcRenderResult result = await renderer.render(renderRequest);
     final StudioHistoryEntry entry = await historyRepository!.save(
       request: renderRequest,
       renderResult: result,
+      details: <String, Object?>{
+        'projectName': payload['projectName']?.toString(),
+        'notes': payload['notes']?.toString(),
+        'enginePreset': payload['enginePreset']?.toString(),
+        'tags': payload['tags'] is List<dynamic>
+            ? (payload['tags'] as List<dynamic>)
+                  .map((dynamic value) => value.toString())
+                  .toList()
+            : <String>[],
+        'renderSettings': payload['renderSettings'] is Map
+            ? Map<String, Object?>.from(
+                payload['renderSettings'] as Map<dynamic, dynamic>,
+              )
+            : <String, Object?>{},
+        'exportSettings': payload['exportSettings'] is Map
+            ? Map<String, Object?>.from(
+                payload['exportSettings'] as Map<dynamic, dynamic>,
+              )
+            : <String, Object?>{},
+        'promptHistory': payload['promptHistory'] is List<dynamic>
+            ? (payload['promptHistory'] as List<dynamic>)
+                  .map((dynamic value) => value.toString())
+                  .toList()
+            : <String>[],
+        'exportHistory': payload['exportHistory'] is List<dynamic>
+            ? (payload['exportHistory'] as List<dynamic>)
+                  .whereType<Map>()
+                  .map(
+                    (Map<dynamic, dynamic> value) =>
+                        Map<String, Object?>.from(value),
+                  )
+                  .toList()
+            : <Map<String, Object?>>[],
+      },
     );
 
     return _json(200, entry.toJson());

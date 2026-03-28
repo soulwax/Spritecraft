@@ -38,13 +38,13 @@ Goal: make the Studio genuinely comfortable for building sprites, not just techn
 
 Goal: turn one-off renders into reusable projects creators can come back to.
 
-- [ ] Introduce a formal SpriteCraft project model with name, notes, tags, created/updated timestamps, and export history
+- [x] Introduce a formal SpriteCraft project model with name, notes, tags, created/updated timestamps, and export history
 - [ ] Add `findById()`, `delete()`, `restore()`, and `duplicate()` project actions in persistence and API
 - [x] Add project browser UI with search, sorting, and quick previews
-- [ ] Store render settings, export settings, chosen presets, and prompt history per project
+- [x] Store render settings, export settings, chosen presets, and prompt history per project
 - [ ] Add import/export of a SpriteCraft project package for sharing between machines
-- [ ] Add automatic draft saving and explicit named snapshots
-- [ ] Support project templates such as NPC base, player character, enemy, portrait, and animation study
+- [x] Add automatic draft saving and explicit named snapshots
+- [x] Support project templates such as NPC base, player character, enemy, portrait, and animation study
 
 ## Phase 4 — Metadata and Export Excellence
 

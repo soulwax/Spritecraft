@@ -331,31 +331,58 @@ class StudioHistoryEntry {
   const StudioHistoryEntry({
     required this.id,
     required this.createdAt,
+    required this.updatedAt,
     required this.bodyType,
     required this.animation,
     required this.prompt,
     required this.selections,
     required this.usedLayers,
     required this.credits,
+    this.projectName,
+    this.notes,
+    this.enginePreset,
+    this.tags = const <String>[],
+    this.renderSettings = const <String, Object?>{},
+    this.exportSettings = const <String, Object?>{},
+    this.promptHistory = const <String>[],
+    this.exportHistory = const <Map<String, Object?>>[],
   });
 
   final String id;
   final DateTime createdAt;
+  final DateTime updatedAt;
   final String bodyType;
   final String animation;
   final String? prompt;
   final Map<String, String> selections;
   final List<UsedLpcLayer> usedLayers;
   final List<LpcCreditRecord> credits;
+  final String? projectName;
+  final String? notes;
+  final String? enginePreset;
+  final List<String> tags;
+  final Map<String, Object?> renderSettings;
+  final Map<String, Object?> exportSettings;
+  final List<String> promptHistory;
+  final List<Map<String, Object?>> exportHistory;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'id': id,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
       'bodyType': bodyType,
       'animation': animation,
       'prompt': prompt,
+      'projectName': projectName,
+      'notes': notes,
+      'enginePreset': enginePreset,
+      'tags': tags,
       'selections': selections,
+      'renderSettings': renderSettings,
+      'exportSettings': exportSettings,
+      'promptHistory': promptHistory,
+      'exportHistory': exportHistory,
       'usedLayers': usedLayers
           .map((UsedLpcLayer layer) => layer.toJson())
           .toList(),

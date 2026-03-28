@@ -15,6 +15,12 @@ const state = {
   historyItems: [],
   historySearch: "",
   historySort: "newest",
+  promptHistory: [],
+  projectNotes: "",
+  projectTags: [],
+  exportHistory: [],
+  draftStatus: "idle",
+  autosaveHandle: null,
   undoStack: [],
   redoStack: [],
   lastRenderedRequest: null,
@@ -24,9 +30,88 @@ const state = {
   health: null,
 };
 
+const projectTemplates = [
+  {
+    id: "npc-base",
+    label: "NPC Base",
+    description: "Start a grounded background character quickly.",
+    projectName: "NPC Base",
+    notes: "Build a versatile non-player character with readable silhouette and simple gear.",
+    tags: ["npc", "base", "utility"],
+    prompt: "Create a practical background NPC with simple readable equipment and neutral colors.",
+    previewMode: "single",
+    category: "all",
+    animationFilter: "current",
+    tagFilter: "all",
+    enginePreset: "none",
+    animation: "idle",
+  },
+  {
+    id: "player-character",
+    label: "Player Character",
+    description: "Set up a hero build with equipment iteration in mind.",
+    projectName: "Player Character",
+    notes: "Focus on strong identity, readability, and animation-ready gear choices.",
+    tags: ["player", "hero", "core"],
+    prompt: "Create a player-ready hero with distinct silhouette, layered outfit, and animation-friendly accessories.",
+    previewMode: "compare",
+    category: "all",
+    animationFilter: "current",
+    tagFilter: "all",
+    enginePreset: "both",
+    animation: "idle",
+  },
+  {
+    id: "enemy",
+    label: "Enemy",
+    description: "Build an enemy with combat readability first.",
+    projectName: "Enemy Variant",
+    notes: "Prioritize threat silhouette, faction readability, and combat clarity.",
+    tags: ["enemy", "combat", "encounter"],
+    prompt: "Create an enemy with a clear threat silhouette, faction identity, and combat-ready equipment.",
+    previewMode: "compare",
+    category: "all",
+    animationFilter: "current",
+    tagFilter: "all",
+    enginePreset: "godot",
+    animation: "slash",
+  },
+  {
+    id: "portrait",
+    label: "Portrait",
+    description: "Focus on face, hair, and identity details.",
+    projectName: "Portrait Study",
+    notes: "Concentrate on face, headgear, hair, and upper-body silhouette details.",
+    tags: ["portrait", "character", "head"],
+    prompt: "Create a portrait-focused character emphasizing head, hair, and upper-body identity cues.",
+    previewMode: "single",
+    category: "Head",
+    animationFilter: "any",
+    tagFilter: "all",
+    enginePreset: "none",
+    animation: "idle",
+  },
+  {
+    id: "animation-study",
+    label: "Animation Study",
+    description: "Optimize for comparing multiple motion states.",
+    projectName: "Animation Study",
+    notes: "Use this template to compare motion readability across idle, walk, and combat states.",
+    tags: ["animation", "study", "motion"],
+    prompt: "Create a character build intended for comparing idle, walk, and combat animation readability.",
+    previewMode: "compare",
+    category: "all",
+    animationFilter: "current",
+    tagFilter: "all",
+    enginePreset: "unity",
+    animation: "walk",
+  },
+];
+
 const elements = {
   projectName: document.querySelector("#projectName"),
   prompt: document.querySelector("#prompt"),
+  projectMeta: null,
   bodyType: document.querySelector("#bodyType"),
   animation: document.querySelector("#animation"),
   enginePreset: document.querySelector("#enginePreset"),
@@ -53,6 +138,7 @@ const elements = {
   healthPanel: null,
   previewModes: null,
   comparisonGrid: null,
+  snapshotActions: null,
 };
 
 init().catch((error) => {
@@ -65,8 +151,11 @@ async function init() {
   ensureStatusPanel();
   ensureBuilderActions();
   ensurePreviewModes();
+  ensureProjectMeta();
+  ensureSnapshotActions();
   ensureQuickAccess();
   loadStudioPreferences();
+  loadDraft();
   const [bootstrap, health] = await Promise.all([
     api("/api/studio/bootstrap"),
     refreshHealth(),
@@ -97,6 +186,7 @@ function bindEvents() {
     state.bodyType = event.target.value;
     state.redoStack = [];
     updateBuilderActionState();
+    queueDraftSave();
     await refreshCatalog();
     await refreshRender();
   });
@@ -106,6 +196,7 @@ function bindEvents() {
     state.animation = event.target.value;
     state.redoStack = [];
     updateBuilderActionState();
+    queueDraftSave();
     await refreshCatalog();
     await refreshRender();
   });
@@ -116,6 +207,33 @@ function bindEvents() {
   elements.saveProject.addEventListener("click", saveProject);
   elements.exportRender.addEventListener("click", exportRender);
   elements.clearSelections.addEventListener("click", clearSelections);
+  elements.projectName?.addEventListener("input", queueDraftSave);
+  elements.prompt?.addEventListener("input", queueDraftSave);
+  elements.enginePreset?.addEventListener("change", queueDraftSave);
+  elements.projectMeta
+    ?.querySelector('[data-role="project-template"]')
+    ?.addEventListener("change", async (event) => {
+      const template = projectTemplates.find(
+        (entry) => entry.id === event.target.value,
+      );
+      if (!template) {
+        return;
+      }
+
+      await applyProjectTemplate(template);
+    });
+  elements.projectMeta
+    ?.querySelector('[data-role="project-notes"]')
+    ?.addEventListener("input", (event) => {
+      state.projectNotes = event.target.value || "";
+      queueDraftSave();
+    });
+  elements.projectMeta
+    ?.querySelector('[data-role="project-tags"]')
+    ?.addEventListener("change", (event) => {
+      state.projectTags = parseProjectTags(event.target.value || "");
+      queueDraftSave();
+    });
   document.addEventListener("keydown", handleBuilderShortcuts);
 }
 
@@ -192,6 +310,7 @@ async function runAiBrief() {
     elements.planOutput.textContent = "Write a creative brief first.";
     return;
   }
+  rememberPrompt(prompt);
 
   try {
     const payload = await api("/api/ai/brief", {
@@ -220,6 +339,9 @@ async function runAiBrief() {
 
 async function saveProject() {
   try {
+    if (elements.prompt.value.trim()) {
+      rememberPrompt(elements.prompt.value.trim());
+    }
     const payload = await api("/api/history/save", {
       method: "POST",
       body: JSON.stringify(buildRequest()),
@@ -227,6 +349,7 @@ async function saveProject() {
     const history = await api("/api/history");
     renderHistory(history.items ?? []);
     elements.planOutput.textContent = `Saved project ${payload.id}`;
+    saveDraft({ savedProjectId: payload.id });
     showToast("Project saved to history.");
   } catch (error) {
     const message = actionableMessage("Project save failed.", error);
@@ -323,6 +446,7 @@ function renderSelections() {
       delete state.selections[itemId];
       state.redoStack = [];
       updateBuilderActionState();
+      queueDraftSave();
       renderSelections();
       await refreshRender();
     });
@@ -362,23 +486,31 @@ function renderHistory(items) {
 
   for (const item of visibleItems) {
     const selectionCount = Object.keys(item.selections ?? {}).length;
+    const promptCount = (item.promptHistory ?? []).length;
     const promptPreview = item.prompt
       ? item.prompt.slice(0, 88)
       : "Saved look";
+    const projectLabel = item.projectName || "Untitled project";
     const card = document.createElement("article");
     card.className = "history-card";
     card.innerHTML = `
       <header>
         <div>
-          <h3>${escapeHtml(promptPreview)}${item.prompt && item.prompt.length > 88 ? "..." : ""}</h3>
-          <div class="muted">${escapeHtml(item.bodyType)} · ${escapeHtml(item.animation)}</div>
+          <h3>${escapeHtml(projectLabel)}</h3>
+          <div class="muted">${escapeHtml(promptPreview)}${item.prompt && item.prompt.length > 88 ? "..." : ""}</div>
         </div>
         <span class="chip">${new Date(item.createdAt).toLocaleString()}</span>
       </header>
       <div class="chips">
+        <span class="chip">${escapeHtml(item.bodyType)} · ${escapeHtml(item.animation)}</span>
         <span class="chip">${selectionCount} layer${selectionCount === 1 ? "" : "s"}</span>
+        ${item.enginePreset ? `<span class="chip">${escapeHtml(item.enginePreset)}</span>` : ""}
+        ${promptCount ? `<span class="chip">${promptCount} prompt${promptCount === 1 ? "" : "s"}</span>` : ""}
+        ${(item.tags ?? []).slice(0, 3).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
         ${item.prompt ? `<span class="chip">Prompted</span>` : `<span class="chip">Manual</span>`}
       </div>
+      ${item.notes ? `<div class="muted">${escapeHtml(item.notes.slice(0, 120))}${item.notes.length > 120 ? "..." : ""}</div>` : ""}
+      ${(item.exportHistory ?? []).length ? `<div class="muted">${item.exportHistory.length} export${item.exportHistory.length === 1 ? "" : "s"} recorded</div>` : ""}
       <div class="selected-actions">
         <button class="mini ghost" data-action="restore">Restore</button>
         <button class="mini ghost" data-action="delete">Delete</button>
@@ -397,11 +529,44 @@ function renderHistory(items) {
 function buildRequest() {
   return {
     projectName: elements.projectName.value.trim(),
+    notes: state.projectNotes.trim(),
+    tags: state.projectTags,
     enginePreset: elements.enginePreset.value,
     bodyType: state.bodyType,
     animation: state.animation,
     prompt: elements.prompt.value.trim(),
     selections: state.selections,
+    renderSettings: {
+      previewMode: state.previewMode,
+      category: state.category,
+      animationFilter: state.animationFilter,
+      tagFilter: state.tagFilter,
+    },
+    exportSettings: {
+      enginePreset: elements.enginePreset.value,
+    },
+    promptHistory: state.promptHistory,
+    exportHistory: state.exportHistory,
+  };
+}
+
+function buildDraftPayload() {
+  return {
+    savedAt: new Date().toISOString(),
+    bodyType: state.bodyType,
+    animation: state.animation,
+    category: state.category,
+    animationFilter: state.animationFilter,
+    tagFilter: state.tagFilter,
+    previewMode: state.previewMode,
+    prompt: elements.prompt?.value?.trim() ?? "",
+    projectName: elements.projectName?.value?.trim() ?? "",
+    notes: state.projectNotes,
+    tags: state.projectTags,
+    enginePreset: elements.enginePreset?.value ?? "none",
+    selections: state.selections,
+    promptHistory: state.promptHistory,
+    exportHistory: state.exportHistory,
   };
 }
 
@@ -420,11 +585,26 @@ async function exportRender() {
     showToast("Render something first.");
     return;
   }
+  if (elements.prompt.value.trim()) {
+    rememberPrompt(elements.prompt.value.trim());
+  }
   try {
     const payload = await api("/api/lpc/export", {
       method: "POST",
       body: JSON.stringify(buildRequest()),
     });
+    state.exportHistory = [
+      {
+        exportedAt: new Date().toISOString(),
+        enginePreset: payload.enginePreset || "none",
+        baseName: payload.baseName,
+        bundlePath: payload.bundlePath,
+        imagePath: payload.imagePath,
+        metadataPath: payload.metadataPath,
+      },
+      ...state.exportHistory,
+    ].slice(0, 20);
+    queueDraftSave();
     const extra = (payload.extraPaths ?? []).map((file) => `Preset: ${file}`).join("\n");
     elements.previewMeta.textContent = `${elements.previewMeta.textContent} · exported`;
     elements.planOutput.textContent =
@@ -447,6 +627,7 @@ async function clearSelections() {
   pushUndoSnapshot();
   state.selections = {};
   state.redoStack = [];
+  queueDraftSave();
   renderSelections();
   elements.previewImage.removeAttribute("src");
   elements.previewMeta.textContent = "Pick some layers to render.";
@@ -489,9 +670,27 @@ async function restoreHistory(id) {
     state.animation = restored.animation;
     state.selections = restored.selections ?? {};
     state.redoStack = [];
+    state.previewMode = restored.renderSettings?.previewMode ?? "single";
+    state.category = restored.renderSettings?.category ?? "all";
+    state.animationFilter = restored.renderSettings?.animationFilter ?? "current";
+    state.tagFilter = restored.renderSettings?.tagFilter ?? "all";
+    state.promptHistory = Array.isArray(restored.promptHistory)
+      ? restored.promptHistory
+      : [];
+    state.projectNotes = restored.notes ?? "";
+    state.projectTags = Array.isArray(restored.tags) ? restored.tags : [];
+    state.exportHistory = Array.isArray(restored.exportHistory)
+      ? restored.exportHistory
+      : [];
     syncBuilderInputsFromState({
       prompt: restored.prompt ?? "",
+      projectName: restored.projectName ?? "",
+      notes: restored.notes ?? "",
+      tags: Array.isArray(restored.tags) ? restored.tags : [],
+      enginePreset: restored.enginePreset ?? "none",
     });
+    syncPreviewModeButtons();
+    queueDraftSave();
 
     state.latestImageBase64 = payload.imageBase64;
     state.latestMetadata = payload.metadata;
@@ -800,6 +999,7 @@ async function moveSelection(itemId, direction) {
   state.selections = Object.fromEntries(reordered);
   state.redoStack = [];
   updateBuilderActionState();
+  queueDraftSave();
   renderSelections();
   await refreshRender();
 }
@@ -845,6 +1045,7 @@ function createCatalogCard(item, { compact = false } = {}) {
     state.selections[item.id] = select.value;
     state.redoStack = [];
     updateBuilderActionState();
+    queueDraftSave();
     renderSelections();
     await refreshRender();
   });
@@ -1121,6 +1322,55 @@ function ensureBuilderActions() {
   updateBuilderActionState();
 }
 
+function ensureProjectMeta() {
+  if (elements.projectMeta || !elements.projectName?.parentElement) {
+    return;
+  }
+
+  const section = document.createElement("div");
+  section.className = "project-meta";
+  section.innerHTML = `
+    <label>
+      <span class="muted">Project template</span>
+      <select data-role="project-template">
+        <option value="">Start from current setup</option>
+        ${projectTemplates.map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.label)} - ${escapeHtml(template.description)}</option>`).join("")}
+      </select>
+    </label>
+    <label>
+      <span class="muted">Project notes</span>
+      <textarea rows="3" data-role="project-notes" placeholder="Add direction, TODOs, or export context for this project"></textarea>
+    </label>
+    <label>
+      <span class="muted">Tags</span>
+      <input type="text" data-role="project-tags" placeholder="ranger, npc, leather, forest">
+    </label>
+  `;
+
+  elements.projectName.parentElement.insertAdjacentElement("afterend", section);
+  elements.projectMeta = section;
+}
+
+function ensureSnapshotActions() {
+  if (elements.snapshotActions || !elements.saveProject?.parentElement) {
+    return;
+  }
+
+  const section = document.createElement("div");
+  section.className = "snapshot-actions";
+  section.innerHTML = `
+    <button class="mini ghost" type="button" data-action="save-snapshot">Save Named Snapshot</button>
+    <span class="muted" data-role="draft-status">Draft idle</span>
+  `;
+
+  elements.saveProject.parentElement.insertAdjacentElement("afterend", section);
+  elements.snapshotActions = section;
+  section
+    .querySelector('[data-action="save-snapshot"]')
+    .addEventListener("click", saveNamedSnapshot);
+  updateDraftStatus();
+}
+
 function ensureHistoryControls() {
   if (elements.historyControls || !elements.historyList?.parentElement) {
     return;
@@ -1175,9 +1425,14 @@ function getVisibleHistoryItems() {
     }
 
     const haystack = [
+      item.projectName ?? "",
+      item.notes ?? "",
       item.prompt ?? "",
+      item.enginePreset ?? "",
       item.bodyType ?? "",
       item.animation ?? "",
+      ...(item.tags ?? []),
+      ...(item.promptHistory ?? []),
       ...Object.keys(item.selections ?? {}),
       ...Object.values(item.selections ?? {}),
     ]
@@ -1260,6 +1515,8 @@ function snapshotRenderableState() {
     ...snapshotBuilderState(),
     prompt: elements.prompt?.value ?? "",
     projectName: elements.projectName?.value ?? "",
+    notes: state.projectNotes,
+    tags: state.projectTags,
     enginePreset: elements.enginePreset?.value ?? "none",
   };
 }
@@ -1285,6 +1542,8 @@ function syncBuilderInputsFromState(overrides = {}) {
   const nextPrompt = overrides.prompt ?? elements.prompt?.value ?? "";
   const nextProjectName = overrides.projectName ?? elements.projectName?.value ?? "";
   const nextEnginePreset = overrides.enginePreset ?? elements.enginePreset?.value ?? "none";
+  const nextNotes = overrides.notes ?? state.projectNotes ?? "";
+  const nextTags = overrides.tags ?? state.projectTags ?? [];
 
   elements.bodyType.value = state.bodyType;
   elements.animation.value = state.animation;
@@ -1297,6 +1556,185 @@ function syncBuilderInputsFromState(overrides = {}) {
   if (elements.enginePreset) {
     elements.enginePreset.value = nextEnginePreset;
   }
+  if (elements.projectMeta) {
+    elements.projectMeta.querySelector('[data-role="project-notes"]').value = nextNotes;
+    elements.projectMeta.querySelector('[data-role="project-tags"]').value = nextTags.join(", ");
+  }
+}
+
+function rememberPrompt(prompt) {
+  const value = String(prompt || "").trim();
+  if (!value) {
+    return;
+  }
+
+  state.promptHistory = [
+    value,
+    ...state.promptHistory.filter((entry) => entry !== value),
+  ].slice(0, 12);
+}
+
+function queueDraftSave() {
+  state.draftStatus = "pending";
+  updateDraftStatus();
+  clearTimeout(state.autosaveHandle);
+  state.autosaveHandle = window.setTimeout(() => {
+    saveDraft();
+  }, 500);
+}
+
+function saveDraft(extra = {}) {
+  try {
+    const payload = {
+      ...buildDraftPayload(),
+      ...extra,
+    };
+    window.localStorage.setItem(
+      "spritecraft-current-draft",
+      JSON.stringify(payload),
+    );
+    state.draftStatus = "saved";
+    updateDraftStatus(payload.savedAt);
+  } catch (error) {
+    console.warn("Could not save SpriteCraft draft.", error);
+    state.draftStatus = "error";
+    updateDraftStatus();
+  }
+}
+
+function loadDraft() {
+  try {
+    const raw = window.localStorage.getItem("spritecraft-current-draft");
+    if (!raw) {
+      return;
+    }
+
+    const draft = JSON.parse(raw);
+    state.bodyType = draft.bodyType ?? state.bodyType;
+    state.animation = draft.animation ?? state.animation;
+    state.category = draft.category ?? state.category;
+    state.animationFilter = draft.animationFilter ?? state.animationFilter;
+    state.tagFilter = draft.tagFilter ?? state.tagFilter;
+    state.previewMode = draft.previewMode ?? state.previewMode;
+    state.selections = draft.selections ?? state.selections;
+    state.promptHistory = Array.isArray(draft.promptHistory)
+      ? draft.promptHistory
+      : state.promptHistory;
+    state.projectNotes = draft.notes ?? state.projectNotes;
+    state.projectTags = Array.isArray(draft.tags) ? draft.tags : state.projectTags;
+    state.exportHistory = Array.isArray(draft.exportHistory)
+      ? draft.exportHistory
+      : state.exportHistory;
+
+    syncBuilderInputsFromState({
+      prompt: draft.prompt ?? "",
+      projectName: draft.projectName ?? "",
+      enginePreset: draft.enginePreset ?? "none",
+      notes: draft.notes ?? "",
+      tags: Array.isArray(draft.tags) ? draft.tags : [],
+    });
+    state.draftStatus = "saved";
+  } catch (error) {
+    console.warn("Could not load SpriteCraft draft.", error);
+  }
+}
+
+function updateDraftStatus(savedAt) {
+  const label = elements.snapshotActions?.querySelector('[data-role="draft-status"]');
+  if (!label) {
+    return;
+  }
+
+  if (state.draftStatus === "pending") {
+    label.textContent = "Draft saving...";
+    return;
+  }
+
+  if (state.draftStatus === "error") {
+    label.textContent = "Draft save failed";
+    return;
+  }
+
+  if (state.draftStatus === "saved") {
+    const stamp = savedAt || buildDraftPayload().savedAt;
+    label.textContent = `Draft saved ${new Date(stamp).toLocaleTimeString()}`;
+    return;
+  }
+
+  label.textContent = "Draft idle";
+}
+
+async function saveNamedSnapshot() {
+  const baseName = elements.projectName?.value?.trim() || "Snapshot";
+  const snapshotName = window.prompt(
+    "Snapshot name",
+    `${baseName} ${new Date().toLocaleString()}`,
+  );
+  if (!snapshotName || !snapshotName.trim()) {
+    return;
+  }
+
+  try {
+    if (elements.prompt.value.trim()) {
+      rememberPrompt(elements.prompt.value.trim());
+    }
+    const payload = await api("/api/history/save", {
+      method: "POST",
+      body: JSON.stringify({
+        ...buildRequest(),
+        projectName: snapshotName.trim(),
+        tags: [...state.projectTags, "snapshot"].filter(
+          (tag, index, list) => list.indexOf(tag) === index,
+        ),
+        notes: [state.projectNotes, `Snapshot saved from ${baseName || "untitled project"}.`]
+          .filter(Boolean)
+          .join("\n\n"),
+      }),
+    });
+    const history = await api("/api/history");
+    renderHistory(history.items ?? []);
+    saveDraft({ savedProjectId: payload.id });
+    showToast("Named snapshot saved.");
+  } catch (error) {
+    const message = actionableMessage("Snapshot save failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
+}
+
+function parseProjectTags(value) {
+  return String(value)
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+async function applyProjectTemplate(template) {
+  pushUndoSnapshot();
+  state.redoStack = [];
+  state.projectNotes = template.notes ?? "";
+  state.projectTags = [...(template.tags ?? [])];
+  state.previewMode = template.previewMode ?? "single";
+  state.category = template.category ?? "all";
+  state.animationFilter = template.animationFilter ?? "current";
+  state.tagFilter = template.tagFilter ?? "all";
+  state.animation = state.availableAnimations.includes(template.animation)
+    ? template.animation
+    : state.animation;
+
+  syncBuilderInputsFromState({
+    projectName: template.projectName ?? "",
+    prompt: template.prompt ?? "",
+    notes: template.notes ?? "",
+    tags: template.tags ?? [],
+    enginePreset: template.enginePreset ?? "none",
+  });
+  syncPreviewModeButtons();
+  queueDraftSave();
+  await refreshCatalog();
+  await refreshRender();
+  showToast(`Applied ${template.label} template.`);
 }
 
 async function applyBuilderSnapshot(snapshot, { announce = "" } = {}) {
@@ -1304,6 +1742,7 @@ async function applyBuilderSnapshot(snapshot, { announce = "" } = {}) {
   state.animation = snapshot.animation;
   state.selections = { ...(snapshot.selections ?? {}) };
   syncBuilderInputsFromState(snapshot);
+  queueDraftSave();
   renderSelections();
   await refreshCatalog();
   if (Object.keys(state.selections).length) {
