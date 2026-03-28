@@ -4,11 +4,17 @@ const state = {
   bodyType: "male",
   animation: "idle",
   category: "all",
+  animationFilter: "current",
+  tagFilter: "all",
   previewMode: "single",
   availableAnimations: [],
   selections: {},
   favoriteItems: [],
   pinnedItems: [],
+  latestCatalogItems: [],
+  historyItems: [],
+  historySearch: "",
+  historySort: "newest",
   undoStack: [],
   redoStack: [],
   lastRenderedRequest: null,
@@ -38,6 +44,7 @@ const elements = {
   catalogCount: document.querySelector("#catalogCount"),
   selectedItems: document.querySelector("#selectedItems"),
   historyList: document.querySelector("#historyList"),
+  historyControls: null,
   previewImage: document.querySelector("#previewImage"),
   previewMeta: document.querySelector("#previewMeta"),
   creditsList: document.querySelector("#creditsList"),
@@ -123,10 +130,12 @@ async function refreshCatalog() {
     for (const item of payload.items ?? []) {
       state.catalogItemsById[item.id] = item;
     }
+    state.latestCatalogItems = payload.items ?? [];
     ensureCatalogFilters();
-    syncCategoryOptions(payload.items ?? []);
+    syncCategoryOptions(state.latestCatalogItems);
+    syncAdvancedFilterOptions(state.latestCatalogItems);
     renderQuickAccess();
-    renderCatalog(payload.items ?? []);
+    renderCatalog(state.latestCatalogItems);
     renderSelections();
   } catch (error) {
     renderCatalog([]);
@@ -341,23 +350,35 @@ function renderCredits(credits) {
 }
 
 function renderHistory(items) {
+  ensureHistoryControls();
+  state.historyItems = items;
+  syncHistoryControls();
   elements.historyList.innerHTML = "";
-  if (!items.length) {
+  const visibleItems = getVisibleHistoryItems();
+  if (!visibleItems.length) {
     elements.historyList.innerHTML = '<div class="muted">No saved renders yet.</div>';
     return;
   }
 
-  for (const item of items) {
+  for (const item of visibleItems) {
+    const selectionCount = Object.keys(item.selections ?? {}).length;
+    const promptPreview = item.prompt
+      ? item.prompt.slice(0, 88)
+      : "Saved look";
     const card = document.createElement("article");
     card.className = "history-card";
     card.innerHTML = `
       <header>
         <div>
-          <h3>${escapeHtml(item.prompt || "Saved look")}</h3>
+          <h3>${escapeHtml(promptPreview)}${item.prompt && item.prompt.length > 88 ? "..." : ""}</h3>
           <div class="muted">${escapeHtml(item.bodyType)} · ${escapeHtml(item.animation)}</div>
         </div>
         <span class="chip">${new Date(item.createdAt).toLocaleString()}</span>
       </header>
+      <div class="chips">
+        <span class="chip">${selectionCount} layer${selectionCount === 1 ? "" : "s"}</span>
+        ${item.prompt ? `<span class="chip">Prompted</span>` : `<span class="chip">Manual</span>`}
+      </div>
       <div class="selected-actions">
         <button class="mini ghost" data-action="restore">Restore</button>
         <button class="mini ghost" data-action="delete">Delete</button>
@@ -596,10 +617,41 @@ function ensureCatalogFilters() {
   const controls = document.createElement("div");
   controls.className = "catalog-filters";
   controls.innerHTML = `
-    <button class="chip active" type="button" data-category="all">All</button>
+    <div class="catalog-filter-row" data-role="category-row">
+      <button class="chip active" type="button" data-category="all">All</button>
+    </div>
+    <div class="catalog-filter-row catalog-filter-selects">
+      <label>
+        <span class="muted">Animation</span>
+        <select data-role="animation-filter">
+          <option value="current">Current animation</option>
+          <option value="any">Any animation</option>
+        </select>
+      </label>
+      <label>
+        <span class="muted">Tag</span>
+        <select data-role="tag-filter">
+          <option value="all">All tags</option>
+        </select>
+      </label>
+    </div>
   `;
   elements.catalogList.parentElement.insertBefore(controls, elements.catalogList);
   elements.catalogFilters = controls;
+
+  controls
+    .querySelector('[data-role="animation-filter"]')
+    .addEventListener("change", (event) => {
+      state.animationFilter = event.target.value || "current";
+      renderCatalog(state.latestCatalogItems);
+    });
+
+  controls
+    .querySelector('[data-role="tag-filter"]')
+    .addEventListener("change", (event) => {
+      state.tagFilter = event.target.value || "all";
+      renderCatalog(state.latestCatalogItems);
+    });
 }
 
 function ensureQuickAccess() {
@@ -670,8 +722,9 @@ function syncCategoryOptions(items) {
     }),
   ].join("");
 
-  elements.catalogFilters.innerHTML = filterMarkup;
-  for (const button of elements.catalogFilters.querySelectorAll("[data-category]")) {
+  const categoryRow = elements.catalogFilters.querySelector('[data-role="category-row"]');
+  categoryRow.innerHTML = filterMarkup;
+  for (const button of categoryRow.querySelectorAll("[data-category]")) {
     button.addEventListener("click", () => {
       state.category = button.dataset.category || "all";
       syncCategoryOptions(items);
@@ -688,9 +741,35 @@ function syncCategoryOptions(items) {
   }
 }
 
+function syncAdvancedFilterOptions(items) {
+  if (!elements.catalogFilters) {
+    return;
+  }
+
+  const tagSelect = elements.catalogFilters.querySelector('[data-role="tag-filter"]');
+  const animationSelect = elements.catalogFilters.querySelector('[data-role="animation-filter"]');
+  const tags = [...new Set(items.flatMap((item) => item.tags ?? []))].sort((left, right) =>
+    left.localeCompare(right),
+  );
+
+  animationSelect.value = state.animationFilter;
+  tagSelect.innerHTML = [
+    '<option value="all">All tags</option>',
+    ...tags.map((tag) => {
+      const selected = state.tagFilter === tag ? ' selected' : '';
+      return `<option value="${escapeHtml(tag)}"${selected}>${escapeHtml(normalizeCategoryLabel(tag))}</option>`;
+    }),
+  ].join("");
+
+  if (state.tagFilter !== "all" && !tags.includes(state.tagFilter)) {
+    state.tagFilter = "all";
+    tagSelect.value = "all";
+  }
+}
+
 function groupCatalogItems(items) {
   const groups = {};
-  for (const item of items) {
+  for (const item of rankCatalogItems(filterCatalogItems(items))) {
     const group = normalizeCategoryLabel(item.category);
     if (!groups[group]) {
       groups[group] = [];
@@ -779,6 +858,133 @@ function createCatalogCard(item, { compact = false } = {}) {
   });
 
   return card;
+}
+
+function filterCatalogItems(items) {
+  return items.filter((item) => {
+    const matchesAnimation = state.animationFilter === "any"
+      ? true
+      : (item.animations ?? []).includes(state.animation);
+    const matchesTag = state.tagFilter === "all"
+      ? true
+      : (item.tags ?? []).includes(state.tagFilter);
+    return matchesAnimation && matchesTag;
+  });
+}
+
+function rankCatalogItems(items) {
+  const searchTerms = tokenizeIntent(elements.catalogSearch?.value ?? "");
+  const promptTerms = tokenizeIntent(elements.prompt?.value ?? "");
+  const selectedIds = new Set(Object.keys(state.selections));
+
+  return [...items]
+    .map((item) => ({
+      item,
+      score: scoreCatalogItem(item, {
+        searchTerms,
+        promptTerms,
+        selectedIds,
+      }),
+    }))
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return left.item.name.localeCompare(right.item.name);
+    })
+    .map((entry) => entry.item);
+}
+
+function scoreCatalogItem(item, context) {
+  let score = 0;
+  const haystacks = [
+    item.name,
+    item.typeName,
+    item.category,
+    ...(item.tags ?? []),
+    ...(item.animations ?? []),
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
+
+  for (const term of context.searchTerms) {
+    if (haystacks.some((value) => value === term)) {
+      score += 18;
+      continue;
+    }
+
+    if (haystacks.some((value) => value.includes(term))) {
+      score += 10;
+    }
+  }
+
+  for (const term of context.promptTerms) {
+    if (haystacks.some((value) => value === term)) {
+      score += 9;
+      continue;
+    }
+
+    if (haystacks.some((value) => value.includes(term))) {
+      score += 4;
+    }
+  }
+
+  if ((item.animations ?? []).includes(state.animation)) {
+    score += 8;
+  }
+
+  if ((item.requiredBodyTypes ?? []).includes(state.bodyType)) {
+    score += 4;
+  }
+
+  if (state.favoriteItems.includes(item.id)) {
+    score += 6;
+  }
+
+  if (state.pinnedItems.includes(item.id)) {
+    score += 8;
+  }
+
+  if (context.selectedIds.has(item.id)) {
+    score += 14;
+  }
+
+  const categoryLabel = normalizeCategoryLabel(item.category).toLowerCase();
+  if (state.category !== "all" && categoryLabel === state.category.toLowerCase()) {
+    score += 6;
+  }
+
+  if (
+    state.tagFilter !== "all" &&
+    (item.tags ?? []).map((tag) => String(tag).toLowerCase()).includes(state.tagFilter.toLowerCase())
+  ) {
+    score += 6;
+  }
+
+  return score;
+}
+
+function tokenizeIntent(value) {
+  const stopWords = new Set([
+    "a",
+    "an",
+    "and",
+    "the",
+    "for",
+    "with",
+    "from",
+    "into",
+    "idle",
+    "walk",
+    "look",
+    "character",
+  ]);
+
+  return String(value)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((term) => term.length >= 2 && !stopWords.has(term));
 }
 
 function normalizeCategoryLabel(category) {
@@ -913,6 +1119,94 @@ function ensureBuilderActions() {
     .querySelector('[data-action="restore-render"]')
     .addEventListener("click", restoreLastRender);
   updateBuilderActionState();
+}
+
+function ensureHistoryControls() {
+  if (elements.historyControls || !elements.historyList?.parentElement) {
+    return;
+  }
+
+  const controls = document.createElement("div");
+  controls.className = "history-controls";
+  controls.innerHTML = `
+    <input type="search" placeholder="Search saved looks" data-role="history-search">
+    <select data-role="history-sort">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="prompt">Prompt A-Z</option>
+      <option value="layers">Most layers</option>
+    </select>
+  `;
+
+  elements.historyList.parentElement.insertBefore(controls, elements.historyList);
+  elements.historyControls = controls;
+
+  controls
+    .querySelector('[data-role="history-search"]')
+    .addEventListener("input", (event) => {
+      state.historySearch = event.target.value || "";
+      renderHistory(state.historyItems);
+    });
+
+  controls
+    .querySelector('[data-role="history-sort"]')
+    .addEventListener("change", (event) => {
+      state.historySort = event.target.value || "newest";
+      renderHistory(state.historyItems);
+    });
+}
+
+function syncHistoryControls() {
+  if (!elements.historyControls) {
+    return;
+  }
+
+  elements.historyControls.querySelector('[data-role="history-search"]').value =
+    state.historySearch;
+  elements.historyControls.querySelector('[data-role="history-sort"]').value =
+    state.historySort;
+}
+
+function getVisibleHistoryItems() {
+  const searchTerms = tokenizeIntent(state.historySearch);
+  const visible = state.historyItems.filter((item) => {
+    if (!searchTerms.length) {
+      return true;
+    }
+
+    const haystack = [
+      item.prompt ?? "",
+      item.bodyType ?? "",
+      item.animation ?? "",
+      ...Object.keys(item.selections ?? {}),
+      ...Object.values(item.selections ?? {}),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return searchTerms.every((term) => haystack.includes(term));
+  });
+
+  return visible.sort((left, right) => compareHistoryItems(left, right));
+}
+
+function compareHistoryItems(left, right) {
+  if (state.historySort === "oldest") {
+    return new Date(left.createdAt) - new Date(right.createdAt);
+  }
+
+  if (state.historySort === "prompt") {
+    return String(left.prompt || "Saved look").localeCompare(
+      String(right.prompt || "Saved look"),
+    );
+  }
+
+  if (state.historySort === "layers") {
+    return Object.keys(right.selections ?? {}).length -
+      Object.keys(left.selections ?? {}).length;
+  }
+
+  return new Date(right.createdAt) - new Date(left.createdAt);
 }
 
 function ensurePreviewModes() {

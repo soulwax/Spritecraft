@@ -12,6 +12,9 @@
 - Preview mode controls for side-by-side idle, walk, and combat comparisons using the existing Studio render pipeline.
 - Persistent local favorites and pinned quick-access items in Studio for faster repeated character-building workflows.
 - Layer stack reordering controls in the selected-items panel so override-sensitive looks can be adjusted without rebuilding selections.
+- Expanded Studio catalog filtering with category chips plus animation-compatibility and tag filters for faster narrowing of LPC assets.
+- Intent-aware Studio catalog ranking that boosts prompt-aligned, search-aligned, favorited, pinned, and animation-compatible items.
+- Project browser controls in Studio history with search, sorting, and quick preview metadata for saved looks.
 
 ## 0.2.0 - 2026-03-28
 

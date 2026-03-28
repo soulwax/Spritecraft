@@ -27,8 +27,8 @@ Goal: make the Studio genuinely comfortable for building sprites, not just techn
 
 - [ ] Replace raw item-id selection display with human-friendly selected item cards
 - [x] Group catalog results by category such as body, head, hair, torso, weapons, and accessories
-- [ ] Add filters for body type, animation compatibility, tags, and category
-- [ ] Add search result ranking that favors likely creator intent, not only keyword hits
+- [x] Add filters for body type, animation compatibility, tags, and category
+- [x] Add search result ranking that favors likely creator intent, not only keyword hits
 - [x] Add favorites and pinned items for repeated workflows
 - [x] Add clear-all, undo, redo, and restore-last-render actions
 - [x] Add layer reordering controls where override behavior makes sense
@@ -40,7 +40,7 @@ Goal: turn one-off renders into reusable projects creators can come back to.
 
 - [ ] Introduce a formal SpriteCraft project model with name, notes, tags, created/updated timestamps, and export history
 - [ ] Add `findById()`, `delete()`, `restore()`, and `duplicate()` project actions in persistence and API
-- [ ] Add project browser UI with search, sorting, and quick previews
+- [x] Add project browser UI with search, sorting, and quick previews
 - [ ] Store render settings, export settings, chosen presets, and prompt history per project
 - [ ] Add import/export of a SpriteCraft project package for sharing between machines
 - [ ] Add automatic draft saving and explicit named snapshots

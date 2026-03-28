@@ -517,10 +517,15 @@ button.btn-loading::after {
   border-color: rgba(232, 94, 106, 0.36);
 }
 .catalog-filters {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.catalog-filter-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 1rem;
 }
 
 .catalog-filters .chip {
@@ -535,6 +540,20 @@ button.btn-loading::after {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
+}
+
+.catalog-filter-selects label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 180px;
+}
+
+.catalog-filter-selects select {
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
 }
 
 .catalog-group {
@@ -653,4 +672,23 @@ button.btn-loading::after {
 .secondary-actions .active {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.22);
+}
+.history-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.history-controls input,
+.history-controls select {
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+}
+
+.history-card .chips {
+  margin: 0.7rem 0 0.2rem;
 }
