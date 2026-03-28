@@ -25,7 +25,7 @@ export const env = createEnv({
 	 * `NEXT_PUBLIC_`.
 	 */
 	client: {
-		// NEXT_PUBLIC_CLIENTVAR: z.string(),
+		NEXT_PUBLIC_SPRITECRAFT_API_BASE: z.string().url().optional(),
 	},
 
 	/**
@@ -38,6 +38,8 @@ export const env = createEnv({
 		BETTER_AUTH_GITHUB_CLIENT_SECRET:
 			process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
 		DATABASE_URL: process.env.DATABASE_URL,
+		NEXT_PUBLIC_SPRITECRAFT_API_BASE:
+			process.env.NEXT_PUBLIC_SPRITECRAFT_API_BASE,
 		NODE_ENV: process.env.NODE_ENV,
 	},
 	/**

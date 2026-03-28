@@ -1,6 +1,14 @@
 import Link from "next/link";
-import { AlertTriangle, Boxes, FolderKanban, HeartHandshake, Sparkles } from "lucide-react";
+import {
+	AlertTriangle,
+	Boxes,
+	FolderKanban,
+	HeartHandshake,
+	Sparkles,
+	SwatchBook,
+} from "lucide-react";
 
+import { ProjectBrowser } from "~/app/_components/project-browser";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -11,7 +19,6 @@ import {
 	CardTitle,
 } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
-import { ProjectBrowser } from "~/app/_components/project-browser";
 import {
 	getSpriteCraftBootstrap,
 	getSpriteCraftHealth,
@@ -33,33 +40,62 @@ export default async function Home() {
 	return (
 		<main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-8 lg:px-10">
 			<section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-				<Card className="border-amber-300/10 bg-transparent">
+				<Card className="border-[color:var(--accent-soft)] bg-transparent">
 					<CardHeader className="gap-4">
 						<div className="flex flex-wrap items-center gap-3">
 							<Badge variant="success">T3 Migration</Badge>
 							<Badge>Alongside Existing Studio</Badge>
+							<Badge>Kanagawa Wave</Badge>
 						</div>
 						<CardTitle className="max-w-3xl text-4xl leading-tight sm:text-5xl">
-							SpriteCraft Web is the new product shell for migrating the Studio
-							into T3.
+							SpriteCraft Web is becoming the new Studio shell, one safe slice at
+							a time.
 						</CardTitle>
 						<CardDescription className="max-w-2xl text-base">
-							This app lives alongside the working Dart Studio so we can move
-							feature slices safely. The first slice is visibility: backend
-							health, catalog readiness, and recent project activity.
+							This app lives alongside the working Dart Studio so we can migrate
+							project workflows without losing momentum. The current slice focuses
+							on visibility, project browsing, and operational actions while the
+							builder remains in the existing app.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="flex flex-wrap gap-3">
-						<Button asChild>
-							<Link href="http://127.0.0.1:8080" target="_blank">
-								Open Current Studio
-							</Link>
-						</Button>
-						<Button asChild variant="secondary">
-							<Link href="https://create.t3.gg" target="_blank">
-								T3 Reference
-							</Link>
-						</Button>
+					<CardContent className="space-y-5">
+						<div className="grid gap-3 sm:grid-cols-3">
+							<div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+								<p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted-foreground)]">
+									Phase 3.5
+								</p>
+								<p className="mt-2 text-lg font-semibold">Parallel migration</p>
+							</div>
+							<div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+								<p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted-foreground)]">
+									Live data
+								</p>
+								<p className="mt-2 text-lg font-semibold">
+									{bootstrap?.recent.length ?? 0} projects visible
+								</p>
+							</div>
+							<div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+								<p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted-foreground)]">
+									Theme
+								</p>
+								<p className="mt-2 flex items-center gap-2 text-lg font-semibold">
+									<SwatchBook className="size-4 text-[color:var(--accent)]" />
+									Kanagawa Wave
+								</p>
+							</div>
+						</div>
+						<div className="flex flex-wrap gap-3">
+							<Button asChild>
+								<Link href="http://127.0.0.1:8080" target="_blank">
+									Open Current Studio
+								</Link>
+							</Button>
+							<Button asChild variant="secondary">
+								<Link href="https://create.t3.gg" target="_blank">
+									T3 Reference
+								</Link>
+							</Button>
+						</div>
 					</CardContent>
 				</Card>
 
@@ -84,7 +120,7 @@ export default async function Home() {
 							{health ? (
 								health.checks.slice(0, 5).map((check) => (
 									<div
-										className="flex items-start justify-between gap-4 rounded-2xl border border-[color:var(--border)] bg-white/5 px-4 py-3"
+										className="flex items-start justify-between gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-3"
 										key={check.label}
 									>
 										<div>
@@ -99,8 +135,8 @@ export default async function Home() {
 									</div>
 								))
 							) : (
-								<div className="rounded-2xl border border-dashed border-amber-300/20 bg-amber-300/5 p-4">
-									<div className="mb-2 flex items-center gap-2 text-amber-100">
+								<div className="rounded-2xl border border-dashed border-[color:var(--accent-soft)] bg-[color:var(--accent-soft)]/50 p-4">
+									<div className="mb-2 flex items-center gap-2 text-[color:var(--foreground)]">
 										<AlertTriangle className="size-4" />
 										<span className="font-medium">Backend offline</span>
 									</div>
@@ -146,11 +182,11 @@ export default async function Home() {
 							},
 						].map((item) => (
 							<div
-								className="rounded-2xl border border-[color:var(--border)] bg-white/5 p-4"
+								className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4"
 								key={item.title}
 							>
 								<div className="mb-3 flex items-center gap-3">
-									<item.icon className="size-5 text-amber-300" />
+									<item.icon className="size-5 text-[color:var(--accent)]" />
 									<h3 className="font-medium">{item.title}</h3>
 								</div>
 								<p className="text-sm text-[color:var(--muted-foreground)]">
@@ -171,10 +207,9 @@ export default async function Home() {
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{bootstrap?.recent.length ? (
-							<div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-sm text-emerald-50">
+							<div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/8 p-4 text-sm text-emerald-50">
 								The dashboard can already see real backend projects. The next step
-								is moving restore, duplicate, and package actions into this
-								browser.
+								is finishing parity with the old Studio builder and export panels.
 							</div>
 						) : (
 							<div className="rounded-2xl border border-dashed border-[color:var(--border)] p-6 text-sm text-[color:var(--muted-foreground)]">
@@ -213,7 +248,7 @@ export default async function Home() {
 						<CardTitle>Why now</CardTitle>
 					</CardHeader>
 					<CardContent className="flex items-start gap-3 text-sm text-[color:var(--muted-foreground)]">
-						<HeartHandshake className="mt-0.5 size-4 shrink-0 text-amber-300" />
+						<HeartHandshake className="mt-0.5 size-4 shrink-0 text-[color:var(--accent)]" />
 						The Dart backend and project model are finally stable enough that a
 						parallel frontend can move quickly without guessing at domain shape.
 					</CardContent>

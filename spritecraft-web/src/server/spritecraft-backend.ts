@@ -1,5 +1,6 @@
 import "server-only";
 
+import { env } from "~/env";
 import { z } from "zod";
 
 const healthSchema = z.object({
@@ -20,11 +21,14 @@ const historyEntrySchema = z.object({
 	updatedAt: z.string().optional(),
 	projectName: z.string().nullable().optional(),
 	prompt: z.string().nullable().optional(),
+	notes: z.string().nullable().optional(),
 	bodyType: z.string(),
 	animation: z.string(),
 	tags: z.array(z.string()).default([]),
 	enginePreset: z.string().nullable().optional(),
 	selections: z.record(z.string()).default({}),
+	renderSettings: z.record(z.any()).default({}),
+	exportSettings: z.record(z.any()).default({}),
 	promptHistory: z.array(z.string()).default([]),
 	exportHistory: z.array(z.record(z.any())).default([]),
 });
@@ -45,20 +49,46 @@ const bootstrapSchema = z.object({
 	recent: z.array(historyEntrySchema).default([]),
 });
 
+const historyListSchema = z.object({
+	items: z.array(historyEntrySchema).default([]),
+});
+
+const deleteResultSchema = z.object({
+	deleted: z.string(),
+});
+
+const packageExportSchema = z.object({
+	id: z.string(),
+	packagePath: z.string(),
+	baseName: z.string(),
+});
+
 function getBaseUrl() {
 	return (
-		process.env.NEXT_PUBLIC_SPRITECRAFT_API_BASE?.replace(/\/$/, "") ??
+		env.NEXT_PUBLIC_SPRITECRAFT_API_BASE?.replace(/\/$/, "") ??
 		"http://127.0.0.1:8080"
 	);
 }
 
-async function fetchJson<T>(path: string, schema: z.ZodSchema<T>) {
+async function fetchJson<T>(path: string, schema: z.ZodSchema<T>, init?: RequestInit) {
 	const response = await fetch(`${getBaseUrl()}${path}`, {
+		headers: {
+			"content-type": "application/json",
+			...(init?.headers ?? {}),
+		},
 		cache: "no-store",
+		...init,
 	});
 
 	if (!response.ok) {
-		throw new Error(`${path} failed with ${response.status}`);
+		let detail = `${path} failed with ${response.status}`;
+		try {
+			const payload = (await response.json()) as { error?: string };
+			if (payload.error) {
+				detail = payload.error;
+			}
+		} catch {}
+		throw new Error(detail);
 	}
 
 	return schema.parse(await response.json());
@@ -78,4 +108,37 @@ export async function getSpriteCraftBootstrap() {
 	} catch {
 		return null;
 	}
+}
+
+export async function getSpriteCraftHistory() {
+	return fetchJson("/api/history", historyListSchema);
+}
+
+export async function getSpriteCraftProject(id: string) {
+	return fetchJson(`/api/history/${id}`, historyEntrySchema);
+}
+
+export async function duplicateSpriteCraftHistoryEntry(id: string) {
+	return fetchJson(`/api/history/${id}/duplicate`, historyEntrySchema, {
+		method: "POST",
+	});
+}
+
+export async function deleteSpriteCraftHistoryEntry(id: string) {
+	return fetchJson(`/api/history/${id}`, deleteResultSchema, {
+		method: "DELETE",
+	});
+}
+
+export async function exportSpriteCraftHistoryPackage(id: string) {
+	return fetchJson(`/api/history/${id}/export-package`, packageExportSchema, {
+		method: "POST",
+	});
+}
+
+export async function importSpriteCraftHistoryPackage(packagePath: string) {
+	return fetchJson("/api/history/import", historyEntrySchema, {
+		method: "POST",
+		body: JSON.stringify({ packagePath }),
+	});
 }
