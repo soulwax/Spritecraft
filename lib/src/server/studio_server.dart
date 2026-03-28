@@ -50,6 +50,7 @@ class StudioServer {
 
   Future<HttpServer> serve({String host = '127.0.0.1', int port = 8080}) async {
     final Router router = Router()
+      ..get('/health', _health)
       ..get('/api/studio/bootstrap', _bootstrap)
       ..get('/api/lpc/catalog', _catalog)
       ..post('/api/lpc/render', _render)
@@ -115,6 +116,89 @@ class StudioServer {
           .map((StudioHistoryEntry entry) => entry.toJson())
           .toList(),
     });
+  }
+
+  Future<Response> _health(Request request) async {
+    final List<Map<String, String>> checks = <Map<String, String>>[
+      _healthCheck(
+        label: 'Studio assets',
+        isOk: config.studioDirectory.existsSync(),
+        okDetail: 'Studio assets are ready.',
+        failDetail: 'Missing studio directory at ${config.studioDirectory.path}.',
+      ),
+      _healthCheck(
+        label: 'LPC project',
+        isOk: config.hasLpcProject,
+        okDetail: 'LPC submodule directory found.',
+        failDetail:
+            'Missing lpc-spritesheet-creator. Run git submodule update --init --recursive.',
+      ),
+      _healthCheck(
+        label: 'Definitions',
+        isOk: config.lpcDefinitionsDirectory.existsSync(),
+        okDetail: 'Sheet definitions directory is present.',
+        failDetail:
+            'Missing sheet definitions at ${config.lpcDefinitionsDirectory.path}.',
+      ),
+      _healthCheck(
+        label: 'Spritesheets',
+        isOk: config.lpcSpritesheetsDirectory.existsSync(),
+        okDetail: 'Spritesheet assets directory is present.',
+        failDetail:
+            'Missing spritesheets at ${config.lpcSpritesheetsDirectory.path}.',
+      ),
+      <String, String>{
+        'label': 'Gemini',
+        'status': config.hasGemini ? 'ok' : 'warning',
+        'detail': config.hasGemini
+            ? 'GEMINI_API_KEY is configured.'
+            : 'GEMINI_API_KEY is not configured. AI suggestions will fall back to local recommendations.',
+      },
+      <String, String>{
+        'label': 'Database',
+        'status': historyRepository != null
+            ? 'ok'
+            : (config.hasDatabase ? 'warning' : 'warning'),
+        'detail': historyRepository != null
+            ? 'History persistence is available.'
+            : (config.hasDatabase
+                  ? 'DATABASE_URL is set, but history persistence is currently unavailable.'
+                  : 'DATABASE_URL is not configured. History endpoints will be limited.'),
+      ),
+      <String, String>{
+        'label': 'Export directory',
+        'status': 'ok',
+        'detail': 'Exports will be written to ${config.exportDirectory.path}.',
+      },
+    ];
+
+    final bool hasErrors = checks.any(
+      (Map<String, String> check) => check['status'] == 'error',
+    );
+    final bool hasWarnings = checks.any(
+      (Map<String, String> check) => check['status'] == 'warning',
+    );
+
+    return _json(200, <String, Object>{
+      'status': hasErrors
+          ? 'error'
+          : (hasWarnings ? 'warning' : 'ok'),
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'checks': checks,
+    });
+  }
+
+  Map<String, String> _healthCheck({
+    required String label,
+    required bool isOk,
+    required String okDetail,
+    required String failDetail,
+  }) {
+    return <String, String>{
+      'label': label,
+      'status': isOk ? 'ok' : 'error',
+      'detail': isOk ? okDetail : failDetail,
+    };
   }
 
   Future<Response> _catalog(Request request) async {

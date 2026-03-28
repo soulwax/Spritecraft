@@ -1,3 +1,10 @@
+## 0.3.0 - 2026-03-28
+
+### Added
+
+- `GET /health` runtime endpoint for quickly checking Studio assets, LPC submodule paths, Gemini availability, database availability, and export directory readiness.
+- A Studio runtime health panel with refresh support so startup problems are visible in the UI instead of only surfacing as failed requests later.
+
 ## 0.2.0 - 2026-03-28
 
 ### Added

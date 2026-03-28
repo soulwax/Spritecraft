@@ -6,6 +6,8 @@ const state = {
   selections: {},
   latestImageBase64: null,
   latestMetadata: null,
+  catalogItemsById: {},
+  health: null,
 };
 
 const elements = {
@@ -16,6 +18,8 @@ const elements = {
   enginePreset: document.querySelector("#enginePreset"),
   aiSuggest: document.querySelector("#aiSuggest"),
   saveProject: document.querySelector("#saveProject"),
+  clearSelections: document.querySelector("#clearSelections"),
+  selectionCount: document.querySelector("#selectionCount"),
   renderNow: document.querySelector("#renderNow"),
   exportRender: document.querySelector("#exportRender"),
   catalogSearch: document.querySelector("#catalogSearch"),
@@ -27,17 +31,25 @@ const elements = {
   previewMeta: document.querySelector("#previewMeta"),
   creditsList: document.querySelector("#creditsList"),
   planOutput: document.querySelector("#planOutput"),
+  toastContainer: document.querySelector("#toastContainer"),
+  healthPanel: null,
 };
 
 init().catch((error) => {
   console.error(error);
   elements.planOutput.textContent = `Startup failed: ${error.message}`;
+  showToast(error.message, "error");
 });
 
 async function init() {
-  const bootstrap = await api("/api/studio/bootstrap");
+  ensureStatusPanel();
+  const [bootstrap, health] = await Promise.all([
+    api("/api/studio/bootstrap"),
+    refreshHealth(),
+  ]);
   hydrateSelect(elements.bodyType, bootstrap.catalog.bodyTypes);
   hydrateSelect(elements.animation, bootstrap.catalog.animations);
+  state.health = health;
 
   state.bodyType = bootstrap.defaults.bodyType ?? state.bodyType;
   state.animation = bootstrap.defaults.animation ?? state.animation;
@@ -49,6 +61,7 @@ async function init() {
   bindEvents();
   renderHistory(bootstrap.recent ?? []);
   renderSelections();
+  renderHealth();
   await refreshCatalog();
   await refreshRender();
 }
@@ -71,16 +84,30 @@ function bindEvents() {
   elements.aiSuggest.addEventListener("click", runAiBrief);
   elements.saveProject.addEventListener("click", saveProject);
   elements.exportRender.addEventListener("click", exportRender);
+  elements.clearSelections.addEventListener("click", clearSelections);
 }
 
 async function refreshCatalog() {
-  const query = new URLSearchParams({
-    q: elements.catalogSearch.value,
-    bodyType: state.bodyType,
-    animation: state.animation,
-  });
-  const payload = await api(`/api/lpc/catalog?${query}`);
-  renderCatalog(payload.items ?? []);
+  try {
+    const query = new URLSearchParams({
+      q: elements.catalogSearch.value,
+      bodyType: state.bodyType,
+      animation: state.animation,
+    });
+    const payload = await api(`/api/lpc/catalog?${query}`);
+    for (const item of payload.items ?? []) {
+      state.catalogItemsById[item.id] = item;
+    }
+    renderCatalog(payload.items ?? []);
+    renderSelections();
+  } catch (error) {
+    renderCatalog([]);
+    elements.planOutput.textContent = actionableMessage(
+      "Could not load the catalog.",
+      error,
+    );
+    showToast(actionableMessage("Catalog refresh failed.", error), "error");
+  }
 }
 
 async function refreshRender() {
@@ -103,6 +130,7 @@ async function refreshRender() {
     renderCredits(payload.credits ?? []);
   } catch (error) {
     elements.previewMeta.textContent = error.message;
+    showToast(error.message, "error");
   }
 }
 
@@ -113,33 +141,46 @@ async function runAiBrief() {
     return;
   }
 
-  const payload = await api("/api/ai/brief", {
-    method: "POST",
-    body: JSON.stringify({
-      prompt,
-      bodyType: state.bodyType,
-    }),
-  });
+  try {
+    const payload = await api("/api/ai/brief", {
+      method: "POST",
+      body: JSON.stringify({
+        prompt,
+        bodyType: state.bodyType,
+      }),
+    });
 
-  elements.planOutput.textContent = payload.plan
-    ? JSON.stringify(payload.plan, null, 2)
-    : "Gemini is unavailable, so recommendations were generated locally.";
+    elements.planOutput.textContent = payload.plan
+      ? JSON.stringify(payload.plan, null, 2)
+      : "Gemini is unavailable, so recommendations were generated locally.";
 
-  if (payload.plan?.framePrompts?.length) {
-    elements.prompt.value = `${prompt}\n\nFrame ideas:\n- ${payload.plan.framePrompts.join("\n- ")}`;
+    if (payload.plan?.framePrompts?.length) {
+      elements.prompt.value = `${prompt}\n\nFrame ideas:\n- ${payload.plan.framePrompts.join("\n- ")}`;
+    }
+
+    renderCatalog(payload.recommendations ?? []);
+  } catch (error) {
+    const message = actionableMessage("AI brief generation failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
   }
-
-  renderCatalog(payload.recommendations ?? []);
 }
 
 async function saveProject() {
-  const payload = await api("/api/history/save", {
-    method: "POST",
-    body: JSON.stringify(buildRequest()),
-  });
-  const history = await api("/api/history");
-  renderHistory(history.items ?? []);
-  elements.planOutput.textContent = `Saved project ${payload.id}`;
+  try {
+    const payload = await api("/api/history/save", {
+      method: "POST",
+      body: JSON.stringify(buildRequest()),
+    });
+    const history = await api("/api/history");
+    renderHistory(history.items ?? []);
+    elements.planOutput.textContent = `Saved project ${payload.id}`;
+    showToast("Project saved to history.");
+  } catch (error) {
+    const message = actionableMessage("Project save failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
 }
 
 function renderCatalog(items) {
@@ -191,23 +232,30 @@ function renderCatalog(items) {
 function renderSelections() {
   elements.selectedItems.innerHTML = "";
   const entries = Object.entries(state.selections);
+  elements.selectionCount.textContent = `${entries.length}`;
+
   if (!entries.length) {
     elements.selectedItems.innerHTML = '<div class="muted">No layers selected yet.</div>';
     return;
   }
 
   for (const [itemId, variant] of entries) {
+    const item = state.catalogItemsById[itemId];
+    const title = item?.name ?? itemId;
+    const subtitle = item
+      ? `${item.typeName} · ${variant}`
+      : `Variant: ${variant}`;
     const card = document.createElement("article");
     card.className = "selected-card";
     card.innerHTML = `
       <header>
         <div>
-          <h3>${escapeHtml(itemId)}</h3>
-          <div class="muted">Variant: ${escapeHtml(variant)}</div>
+          <h3>${escapeHtml(title)}</h3>
+          <div class="muted">${escapeHtml(subtitle)}</div>
         </div>
       </header>
       <div class="selected-actions">
-        <button class="mini">Remove</button>
+        <button class="mini ghost">Remove</button>
       </div>
     `;
     card.querySelector("button").addEventListener("click", async () => {
@@ -256,7 +304,17 @@ function renderHistory(items) {
         </div>
         <span class="chip">${new Date(item.createdAt).toLocaleString()}</span>
       </header>
+      <div class="selected-actions">
+        <button class="mini ghost" data-action="restore">Restore</button>
+        <button class="mini ghost" data-action="delete">Delete</button>
+      </div>
     `;
+    card.querySelector('[data-action="restore"]').addEventListener("click", async () => {
+      await restoreHistory(item.id);
+    });
+    card.querySelector('[data-action="delete"]').addEventListener("click", async () => {
+      await deleteHistory(item.id);
+    });
     elements.historyList.appendChild(card);
   }
 }
@@ -284,17 +342,106 @@ function hydrateSelect(select, values) {
 
 async function exportRender() {
   if (!state.latestImageBase64) {
+    showToast("Render something first.");
     return;
   }
-  const payload = await api("/api/lpc/export", {
-    method: "POST",
-    body: JSON.stringify(buildRequest()),
-  });
-  const extra = (payload.extraPaths ?? []).map((file) => `Preset: ${file}`).join("\n");
-  elements.previewMeta.textContent = `${elements.previewMeta.textContent} · exported`;
-  elements.planOutput.textContent =
-    `Exported bundle:\nPNG: ${payload.imagePath}\nJSON: ${payload.metadataPath}\nZIP: ${payload.bundlePath}` +
-    (extra ? `\n${extra}` : "");
+  try {
+    const payload = await api("/api/lpc/export", {
+      method: "POST",
+      body: JSON.stringify(buildRequest()),
+    });
+    const extra = (payload.extraPaths ?? []).map((file) => `Preset: ${file}`).join("\n");
+    elements.previewMeta.textContent = `${elements.previewMeta.textContent} · exported`;
+    elements.planOutput.textContent =
+      `Exported bundle (${payload.enginePreset || "none"} preset):\nPNG: ${payload.imagePath}\nJSON: ${payload.metadataPath}\nZIP: ${payload.bundlePath}` +
+      (extra ? `\n${extra}` : "");
+    showToast("Export bundle written to build/exports.");
+  } catch (error) {
+    const message = actionableMessage("Export failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
+}
+
+async function clearSelections() {
+  if (!Object.keys(state.selections).length) {
+    showToast("Selections are already empty.");
+    return;
+  }
+
+  state.selections = {};
+  renderSelections();
+  elements.previewImage.removeAttribute("src");
+  elements.previewMeta.textContent = "Pick some layers to render.";
+  elements.creditsList.textContent = "Credits will appear after a render.";
+  showToast("Selections cleared.");
+}
+
+async function refreshHealth() {
+  try {
+    const payload = await api("/health");
+    state.health = payload;
+    renderHealth();
+    return payload;
+  } catch (error) {
+    state.health = {
+      status: "error",
+      checks: [
+        {
+          label: "Health endpoint",
+          status: "error",
+          detail: error.message,
+        },
+      ],
+    };
+    renderHealth();
+    throw error;
+  }
+}
+
+async function restoreHistory(id) {
+  try {
+    const payload = await api("/api/history/restore", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
+
+    const restored = payload.restored;
+    state.bodyType = restored.bodyType;
+    state.animation = restored.animation;
+    state.selections = restored.selections ?? {};
+    elements.bodyType.value = state.bodyType;
+    elements.animation.value = state.animation;
+    elements.prompt.value = restored.prompt ?? "";
+
+    state.latestImageBase64 = payload.imageBase64;
+    state.latestMetadata = payload.metadata;
+    elements.previewImage.src = `data:image/png;base64,${payload.imageBase64}`;
+    elements.previewMeta.textContent = `${payload.width} x ${payload.height} px, ${payload.usedLayers.length} layers · restored`;
+    renderCredits(payload.credits ?? []);
+    await refreshCatalog();
+    renderSelections();
+    showToast("History entry restored.");
+  } catch (error) {
+    const message = actionableMessage("Restore failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
+}
+
+async function deleteHistory(id) {
+  try {
+    await api(`/api/history/${id}`, {
+      method: "DELETE",
+    });
+    const history = await api("/api/history");
+    renderHistory(history.items ?? []);
+    showToast("History entry deleted.");
+  } catch (error) {
+    const message = actionableMessage("Delete failed.", error);
+    elements.planOutput.textContent = message;
+    showToast(message, "error");
+  }
 }
 
 async function api(url, options = {}) {
@@ -304,7 +451,10 @@ async function api(url, options = {}) {
     },
     ...options,
   });
-  const payload = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? await response.json()
+    : { error: (await response.text()) || "Request failed" };
   if (!response.ok) {
     throw new Error(payload.error || "Request failed");
   }
@@ -326,4 +476,102 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function actionableMessage(prefix, error) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes("DATABASE_URL")) {
+    return `${prefix} Configure DATABASE_URL if you want saved history, or keep working without persistence.`;
+  }
+
+  if (message.includes("GEMINI_API_KEY")) {
+    return `${prefix} Add a valid GEMINI_API_KEY to enable AI suggestions.`;
+  }
+
+  if (
+    message.includes("lpc-spritesheet-creator") ||
+    message.includes("sheet definitions") ||
+    message.includes("spritesheets")
+  ) {
+    return `${prefix} The LPC asset submodule looks incomplete. Run git submodule update --init --recursive and try again.`;
+  }
+
+  return `${prefix} ${message}`;
+}
+
+function ensureStatusPanel() {
+  if (elements.healthPanel) {
+    return;
+  }
+
+  const host = elements.previewMeta?.parentElement || elements.planOutput?.parentElement || document.body;
+  const panel = document.createElement("section");
+  panel.className = "status-panel";
+  panel.innerHTML = `
+    <div class="status-panel-header">
+      <div>
+        <p class="eyebrow">System status</p>
+        <h2>Runtime health</h2>
+      </div>
+      <button class="mini ghost" type="button" data-action="refresh-health">Refresh</button>
+    </div>
+    <p class="muted" data-role="health-summary">Checking SpriteCraft services...</p>
+    <div class="status-grid" data-role="health-checks"></div>
+  `;
+
+  host.prepend(panel);
+  panel
+    .querySelector('[data-action="refresh-health"]')
+    .addEventListener("click", refreshHealth);
+
+  elements.healthPanel = panel;
+}
+
+function renderHealth() {
+  if (!elements.healthPanel) {
+    return;
+  }
+
+  const summary = elements.healthPanel.querySelector('[data-role="health-summary"]');
+  const checksHost = elements.healthPanel.querySelector('[data-role="health-checks"]');
+  const health = state.health;
+  const checks = health?.checks ?? [];
+  const status = health?.status ?? "warning";
+  const statusLabel = status === "ok" ? "ready" : status;
+
+  summary.textContent =
+    checks.length
+      ? `SpriteCraft runtime is ${statusLabel}. ${checks.filter((check) => check.status !== "ok").length} attention item(s).`
+      : "No health details are available yet.";
+
+  checksHost.innerHTML = "";
+  for (const check of checks) {
+    const card = document.createElement("article");
+    card.className = `status-card ${check.status || "warning"}`;
+    card.innerHTML = `
+      <header>
+        <strong>${escapeHtml(check.label || "Check")}</strong>
+        <span class="chip">${escapeHtml(check.status || "unknown")}</span>
+      </header>
+      <p>${escapeHtml(check.detail || "")}</p>
+    `;
+    checksHost.appendChild(card);
+  }
+}
+
+function showToast(message, kind = "info") {
+  const toast = document.createElement("div");
+  toast.className = `toast ${kind}`;
+  toast.textContent = message;
+  elements.toastContainer.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add("visible");
+  });
+
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 220);
+  }, 2600);
 }
