@@ -1,3 +1,5 @@
+// File: lib/src/spritesheet_packer.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;

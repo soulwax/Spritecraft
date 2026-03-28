@@ -1,3 +1,5 @@
+// File: lib/src/models/spritesheet_build_result.dart
+
 class SpriteFramePlacement {
   const SpriteFramePlacement({
     required this.name,

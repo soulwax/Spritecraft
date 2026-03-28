@@ -1,3 +1,5 @@
+// File: bin/spritecraft.dart
+
 import 'dart:convert';
 import 'dart:io';
 

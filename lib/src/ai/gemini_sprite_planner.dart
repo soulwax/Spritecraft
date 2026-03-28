@@ -1,3 +1,5 @@
+// File: lib/src/ai/gemini_sprite_planner.dart
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;

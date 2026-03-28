@@ -1,3 +1,5 @@
+// File: studio/app.js
+
 const state = {
   bodyType: "male",
   animation: "idle",

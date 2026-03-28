@@ -1,3 +1,5 @@
+// File: lib/src/lpc/lpc_catalog.dart
+
 import 'dart:convert';
 import 'dart:io';
 

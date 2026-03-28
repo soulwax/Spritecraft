@@ -1,3 +1,5 @@
+// File: lib/src/models/lpc_models.dart
+
 import 'dart:convert';
 
 class LpcLayerDefinition {

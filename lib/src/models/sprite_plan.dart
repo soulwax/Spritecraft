@@ -1,3 +1,5 @@
+// File: lib/src/models/sprite_plan.dart
+
 class SpritePlan {
   const SpritePlan({
     required this.concept,

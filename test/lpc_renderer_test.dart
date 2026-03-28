@@ -1,3 +1,5 @@
+// File: test/lpc_renderer_test.dart
+
 import 'dart:io';
 
 import 'package:image/image.dart' as img;

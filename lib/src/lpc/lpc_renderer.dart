@@ -1,3 +1,5 @@
+// File: lib/src/lpc/lpc_renderer.dart
+
 import 'dart:io';
 import 'dart:typed_data';
 

@@ -1,3 +1,5 @@
+# File: pubspec.yaml
+
 name: spritecraft
 description: Pure Dart CLI and library for crafting spritesheets, with LPC-powered composition and Gemini-ready AI planning hooks.
 version: 0.2.0

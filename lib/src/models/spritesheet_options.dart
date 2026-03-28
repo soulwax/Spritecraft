@@ -1,3 +1,5 @@
+// File: lib/src/models/spritesheet_options.dart
+
 class SpritesheetOptions {
   const SpritesheetOptions({
     required this.inputDirectory,

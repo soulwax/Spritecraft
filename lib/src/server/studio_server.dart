@@ -1,3 +1,5 @@
+// File: lib/src/server/studio_server.dart
+
 import 'dart:convert';
 import 'dart:io';
 

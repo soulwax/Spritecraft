@@ -1,3 +1,5 @@
+// File: test/gemini_sprite_planner_test.dart
+
 import 'package:spritecraft/spritesheet_creator.dart';
 import 'package:test/test.dart';
 
