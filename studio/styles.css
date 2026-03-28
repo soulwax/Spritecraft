@@ -558,3 +558,63 @@ button.btn-loading::after {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.9rem;
 }
+.builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.builder-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.preview-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.preview-modes button.active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.comparison-card {
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.comparison-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.comparison-card img {
+  display: block;
+  width: 100%;
+  max-width: 160px;
+  margin: 0 auto 0.6rem;
+  image-rendering: pixelated;
+}
+
+.comparison-card p {
+  margin: 0;
+}
+
+.hidden {
+  display: none !important;
+}

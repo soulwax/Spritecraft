@@ -8,6 +8,8 @@
 - Server-side render result caching for repeated preview and export requests using the same layer selection.
 - Focused export helper coverage for bundle naming, engine preset files, and zip archive contents.
 - Catalog browsing improvements in Studio with category filter chips and grouped result sections for faster asset discovery.
+- Builder workflow controls for undo, redo, restore-last-render, and keyboard shortcuts to make experimentation safer.
+- Preview mode controls for side-by-side idle, walk, and combat comparisons using the existing Studio render pipeline.
 
 ## 0.2.0 - 2026-03-28
 

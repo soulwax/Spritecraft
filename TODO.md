@@ -30,9 +30,9 @@ Goal: make the Studio genuinely comfortable for building sprites, not just techn
 - [ ] Add filters for body type, animation compatibility, tags, and category
 - [ ] Add search result ranking that favors likely creator intent, not only keyword hits
 - [ ] Add favorites and pinned items for repeated workflows
-- [ ] Add clear-all, undo, redo, and restore-last-render actions
+- [x] Add clear-all, undo, redo, and restore-last-render actions
 - [ ] Add layer reordering controls where override behavior makes sense
-- [ ] Add side-by-side preview modes for idle, walk, and combat animation comparisons
+- [x] Add side-by-side preview modes for idle, walk, and combat animation comparisons
 
 ## Phase 3 — Project Workflow
 

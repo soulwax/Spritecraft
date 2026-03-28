@@ -4,7 +4,12 @@ const state = {
   bodyType: "male",
   animation: "idle",
   category: "all",
+  previewMode: "single",
+  availableAnimations: [],
   selections: {},
+  undoStack: [],
+  redoStack: [],
+  lastRenderedRequest: null,
   latestImageBase64: null,
   latestMetadata: null,
   catalogItemsById: {},
@@ -20,6 +25,7 @@ const elements = {
   aiSuggest: document.querySelector("#aiSuggest"),
   saveProject: document.querySelector("#saveProject"),
   clearSelections: document.querySelector("#clearSelections"),
+  builderActions: null,
   selectionCount: document.querySelector("#selectionCount"),
   renderNow: document.querySelector("#renderNow"),
   exportRender: document.querySelector("#exportRender"),
@@ -35,6 +41,8 @@ const elements = {
   planOutput: document.querySelector("#planOutput"),
   toastContainer: document.querySelector("#toastContainer"),
   healthPanel: null,
+  previewModes: null,
+  comparisonGrid: null,
 };
 
 init().catch((error) => {
@@ -45,12 +53,15 @@ init().catch((error) => {
 
 async function init() {
   ensureStatusPanel();
+  ensureBuilderActions();
+  ensurePreviewModes();
   const [bootstrap, health] = await Promise.all([
     api("/api/studio/bootstrap"),
     refreshHealth(),
   ]);
   hydrateSelect(elements.bodyType, bootstrap.catalog.bodyTypes);
   hydrateSelect(elements.animation, bootstrap.catalog.animations);
+  state.availableAnimations = bootstrap.catalog.animations ?? [];
   state.health = health;
 
   state.bodyType = bootstrap.defaults.bodyType ?? state.bodyType;
@@ -70,13 +81,19 @@ async function init() {
 
 function bindEvents() {
   elements.bodyType.addEventListener("change", async (event) => {
+    pushUndoSnapshot();
     state.bodyType = event.target.value;
+    state.redoStack = [];
+    updateBuilderActionState();
     await refreshCatalog();
     await refreshRender();
   });
 
   elements.animation.addEventListener("change", async (event) => {
+    pushUndoSnapshot();
     state.animation = event.target.value;
+    state.redoStack = [];
+    updateBuilderActionState();
     await refreshCatalog();
     await refreshRender();
   });
@@ -87,6 +104,7 @@ function bindEvents() {
   elements.saveProject.addEventListener("click", saveProject);
   elements.exportRender.addEventListener("click", exportRender);
   elements.clearSelections.addEventListener("click", clearSelections);
+  document.addEventListener("keydown", handleBuilderShortcuts);
 }
 
 async function refreshCatalog() {
@@ -119,21 +137,36 @@ async function refreshRender() {
     elements.previewMeta.textContent = "Pick some layers to render.";
     elements.previewImage.removeAttribute("src");
     elements.creditsList.textContent = "Credits will appear after a render.";
+    renderComparisonPreviews([]);
     return;
   }
 
   try {
-    const payload = await api("/api/lpc/render", {
-      method: "POST",
-      body: JSON.stringify(buildRequest()),
-    });
+    const comparisonAnimations = state.previewMode === "compare"
+      ? getComparisonAnimations()
+      : [];
+    const requestedAnimations = [...new Set([state.animation, ...comparisonAnimations])];
+    const payloads = await Promise.all(
+      requestedAnimations.map((animation) => fetchRenderPayload(animation)),
+    );
+    const payload = payloads.find((item) => item.animation === state.animation) ?? payloads[0];
     state.latestImageBase64 = payload.imageBase64;
     state.latestMetadata = payload.metadata;
+    state.lastRenderedRequest = snapshotRenderableState();
+    updateBuilderActionState();
     elements.previewImage.src = `data:image/png;base64,${payload.imageBase64}`;
-    elements.previewMeta.textContent = `${payload.width} x ${payload.height} px, ${payload.usedLayers.length} layers`;
+    elements.previewMeta.textContent = state.previewMode === "compare"
+      ? `${payload.width} x ${payload.height} px, ${payload.usedLayers.length} layers · comparison mode`
+      : `${payload.width} x ${payload.height} px, ${payload.usedLayers.length} layers`;
     renderCredits(payload.credits ?? []);
+    renderComparisonPreviews(
+      comparisonAnimations.map((animation) =>
+        payloads.find((item) => item.animation === animation) ?? payload,
+      ),
+    );
   } catch (error) {
     elements.previewMeta.textContent = error.message;
+    renderComparisonPreviews([]);
     showToast(error.message, "error");
   }
 }
@@ -249,7 +282,10 @@ function renderCatalog(items) {
       const button = card.querySelector("button");
       const select = card.querySelector("select");
       button.addEventListener("click", async () => {
+        pushUndoSnapshot();
         state.selections[item.id] = select.value;
+        state.redoStack = [];
+        updateBuilderActionState();
         renderSelections();
         await refreshRender();
       });
@@ -292,7 +328,10 @@ function renderSelections() {
       </div>
     `;
     card.querySelector("button").addEventListener("click", async () => {
+      pushUndoSnapshot();
       delete state.selections[itemId];
+      state.redoStack = [];
+      updateBuilderActionState();
       renderSelections();
       await refreshRender();
     });
@@ -402,11 +441,14 @@ async function clearSelections() {
     return;
   }
 
+  pushUndoSnapshot();
   state.selections = {};
+  state.redoStack = [];
   renderSelections();
   elements.previewImage.removeAttribute("src");
   elements.previewMeta.textContent = "Pick some layers to render.";
   elements.creditsList.textContent = "Credits will appear after a render.";
+  updateBuilderActionState();
   showToast("Selections cleared.");
 }
 
@@ -443,17 +485,20 @@ async function restoreHistory(id) {
     state.bodyType = restored.bodyType;
     state.animation = restored.animation;
     state.selections = restored.selections ?? {};
-    elements.bodyType.value = state.bodyType;
-    elements.animation.value = state.animation;
-    elements.prompt.value = restored.prompt ?? "";
+    state.redoStack = [];
+    syncBuilderInputsFromState({
+      prompt: restored.prompt ?? "",
+    });
 
     state.latestImageBase64 = payload.imageBase64;
     state.latestMetadata = payload.metadata;
+    state.lastRenderedRequest = snapshotRenderableState();
     elements.previewImage.src = `data:image/png;base64,${payload.imageBase64}`;
     elements.previewMeta.textContent = `${payload.width} x ${payload.height} px, ${payload.usedLayers.length} layers · restored`;
     renderCredits(payload.credits ?? []);
     await refreshCatalog();
     renderSelections();
+    updateBuilderActionState();
     showToast("History entry restored.");
   } catch (error) {
     const message = actionableMessage("Restore failed.", error);
@@ -662,6 +707,303 @@ function renderHealth() {
       <p>${escapeHtml(check.detail || "")}</p>
     `;
     checksHost.appendChild(card);
+  }
+}
+
+function ensureBuilderActions() {
+  if (elements.builderActions || !elements.clearSelections?.parentElement) {
+    return;
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "builder-actions";
+  actions.innerHTML = `
+    <button class="mini ghost" type="button" data-action="undo">Undo</button>
+    <button class="mini ghost" type="button" data-action="redo">Redo</button>
+    <button class="mini ghost" type="button" data-action="restore-render">Restore Last Render</button>
+  `;
+
+  elements.clearSelections.parentElement.insertBefore(
+    actions,
+    elements.clearSelections.nextSibling,
+  );
+  elements.builderActions = actions;
+  actions.querySelector('[data-action="undo"]').addEventListener("click", undoBuilderChange);
+  actions.querySelector('[data-action="redo"]').addEventListener("click", redoBuilderChange);
+  actions
+    .querySelector('[data-action="restore-render"]')
+    .addEventListener("click", restoreLastRender);
+  updateBuilderActionState();
+}
+
+function ensurePreviewModes() {
+  if (elements.previewModes || !elements.previewMeta?.parentElement) {
+    return;
+  }
+
+  const controls = document.createElement("div");
+  controls.className = "preview-modes";
+  controls.innerHTML = `
+    <button class="mini ghost active" type="button" data-preview-mode="single">Single Preview</button>
+    <button class="mini ghost" type="button" data-preview-mode="compare">Compare Idle / Walk / Combat</button>
+  `;
+
+  const comparisonGrid = document.createElement("div");
+  comparisonGrid.className = "comparison-grid hidden";
+
+  const host = elements.previewMeta.parentElement;
+  host.prepend(comparisonGrid);
+  host.prepend(controls);
+
+  elements.previewModes = controls;
+  elements.comparisonGrid = comparisonGrid;
+
+  for (const button of controls.querySelectorAll("[data-preview-mode]")) {
+    button.addEventListener("click", async () => {
+      const nextMode = button.dataset.previewMode || "single";
+      if (nextMode === state.previewMode) {
+        return;
+      }
+
+      state.previewMode = nextMode;
+      syncPreviewModeButtons();
+      await refreshRender();
+    });
+  }
+
+  syncPreviewModeButtons();
+}
+
+function snapshotBuilderState() {
+  return {
+    bodyType: state.bodyType,
+    animation: state.animation,
+    selections: { ...state.selections },
+  };
+}
+
+function snapshotRenderableState() {
+  return {
+    ...snapshotBuilderState(),
+    prompt: elements.prompt?.value ?? "",
+    projectName: elements.projectName?.value ?? "",
+    enginePreset: elements.enginePreset?.value ?? "none",
+  };
+}
+
+function pushUndoSnapshot() {
+  const snapshot = snapshotBuilderState();
+  const previous = state.undoStack[state.undoStack.length - 1];
+  if (previous && builderStatesEqual(previous, snapshot)) {
+    return;
+  }
+
+  state.undoStack.push(snapshot);
+  if (state.undoStack.length > 40) {
+    state.undoStack.shift();
+  }
+}
+
+function builderStatesEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function syncBuilderInputsFromState(overrides = {}) {
+  const nextPrompt = overrides.prompt ?? elements.prompt?.value ?? "";
+  const nextProjectName = overrides.projectName ?? elements.projectName?.value ?? "";
+  const nextEnginePreset = overrides.enginePreset ?? elements.enginePreset?.value ?? "none";
+
+  elements.bodyType.value = state.bodyType;
+  elements.animation.value = state.animation;
+  if (elements.prompt) {
+    elements.prompt.value = nextPrompt;
+  }
+  if (elements.projectName) {
+    elements.projectName.value = nextProjectName;
+  }
+  if (elements.enginePreset) {
+    elements.enginePreset.value = nextEnginePreset;
+  }
+}
+
+async function applyBuilderSnapshot(snapshot, { announce = "" } = {}) {
+  state.bodyType = snapshot.bodyType;
+  state.animation = snapshot.animation;
+  state.selections = { ...(snapshot.selections ?? {}) };
+  syncBuilderInputsFromState(snapshot);
+  renderSelections();
+  await refreshCatalog();
+  if (Object.keys(state.selections).length) {
+    await refreshRender();
+  } else {
+    elements.previewImage.removeAttribute("src");
+    elements.previewMeta.textContent = "Pick some layers to render.";
+    elements.creditsList.textContent = "Credits will appear after a render.";
+  }
+  updateBuilderActionState();
+  if (announce) {
+    showToast(announce);
+  }
+}
+
+async function undoBuilderChange() {
+  const snapshot = state.undoStack.pop();
+  if (!snapshot) {
+    showToast("Nothing to undo.");
+    return;
+  }
+
+  state.redoStack.push(snapshotBuilderState());
+  await applyBuilderSnapshot(snapshot, { announce: "Undid last change." });
+}
+
+async function redoBuilderChange() {
+  const snapshot = state.redoStack.pop();
+  if (!snapshot) {
+    showToast("Nothing to redo.");
+    return;
+  }
+
+  state.undoStack.push(snapshotBuilderState());
+  await applyBuilderSnapshot(snapshot, { announce: "Redid change." });
+}
+
+async function restoreLastRender() {
+  if (!state.lastRenderedRequest) {
+    showToast("No previous render is available yet.");
+    return;
+  }
+
+  pushUndoSnapshot();
+  state.redoStack = [];
+  await applyBuilderSnapshot(state.lastRenderedRequest, {
+    announce: "Restored the last rendered look.",
+  });
+}
+
+function updateBuilderActionState() {
+  if (!elements.builderActions) {
+    return;
+  }
+
+  const undoButton = elements.builderActions.querySelector('[data-action="undo"]');
+  const redoButton = elements.builderActions.querySelector('[data-action="redo"]');
+  const restoreButton = elements.builderActions.querySelector('[data-action="restore-render"]');
+  undoButton.disabled = state.undoStack.length === 0;
+  redoButton.disabled = state.redoStack.length === 0;
+  restoreButton.disabled = !state.lastRenderedRequest;
+}
+
+function syncPreviewModeButtons() {
+  if (!elements.previewModes) {
+    return;
+  }
+
+  for (const button of elements.previewModes.querySelectorAll("[data-preview-mode]")) {
+    button.classList.toggle(
+      "active",
+      button.dataset.previewMode === state.previewMode,
+    );
+  }
+}
+
+function getComparisonAnimations() {
+  const preferred = [
+    "idle",
+    "walk",
+    "slash",
+    "attack",
+    "shoot",
+    "thrust",
+    "cast",
+    "spellcast",
+  ];
+  const matches = preferred.filter((animation) =>
+    state.availableAnimations.includes(animation),
+  );
+
+  if (matches.length >= 3) {
+    return matches.slice(0, 3);
+  }
+
+  const fallback = state.availableAnimations.filter(
+    (animation) => !matches.includes(animation),
+  );
+  return [...matches, ...fallback].slice(0, 3);
+}
+
+async function fetchRenderPayload(animation) {
+  const payload = await api("/api/lpc/render", {
+    method: "POST",
+    body: JSON.stringify({
+      ...buildRequest(),
+      animation,
+    }),
+  });
+  return {
+    ...payload,
+    animation,
+  };
+}
+
+function renderComparisonPreviews(payloads) {
+  if (!elements.comparisonGrid) {
+    return;
+  }
+
+  elements.comparisonGrid.innerHTML = "";
+  const shouldShow = state.previewMode === "compare" && payloads.length > 0;
+  elements.comparisonGrid.classList.toggle("hidden", !shouldShow);
+
+  if (!shouldShow) {
+    return;
+  }
+
+  for (const payload of payloads) {
+    const card = document.createElement("article");
+    card.className = "comparison-card";
+    card.innerHTML = `
+      <header>
+        <strong>${escapeHtml(formatAnimationLabel(payload.animation))}</strong>
+        <span class="chip">${escapeHtml(payload.width)} x ${escapeHtml(payload.height)}</span>
+      </header>
+      <img alt="${escapeHtml(payload.animation)} preview" src="data:image/png;base64,${payload.imageBase64}">
+      <p class="muted">${escapeHtml(payload.usedLayers.length)} layers</p>
+    `;
+    elements.comparisonGrid.appendChild(card);
+  }
+}
+
+function formatAnimationLabel(animation) {
+  return String(animation)
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function handleBuilderShortcuts(event) {
+  const isModifier = event.ctrlKey || event.metaKey;
+  if (!isModifier) {
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === "z" && event.shiftKey) {
+    event.preventDefault();
+    void redoBuilderChange();
+    return;
+  }
+
+  if (key === "z") {
+    event.preventDefault();
+    void undoBuilderChange();
+    return;
+  }
+
+  if (key === "y") {
+    event.preventDefault();
+    void redoBuilderChange();
   }
 }
 
