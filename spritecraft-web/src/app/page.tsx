@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {
-  AlertTriangle,
+	AlertTriangle,
   Boxes,
   Compass,
   FolderKanban,
@@ -13,6 +13,7 @@ import {
   SwatchBook,
 } from "lucide-react";
 
+import { CatalogScout } from "~/app/_components/catalog-scout";
 import { ProjectLauncher } from "~/app/_components/project-launcher";
 import { ProjectBrowser } from "~/app/_components/project-browser";
 import { Badge } from "~/components/ui/badge";
@@ -194,12 +195,17 @@ export default async function Home() {
         ))}
       </section>
 
-      <ProjectLauncher
-        animations={bootstrap?.catalog.animations ?? []}
-        bodyTypes={bootstrap?.catalog.bodyTypes ?? []}
-      />
+			<ProjectLauncher
+				animations={bootstrap?.catalog.animations ?? []}
+				bodyTypes={bootstrap?.catalog.bodyTypes ?? []}
+			/>
 
-      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+			<CatalogScout
+				animations={bootstrap?.catalog.animations ?? []}
+				bodyTypes={bootstrap?.catalog.bodyTypes ?? []}
+			/>
+
+			<section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card>
           <CardHeader>
             <CardTitle>Migration Slices</CardTitle>

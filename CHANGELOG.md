@@ -1,3 +1,11 @@
+## 0.4.8 - 2026-03-28
+
+### Changed
+
+- Added a `spritecraft-web` catalog scout that can search the LPC catalog, filter by body type and animation, and hand that discovery context off into the Dart Studio.
+- Added a shared web-side catalog bridge route so the new frontend can query the existing Dart backend without collapsing the migration boundary.
+- Expanded Studio deep-link handling so `catalogSearch` now survives web-to-builder handoff for scouting flows.
+
 ## 0.4.7 - 2026-03-28
 
 ### Changed

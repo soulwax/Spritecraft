@@ -7,7 +7,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.4.7';
+const String version = '0.4.8';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {

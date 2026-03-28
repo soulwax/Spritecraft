@@ -37,6 +37,26 @@ const historyEntrySchema = z.object({
 
 export type SpriteCraftProjectSummary = z.infer<typeof historyEntrySchema>;
 
+const catalogItemSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	typeName: z.string(),
+	category: z.string(),
+	path: z.array(z.string()).default([]),
+	priority: z.number().nullable().optional(),
+	requiredBodyTypes: z.array(z.string()).default([]),
+	animations: z.array(z.string()).default([]),
+	tags: z.array(z.string()).default([]),
+	variants: z.array(z.string()).default([]),
+	matchBodyColor: z.boolean().default(false),
+});
+
+const catalogResponseSchema = z.object({
+	items: z.array(catalogItemSchema).default([]),
+});
+
+export type SpriteCraftCatalogItem = z.infer<typeof catalogItemSchema>;
+
 const saveRequestSchema = z.object({
 	projectName: z.string().optional(),
 	notes: z.string().optional(),
@@ -127,6 +147,25 @@ export async function getSpriteCraftBootstrap() {
 	} catch {
 		return null;
 	}
+}
+
+export async function getSpriteCraftCatalog(input: {
+	q?: string;
+	bodyType?: string;
+	animation?: string;
+}) {
+	const params = new URLSearchParams();
+	if (input.q) {
+		params.set("q", input.q);
+	}
+	if (input.bodyType) {
+		params.set("bodyType", input.bodyType);
+	}
+	if (input.animation) {
+		params.set("animation", input.animation);
+	}
+
+	return fetchJson(`/api/lpc/catalog?${params.toString()}`, catalogResponseSchema);
 }
 
 export async function getSpriteCraftHistory() {

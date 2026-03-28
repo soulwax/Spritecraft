@@ -556,6 +556,7 @@ function applyBuilderParamsFromUrl(bootstrap) {
   const category = params.get("category")?.trim();
   const animationFilter = params.get("animationFilter")?.trim();
   const tagFilter = params.get("tagFilter")?.trim();
+  const catalogSearch = params.get("catalogSearch")?.trim();
 
   if (bodyType && (bootstrap.catalog.bodyTypes ?? []).includes(bodyType)) {
     state.bodyType = bodyType;
@@ -583,6 +584,9 @@ function applyBuilderParamsFromUrl(bootstrap) {
   }
   if (tagFilter) {
     state.tagFilter = tagFilter;
+  }
+  if (catalogSearch && elements.catalogSearch) {
+    elements.catalogSearch.value = catalogSearch;
   }
 }
 

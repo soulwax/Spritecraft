@@ -11,6 +11,7 @@ export type SpriteCraftLaunchConfig = {
 	category: string;
 	animationFilter: string;
 	tagFilter: string;
+	catalogSearch?: string;
 };
 
 export const projectTemplates: SpriteCraftLaunchConfig[] = [
@@ -92,6 +93,9 @@ export function buildStudioTemplateUrl(template: SpriteCraftLaunchConfig) {
 		animationFilter: template.animationFilter,
 		tagFilter: template.tagFilter,
 	});
+	if (template.catalogSearch?.trim()) {
+		params.set("catalogSearch", template.catalogSearch.trim());
+	}
 	return `http://127.0.0.1:8080/?${params.toString()}`;
 }
 
