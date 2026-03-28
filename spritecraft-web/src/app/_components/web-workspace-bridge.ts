@@ -26,6 +26,8 @@ export type CatalogWorkspaceDraft = {
 	sourceProjectId: string | null;
 	sourceProjectLabel: string | null;
 	relatedProjects: WorkspaceLinkedProject[];
+	replaceByType: boolean;
+	activeTypeFocus: string | null;
 	bodyType: string;
 	animation: string;
 	category: string;
@@ -110,6 +112,10 @@ export function normalizeWorkspaceDraft(
 					];
 				})
 			: [],
+		replaceByType:
+			typeof draft.replaceByType === "boolean" ? draft.replaceByType : true,
+		activeTypeFocus:
+			typeof draft.activeTypeFocus === "string" ? draft.activeTypeFocus : null,
 		bodyType: typeof draft.bodyType === "string" ? draft.bodyType : "male",
 		animation: typeof draft.animation === "string" ? draft.animation : "idle",
 		category: typeof draft.category === "string" ? draft.category : "all",
@@ -168,6 +174,8 @@ export function projectToWorkspaceDraft(
 		sourceProjectId: project.id,
 		sourceProjectLabel: project.projectName ?? project.prompt ?? "Saved project",
 		relatedProjects: [],
+		replaceByType: true,
+		activeTypeFocus: null,
 		bodyType: project.bodyType,
 		animation: project.animation,
 		category,

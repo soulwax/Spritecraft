@@ -1,3 +1,38 @@
+## 0.4.24 - 2026-03-29
+
+### Changed
+
+- Added a web-side staged-selection mode that can automatically replace existing staged items of the same layer type, making `spritecraft-web` behave more like a practical builder instead of only a loose scouting tray.
+- Persisted the new staging mode in the web workspace so creators can choose between stricter layer replacement and free stacking across sessions.
+
+## 0.4.23 - 2026-03-29
+
+### Changed
+
+- Added side-by-side render comparison in the `spritecraft-web` version-compare panel so creators can visually inspect the current workspace against a related saved version.
+- Improved web-side version decisions by combining metadata comparison with actual rendered sprite feedback before branching or switching.
+
+## 0.4.22 - 2026-03-29
+
+### Changed
+
+- Made the web-side version comparison flow actionable by allowing the current workspace to branch directly from a compared related version.
+- Continued turning `spritecraft-web` into a usable iteration surface by collapsing compare and continue into one workflow instead of separate navigation steps.
+
+## 0.4.21 - 2026-03-29
+
+### Changed
+
+- Added a lightweight version-compare panel to the `spritecraft-web` workspace so creators can inspect prompt, tag, and layer-set differences against a related saved version before switching.
+- Continued reducing browser bounce during iteration by making related-version comparison part of the web-side workspace itself.
+
+## 0.4.20 - 2026-03-29
+
+### Changed
+
+- Made the `spritecraft-web` related-history panel actionable so nearby versions and snapshots can now be loaded directly back into the web workspace.
+- Reduced project-browser bouncing during iteration by letting version-to-version workspace navigation happen from inside the web-side builder surface.
+
 ## 0.4.19 - 2026-03-29
 
 ### Changed

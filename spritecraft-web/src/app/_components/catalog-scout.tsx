@@ -65,6 +65,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [relatedProjects, setRelatedProjects] = useState<WorkspaceLinkedProject[]>(
     [],
   );
+  const [replaceByType, setReplaceByType] = useState(true);
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
@@ -91,6 +92,21 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     useState<WorkspaceFeedback | null>(null);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [saveMode, setSaveMode] = useState<"fresh" | "version" | null>(null);
+  const [loadingRelatedProjectId, setLoadingRelatedProjectId] = useState<
+    string | null
+  >(null);
+  const [comparingRelatedProjectId, setComparingRelatedProjectId] = useState<
+    string | null
+  >(null);
+  const [comparedProject, setComparedProject] =
+    useState<SpriteCraftProjectSummary | null>(null);
+  const [branchingComparedProject, setBranchingComparedProject] = useState(false);
+  const [comparedPreview, setComparedPreview] =
+    useState<SpriteCraftRenderPreview | null>(null);
+  const [comparedPreviewStatus, setComparedPreviewStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [comparedPreviewError, setComparedPreviewError] = useState("");
 
   function applyWorkspaceDraft(draft: CatalogWorkspaceDraft) {
     setWorkspaceName(draft.name);
@@ -101,6 +117,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setSourceProjectId(draft.sourceProjectId);
     setSourceProjectLabel(draft.sourceProjectLabel);
     setRelatedProjects(draft.relatedProjects);
+    setReplaceByType(draft.replaceByType);
     setBodyType(
       bodyTypes.includes(draft.bodyType)
         ? draft.bodyType
@@ -198,6 +215,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         sourceProjectId,
         sourceProjectLabel,
         relatedProjects,
+        replaceByType,
         bodyType,
         animation,
         category,
@@ -218,6 +236,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     promptHistory,
     query,
     relatedProjects,
+    replaceByType,
     sourceProjectId,
     sourceProjectLabel,
     stagedSelections,
@@ -290,6 +309,69 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       cancelled = true;
     };
   }, [animation, bodyType, query, stagedSelections]);
+
+  useEffect(() => {
+    if (!comparedProject || !Object.keys(comparedProject.selections).length) {
+      setComparedPreview(null);
+      setComparedPreviewStatus("idle");
+      setComparedPreviewError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadComparedPreview() {
+      setComparedPreviewStatus("loading");
+      setComparedPreviewError("");
+
+      try {
+        const response = await fetch("/api/spritecraft/render", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            bodyType: comparedProject.bodyType,
+            animation: comparedProject.animation,
+            prompt: comparedProject.prompt ?? "",
+            selections: comparedProject.selections,
+          }),
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as SpriteCraftRenderPreview & {
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(
+            payload.error ??
+              "SpriteCraft Web could not render the compared version preview.",
+          );
+        }
+        if (cancelled) {
+          return;
+        }
+        setComparedPreview(payload);
+        setComparedPreviewStatus("idle");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setComparedPreview(null);
+        setComparedPreviewStatus("error");
+        setComparedPreviewError(
+          error instanceof Error
+            ? error.message
+            : "SpriteCraft Web could not render the compared version preview.",
+        );
+      }
+    }
+
+    void loadComparedPreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [comparedProject]);
 
   useEffect(() => {
     let cancelled = false;
@@ -392,10 +474,27 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
 
   function stageItem(item: SpriteCraftCatalogItem) {
     const nextVariant = getVariantChoice(item);
-    setStagedSelections((current) => ({
-      ...current,
-      [item.id]: nextVariant,
-    }));
+    setStagedSelections((current) => {
+      if (!replaceByType) {
+        return {
+          ...current,
+          [item.id]: nextVariant,
+        };
+      }
+
+      const next = { ...current };
+      for (const stagedItem of items) {
+        if (
+          stagedItem.id !== item.id &&
+          stagedItem.typeName === item.typeName &&
+          Object.hasOwn(next, stagedItem.id)
+        ) {
+          delete next[stagedItem.id];
+        }
+      }
+      next[item.id] = nextVariant;
+      return next;
+    });
   }
 
   function unstageItem(itemId: string) {
@@ -437,6 +536,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setSourceProjectId(null);
     setSourceProjectLabel(null);
     setRelatedProjects([]);
+    setReplaceByType(true);
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
@@ -461,6 +561,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       sourceProjectId,
       sourceProjectLabel,
       relatedProjects,
+      replaceByType,
       bodyType,
       animation,
       category,
@@ -629,6 +730,120 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     }
   }
 
+  async function loadRelatedProject(entry: WorkspaceLinkedProject) {
+    setLoadingRelatedProjectId(entry.id);
+    setWorkspaceFeedback(null);
+
+    try {
+      const response = await fetch(`/api/spritecraft/history/${entry.id}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as SpriteCraftProjectSummary & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(
+          payload.error ??
+            "SpriteCraft Web could not load that related project.",
+        );
+      }
+
+      const draft = projectToWorkspaceDraft(payload);
+      draft.relatedProjects = [
+        {
+          id: payload.id,
+          label: payload.projectName ?? payload.prompt ?? "Saved project",
+          createdAt: payload.createdAt,
+          updatedAt: payload.updatedAt ?? null,
+          tags: payload.tags ?? [],
+          animation: payload.animation,
+          layerCount: Object.keys(payload.selections).length,
+        },
+        ...relatedProjects.filter((related) => related.id !== payload.id),
+      ].slice(0, 6);
+      setComparedProject(null);
+      applyWorkspaceDraft(draft);
+      setWorkspaceFeedback({
+        tone: "success",
+        message: `Loaded ${payload.projectName ?? "related project"} into the web workspace.`,
+      });
+    } catch (error) {
+      setWorkspaceFeedback({
+        tone: "destructive",
+        message:
+          error instanceof Error
+            ? error.message
+            : "SpriteCraft Web could not load that related project.",
+      });
+    } finally {
+      setLoadingRelatedProjectId(null);
+    }
+  }
+
+  async function compareRelatedProject(entry: WorkspaceLinkedProject) {
+    setComparingRelatedProjectId(entry.id);
+    setWorkspaceFeedback(null);
+
+    try {
+      const response = await fetch(`/api/spritecraft/history/${entry.id}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as SpriteCraftProjectSummary & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(
+          payload.error ??
+            "SpriteCraft Web could not load that project for comparison.",
+        );
+      }
+
+      setComparedProject(payload);
+    } catch (error) {
+      setWorkspaceFeedback({
+        tone: "destructive",
+        message:
+          error instanceof Error
+            ? error.message
+            : "SpriteCraft Web could not load that project for comparison.",
+      });
+    } finally {
+      setComparingRelatedProjectId(null);
+    }
+  }
+
+  function branchFromComparedProject() {
+    if (!comparedProject) {
+      return;
+    }
+
+    setBranchingComparedProject(true);
+    try {
+      const draft = projectToWorkspaceDraft(comparedProject);
+      draft.relatedProjects = [
+        {
+          id: comparedProject.id,
+          label:
+            comparedProject.projectName ?? comparedProject.prompt ?? "Saved project",
+          createdAt: comparedProject.createdAt,
+          updatedAt: comparedProject.updatedAt ?? null,
+          tags: comparedProject.tags ?? [],
+          animation: comparedProject.animation,
+          layerCount: Object.keys(comparedProject.selections).length,
+        },
+        ...relatedProjects.filter((entry) => entry.id !== comparedProject.id),
+      ].slice(0, 6);
+      applyWorkspaceDraft(draft);
+      setComparedProject(null);
+      setWorkspaceFeedback({
+        tone: "success",
+        message: `Branched the web workspace from ${comparedProject.projectName ?? "the compared version"}.`,
+      });
+    } finally {
+      setBranchingComparedProject(false);
+    }
+  }
+
   function loadWorkspacePreset(presetName: string) {
     const preset = workspacePresets.find((entry) => entry.name === presetName);
     if (!preset) {
@@ -687,6 +902,27 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     catalogSearch: query.trim(),
     seededSelections: stagedSelections,
   });
+
+  const currentLayerIds = useMemo(
+    () => Object.keys(stagedSelections),
+    [stagedSelections],
+  );
+  const comparedLayerIds = useMemo(
+    () => Object.keys(comparedProject?.selections ?? {}),
+    [comparedProject],
+  );
+  const sharedLayerIds = useMemo(
+    () => currentLayerIds.filter((entry) => comparedLayerIds.includes(entry)),
+    [comparedLayerIds, currentLayerIds],
+  );
+  const currentOnlyLayerIds = useMemo(
+    () => currentLayerIds.filter((entry) => !comparedLayerIds.includes(entry)),
+    [comparedLayerIds, currentLayerIds],
+  );
+  const comparedOnlyLayerIds = useMemo(
+    () => comparedLayerIds.filter((entry) => !currentLayerIds.includes(entry)),
+    [comparedLayerIds, currentLayerIds],
+  );
 
   return (
     <Card>
@@ -903,6 +1139,29 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 placeholder="Workspace notes"
                 value={workspaceNotes}
               />
+              <label className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 px-4 py-3 text-sm text-[color:var(--muted-foreground)]">
+                <div>
+                  <p className="font-medium text-[color:var(--foreground)]">
+                    Replace same layer type
+                  </p>
+                  <p className="mt-1">
+                    When enabled, staging a new item replaces existing staged
+                    items with the same type.
+                  </p>
+                </div>
+                <button
+                  aria-pressed={replaceByType}
+                  className={`rounded-full px-3 py-2 text-sm transition ${
+                    replaceByType
+                      ? "bg-[color:var(--accent)] text-[color:var(--background)]"
+                      : "bg-[color:var(--surface-soft)] text-[color:var(--muted-foreground)]"
+                  }`}
+                  onClick={() => setReplaceByType((current) => !current)}
+                  type="button"
+                >
+                  {replaceByType ? "On" : "Off"}
+                </button>
+              </label>
             </div>
           </div>
 
@@ -1006,6 +1265,36 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                         ))}
                       </div>
                     ) : null}
+                    <div className="mt-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          disabled={loadingRelatedProjectId === entry.id}
+                          onClick={() => void loadRelatedProject(entry)}
+                          type="button"
+                          variant={
+                            entry.id === sourceProjectId
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {loadingRelatedProjectId === entry.id
+                            ? "Loading..."
+                            : entry.id === sourceProjectId
+                              ? "Current Workspace Source"
+                              : "Load Here"}
+                        </Button>
+                        <Button
+                          disabled={comparingRelatedProjectId === entry.id}
+                          onClick={() => void compareRelatedProject(entry)}
+                          type="button"
+                          variant="secondary"
+                        >
+                          {comparingRelatedProjectId === entry.id
+                            ? "Comparing..."
+                            : "Compare"}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1015,6 +1304,220 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 version context into the web workspace.
               </p>
             )}
+          </div>
+        ) : null}
+
+        {comparedProject ? (
+          <div className="rounded-3xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-soft)]/30 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Version Compare
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  Current workspace vs {comparedProject.projectName ?? "selected version"}
+                </h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={branchFromComparedProject}
+                  type="button"
+                >
+                  {branchingComparedProject
+                    ? "Branching..."
+                    : "Branch From Compared"}
+                </Button>
+                <Button
+                  onClick={() => setComparedProject(null)}
+                  type="button"
+                  variant="secondary"
+                >
+                  Close Compare
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Current workspace
+                </p>
+                <p className="mt-2 text-lg font-semibold">
+                  {workspaceName.trim() || "Web Builder Workspace"}
+                </p>
+                <p className="mt-3 text-sm text-[color:var(--muted-foreground)]">
+                  {query.trim() || "No prompt in the current workspace."}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge>{bodyType}</Badge>
+                  <Badge>{animation}</Badge>
+                  <Badge>{currentLayerIds.length} layers</Badge>
+                  {workspaceTags.slice(0, 3).map((entry) => (
+                    <Badge key={`current-${entry}`}>{entry}</Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Compared version
+                </p>
+                <p className="mt-2 text-lg font-semibold">
+                  {comparedProject.projectName ?? "Saved project"}
+                </p>
+                <p className="mt-3 text-sm text-[color:var(--muted-foreground)]">
+                  {comparedProject.prompt?.trim() ||
+                    "No prompt in the compared project."}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge>{comparedProject.bodyType}</Badge>
+                  <Badge>{comparedProject.animation}</Badge>
+                  <Badge>{comparedLayerIds.length} layers</Badge>
+                  {comparedProject.tags.slice(0, 3).map((entry) => (
+                    <Badge key={`compared-${entry}`}>{entry}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Shared layers
+                </p>
+                <p className="mt-2 text-2xl font-semibold">
+                  {sharedLayerIds.length}
+                </p>
+                <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
+                  Present in both the current workspace and the compared
+                  version.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Current only
+                </p>
+                <p className="mt-2 text-2xl font-semibold">
+                  {currentOnlyLayerIds.length}
+                </p>
+                <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
+                  Layers unique to the current web workspace.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Compared only
+                </p>
+                <p className="mt-2 text-2xl font-semibold">
+                  {comparedOnlyLayerIds.length}
+                </p>
+                <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
+                  Layers unique to the compared saved version.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Current-only layer ids
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {currentOnlyLayerIds.length ? (
+                    currentOnlyLayerIds.slice(0, 12).map((entry) => (
+                      <Badge key={`current-only-${entry}`}>{entry}</Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-[color:var(--muted-foreground)]">
+                      No current-only layers.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Compared-only layer ids
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {comparedOnlyLayerIds.length ? (
+                    comparedOnlyLayerIds.slice(0, 12).map((entry) => (
+                      <Badge key={`compared-only-${entry}`}>{entry}</Badge>
+                    ))
+                  ) : (
+                    <p className="text-sm text-[color:var(--muted-foreground)]">
+                      No compared-only layers.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                      Current Render
+                    </p>
+                    <p className="mt-2 text-sm font-medium">
+                      {workspaceName.trim() || "Web Builder Workspace"}
+                    </p>
+                  </div>
+                  <Badge>
+                    {previewStatus === "loading"
+                      ? "Rendering"
+                      : preview
+                        ? `${preview.width} x ${preview.height}`
+                        : "Idle"}
+                  </Badge>
+                </div>
+                <div className="grid min-h-56 place-items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-4">
+                  {preview ? (
+                    <img
+                      alt="Current workspace render"
+                      className="max-h-56 w-auto max-w-full [image-rendering:pixelated]"
+                      src={`data:image/png;base64,${preview.imageBase64}`}
+                    />
+                  ) : (
+                    <p className="text-sm text-[color:var(--muted-foreground)]">
+                      No current render available.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                      Compared Render
+                    </p>
+                    <p className="mt-2 text-sm font-medium">
+                      {comparedProject.projectName ?? "Selected version"}
+                    </p>
+                  </div>
+                  <Badge>
+                    {comparedPreviewStatus === "loading"
+                      ? "Rendering"
+                      : comparedPreview
+                        ? `${comparedPreview.width} x ${comparedPreview.height}`
+                        : "Idle"}
+                  </Badge>
+                </div>
+                <div className="grid min-h-56 place-items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-4">
+                  {comparedPreview ? (
+                    <img
+                      alt="Compared version render"
+                      className="max-h-56 w-auto max-w-full [image-rendering:pixelated]"
+                      src={`data:image/png;base64,${comparedPreview.imageBase64}`}
+                    />
+                  ) : (
+                    <p className="text-sm text-[color:var(--muted-foreground)]">
+                      No compared render available.
+                    </p>
+                  )}
+                </div>
+                {comparedPreviewError ? (
+                  <p className="mt-3 text-sm text-[color:var(--destructive)]">
+                    {comparedPreviewError}
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -1095,7 +1598,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 {workspaceName.trim() || "Web Builder Workspace"}
               </h3>
             </div>
-            <Badge>{stagedItems.length} staged</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge>{stagedItems.length} staged</Badge>
+              <Badge variant={replaceByType ? "warning" : "default"}>
+                {replaceByType ? "type replace on" : "stack freely"}
+              </Badge>
+            </div>
           </div>
           {(workspaceTags.length || workspaceNotes.trim() || sourceProjectLabel) ? (
             <div className="mb-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
