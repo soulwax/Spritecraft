@@ -622,6 +622,7 @@ async function exportRender() {
       ...state.exportHistory,
     ].slice(0, 20);
     queueDraftSave();
+    renderProjectMeta();
     const extra = (payload.extraPaths ?? []).map((file) => `Preset: ${file}`).join("\n");
     elements.previewMeta.textContent = `${elements.previewMeta.textContent} · exported`;
     elements.planOutput.textContent =
@@ -708,6 +709,7 @@ async function restoreHistory(id) {
     });
     syncPreviewModeButtons();
     queueDraftSave();
+    renderProjectMeta();
 
     state.latestImageBase64 = payload.imageBase64;
     state.latestMetadata = migrateRenderMetadata(payload.metadata ?? {});
@@ -1415,10 +1417,23 @@ function ensureProjectMeta() {
       <span class="muted">Tags</span>
       <input type="text" data-role="project-tags" placeholder="ranger, npc, leather, forest">
     </label>
+    <div class="project-activity">
+      <div class="catalog-group-header">
+        <div>
+          <p class="eyebrow">Current project</p>
+          <h3>Recent exports</h3>
+        </div>
+        <span class="chip" data-role="export-count">0 exports</span>
+      </div>
+      <div data-role="export-history-list" class="project-activity-list">
+        <div class="muted">Exports from this current project will appear here.</div>
+      </div>
+    </div>
   `;
 
   elements.projectName.parentElement.insertAdjacentElement("afterend", section);
   elements.projectMeta = section;
+  renderProjectMeta();
 }
 
 function ensureSnapshotActions() {
@@ -1634,6 +1649,7 @@ function syncBuilderInputsFromState(overrides = {}) {
     elements.projectMeta.querySelector('[data-role="project-notes"]').value = nextNotes;
     elements.projectMeta.querySelector('[data-role="project-tags"]').value = nextTags.join(", ");
   }
+  renderProjectMeta();
 }
 
 function rememberPrompt(prompt) {
@@ -1646,6 +1662,38 @@ function rememberPrompt(prompt) {
     value,
     ...state.promptHistory.filter((entry) => entry !== value),
   ].slice(0, 12);
+}
+
+function renderProjectMeta() {
+  if (!elements.projectMeta) {
+    return;
+  }
+
+  const count = elements.projectMeta.querySelector('[data-role="export-count"]');
+  const list = elements.projectMeta.querySelector('[data-role="export-history-list"]');
+  const entries = [...state.exportHistory].slice(0, 5);
+
+  count.textContent = `${state.exportHistory.length} export${state.exportHistory.length === 1 ? "" : "s"}`;
+  list.innerHTML = "";
+
+  if (!entries.length) {
+    list.innerHTML =
+      '<div class="muted">Exports from this current project will appear here.</div>';
+    return;
+  }
+
+  for (const entry of entries) {
+    const row = document.createElement("article");
+    row.className = "project-activity-entry";
+    row.innerHTML = `
+      <div>
+        <strong>${escapeHtml(entry.baseName || "Export bundle")}</strong>
+        <div class="muted">${escapeHtml(entry.enginePreset || "none")} preset · ${new Date(entry.exportedAt || Date.now()).toLocaleString()}</div>
+      </div>
+      <code>${escapeHtml(entry.bundlePath || "")}</code>
+    `;
+    list.appendChild(row);
+  }
 }
 
 function queueDraftSave() {
@@ -1707,6 +1755,7 @@ function loadDraft() {
       notes: draft.notes ?? "",
       tags: Array.isArray(draft.tags) ? draft.tags : [],
     });
+    renderProjectMeta();
     state.draftStatus = "saved";
   } catch (error) {
     console.warn("Could not load SpriteCraft draft.", error);

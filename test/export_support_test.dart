@@ -62,6 +62,26 @@ void main() {
       expect(godotPayload['engine'], 'godot');
       expect(godotPayload['metadata'], isA<Map<String, dynamic>>());
     });
+
+    test('writes no preset files when preset is none', () async {
+      final Directory root = await Directory.systemTemp.createTemp(
+        'spritecraft-export-presets-none-',
+      );
+      addTearDown(() async {
+        if (await root.exists()) {
+          await root.delete(recursive: true);
+        }
+      });
+
+      final List<File> files = await ExportSupport.writeEnginePresetFiles(
+        exportDirectory: root,
+        baseName: 'no-preset-export',
+        enginePreset: 'none',
+        metadata: const <String, Object?>{},
+      );
+
+      expect(files, isEmpty);
+    });
   });
 
   group('ExportSupport.writeExportBundle', () {

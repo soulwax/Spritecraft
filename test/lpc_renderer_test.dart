@@ -93,8 +93,12 @@ void main() {
       );
       expect(metadata['schema'], <String, Object>{
         'name': 'spritecraft.render',
-        'version': 1,
+        'version': kSpriteCraftRenderSchemaVersion,
       });
+      expect(
+        (metadata['content'] as Map<String, Object?>)['projectSchemaVersion'],
+        kSpriteCraftProjectSchemaVersion,
+      );
       expect(
         (metadata['layout'] as Map<String, Object>)['mode'],
         'layered-fullsheet',

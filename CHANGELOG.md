@@ -24,6 +24,7 @@
 - Studio startup now fails fast with explicit timeout diagnostics instead of hanging silently during configuration, asset, DB, or server setup.
 - Added metadata snapshot coverage and a self-describing export bundle manifest to harden SpriteCraft’s current export contract.
 - Selected layers now consistently render as human-friendly cards in Studio, matching the rest of the builder UX.
+- Added a current-project export activity panel in Studio so recent exports stay visible while iterating on a project.
 
 ## 0.2.0 - 2026-03-28
 

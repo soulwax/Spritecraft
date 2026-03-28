@@ -3,7 +3,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:shelf/shelf.dart';
@@ -78,7 +77,7 @@ class StudioServer {
     final Handler handler = Pipeline().addMiddleware(logRequests()).addHandler((
       Request request,
     ) async {
-      if (request.url.path.startsWith('api/')) {
+      if (request.url.path == 'health' || request.url.path.startsWith('api/')) {
         final Response response = await router.call(request);
         if (response.statusCode == 404) {
           return _json(404, <String, Object>{'error': 'Not found'});
@@ -176,7 +175,7 @@ class StudioServer {
             : (config.hasDatabase
                   ? 'DATABASE_URL is set, but history persistence is currently unavailable.'
                   : 'DATABASE_URL is not configured. History endpoints will be limited.'),
-      ),
+      },
       <String, String>{
         'label': 'Export directory',
         'status': 'ok',
@@ -289,7 +288,7 @@ class StudioServer {
           payload['enginePreset']?.toString().toLowerCase() ?? 'none';
 
       final String baseName = ExportSupport.buildBaseName(
-        prompt: renderRequest.prompt,
+        prompt: renderRequest.prompt ?? '',
         projectName: projectName,
         timestamp: DateTime.now(),
       );
@@ -634,103 +633,6 @@ class StudioServer {
     return sanitized.isEmpty ? 'spritecraft-export' : sanitized;
   }
 
-  Future<List<File>> _writeEnginePresetFiles({
-    required String enginePreset,
-    required String baseName,
-    required LpcRenderRequest request,
-    required LpcRenderResult renderResult,
-  }) async {
-    final List<File> files = <File>[];
-    final JsonEncoder encoder = const JsonEncoder.withIndent('  ');
-
-    if (enginePreset == 'godot' || enginePreset == 'both') {
-      final File godotFile = File(
-        path.join(config.exportDirectory.path, '$baseName.godot.json'),
-      );
-      await godotFile.writeAsString(
-        encoder.convert(<String, Object?>{
-          'engine': 'godot',
-          'resourceType': 'SpriteFrames',
-          'texture': '$baseName.png',
-          'animations': <Object>[
-            <String, Object>{
-              'name': request.animation,
-              'fps': 8,
-              'loop': true,
-              'frames': <Object>[
-                <String, Object>{
-                  'index': 0,
-                  'duration': 1,
-                  'region': <String, Object>{
-                    'x': 0,
-                    'y': 0,
-                    'width': renderResult.width,
-                    'height': renderResult.height,
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-      );
-      files.add(godotFile);
-    }
-
-    if (enginePreset == 'unity' || enginePreset == 'both') {
-      final File unityFile = File(
-        path.join(config.exportDirectory.path, '$baseName.unity.json'),
-      );
-      await unityFile.writeAsString(
-        encoder.convert(<String, Object?>{
-          'engine': 'unity',
-          'texture': '$baseName.png',
-          'importer': <String, Object>{
-            'spriteMode': 'Multiple',
-            'pixelsPerUnit': 100,
-            'meshType': 'FullRect',
-            'sprites': <Object>[
-              <String, Object>{
-                'name': request.animation,
-                'rect': <String, Object>{
-                  'x': 0,
-                  'y': 0,
-                  'width': renderResult.width,
-                  'height': renderResult.height,
-                },
-                'pivot': <String, double>{'x': 0.5, 'y': 0.5},
-                'alignment': 'Center',
-              },
-            ],
-          },
-        }),
-      );
-      files.add(unityFile);
-    }
-
-    return files;
-  }
-
-  Future<File> _writeExportBundle({
-    required String baseName,
-    required List<File> files,
-  }) async {
-    final Archive archive = Archive();
-    for (final File file in files) {
-      archive.addFile(
-        ArchiveFile(
-          path.basename(file.path),
-          await file.length(),
-          await file.readAsBytes(),
-        ),
-      );
-    }
-
-    final File zipFile = File(
-      path.join(config.exportDirectory.path, '$baseName.zip'),
-    );
-    await zipFile.writeAsBytes(ZipEncoder().encode(archive));
-    return zipFile;
-  }
 }
 
 extension on Request {

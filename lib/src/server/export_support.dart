@@ -109,7 +109,7 @@ class ExportSupport {
       ),
     );
 
-    final List<int> zippedBytes = ZipEncoder().encode(archive) ?? <int>[];
+    final List<int> zippedBytes = ZipEncoder().encode(archive);
     final File zipFile = File(path.join(exportDirectory.path, '$baseName.zip'));
     await zipFile.writeAsBytes(zippedBytes, flush: true);
     return zipFile;
