@@ -31,6 +31,7 @@ class StudioServer {
   final LpcCatalog catalog;
   final LpcRenderer renderer;
   final HistoryRepository? historyRepository;
+  final Map<String, LpcRenderResult> _renderCache = <String, LpcRenderResult>{};
 
   static Future<StudioServer> create(RuntimeConfig config) async {
     final LpcCatalog catalog = await const LpcCatalogLoader().load(
@@ -155,6 +156,13 @@ class StudioServer {
             : 'GEMINI_API_KEY is not configured. AI suggestions will fall back to local recommendations.',
       },
       <String, String>{
+        'label': '.env configuration',
+        'status': config.configurationWarnings.isEmpty ? 'ok' : 'warning',
+        'detail': config.configurationWarnings.isEmpty
+            ? 'No .env parsing issues were detected.'
+            : config.configurationWarnings.join(' '),
+      },
+      <String, String>{
         'label': 'Database',
         'status': historyRepository != null
             ? 'ok'
@@ -217,12 +225,46 @@ class StudioServer {
     });
   }
 
+  Future<LpcRenderResult> _renderWithCache(LpcRenderRequest request) async {
+    final String cacheKey = _buildRenderCacheKey(request);
+    final LpcRenderResult? cached = _renderCache.remove(cacheKey);
+    if (cached != null) {
+      _renderCache[cacheKey] = cached;
+      return cached;
+    }
+
+    final LpcRenderResult rendered = await renderer.render(request);
+    _renderCache[cacheKey] = rendered;
+
+    if (_renderCache.length > 48) {
+      _renderCache.remove(_renderCache.keys.first);
+    }
+
+    return rendered;
+  }
+
+  String _buildRenderCacheKey(LpcRenderRequest request) {
+    final List<MapEntry<String, String>> orderedSelections =
+        request.selections.entries.toList()
+          ..sort(
+            (MapEntry<String, String> left, MapEntry<String, String> right) =>
+                left.key.compareTo(right.key),
+          );
+
+    return jsonEncode(<String, Object?>{
+      'bodyType': request.bodyType,
+      'animation': request.animation,
+      'prompt': request.prompt,
+      'selections': Map<String, String>.fromEntries(orderedSelections),
+    });
+  }
+
   Future<Response> _render(Request request) async {
     try {
       final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(
         await request.readAsJson(),
       );
-      final LpcRenderResult result = await renderer.render(renderRequest);
+      final LpcRenderResult result = await _renderWithCache(renderRequest);
       final String imageName = _buildPreviewImageName(renderRequest);
       return _json(
         200,
@@ -237,7 +279,7 @@ class StudioServer {
     try {
       final Map<String, dynamic> payload = await request.readAsJson();
       final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(payload);
-      final LpcRenderResult result = await renderer.render(renderRequest);
+      final LpcRenderResult result = await _renderWithCache(renderRequest);
       final String projectName = payload['projectName']?.toString() ?? '';
       final String enginePreset =
           payload['enginePreset']?.toString().toLowerCase() ?? 'none';

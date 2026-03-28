@@ -3,7 +3,9 @@
 ### Added
 
 - `GET /health` runtime endpoint for quickly checking Studio assets, LPC submodule paths, Gemini availability, database availability, and export directory readiness.
+- Runtime configuration diagnostics for malformed `.env` lines so startup issues are surfaced instead of silently ignored.
 - A Studio runtime health panel with refresh support so startup problems are visible in the UI instead of only surfacing as failed requests later.
+- Server-side render result caching for repeated preview and export requests using the same layer selection.
 
 ## 0.2.0 - 2026-03-28
 

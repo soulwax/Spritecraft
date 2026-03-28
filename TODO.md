@@ -13,10 +13,10 @@ This roadmap is meant to take SpriteCraft from a promising prototype to a full-f
 Goal: make the current app dependable enough for real early use.
 
 - [ ] Make `dart run bin/spritecraft.dart studio` consistently start without hanging in local environments
-- [ ] Add startup diagnostics for missing submodule assets, bad `.env`, DB connection failures, and Gemini failures
+- [x] Add startup diagnostics for missing submodule assets, bad `.env`, DB connection failures, and Gemini failures
 - [x] Add `GET /health` and a simple app status panel in Studio
 - [x] Normalize render/export error handling and show actionable messages in the UI
-- [ ] Add render caching so repeated preview refreshes are fast
+- [x] Add render caching so repeated preview refreshes are fast
 - [ ] Add stronger tests for export naming, zip bundles, and engine preset generation
 - [ ] Add snapshot-style tests for metadata schema stability
 - [ ] Finalize the current `build/exports` bundle flow and verify it end-to-end
