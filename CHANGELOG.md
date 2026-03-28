@@ -10,6 +10,8 @@
 - Catalog browsing improvements in Studio with category filter chips and grouped result sections for faster asset discovery.
 - Builder workflow controls for undo, redo, restore-last-render, and keyboard shortcuts to make experimentation safer.
 - Preview mode controls for side-by-side idle, walk, and combat comparisons using the existing Studio render pipeline.
+- Persistent local favorites and pinned quick-access items in Studio for faster repeated character-building workflows.
+- Layer stack reordering controls in the selected-items panel so override-sensitive looks can be adjusted without rebuilding selections.
 
 ## 0.2.0 - 2026-03-28
 

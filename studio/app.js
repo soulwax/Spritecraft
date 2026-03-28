@@ -7,6 +7,8 @@ const state = {
   previewMode: "single",
   availableAnimations: [],
   selections: {},
+  favoriteItems: [],
+  pinnedItems: [],
   undoStack: [],
   redoStack: [],
   lastRenderedRequest: null,
@@ -31,6 +33,7 @@ const elements = {
   exportRender: document.querySelector("#exportRender"),
   catalogSearch: document.querySelector("#catalogSearch"),
   catalogFilters: null,
+  quickAccess: null,
   catalogList: document.querySelector("#catalogList"),
   catalogCount: document.querySelector("#catalogCount"),
   selectedItems: document.querySelector("#selectedItems"),
@@ -55,6 +58,8 @@ async function init() {
   ensureStatusPanel();
   ensureBuilderActions();
   ensurePreviewModes();
+  ensureQuickAccess();
+  loadStudioPreferences();
   const [bootstrap, health] = await Promise.all([
     api("/api/studio/bootstrap"),
     refreshHealth(),
@@ -120,6 +125,7 @@ async function refreshCatalog() {
     }
     ensureCatalogFilters();
     syncCategoryOptions(payload.items ?? []);
+    renderQuickAccess();
     renderCatalog(payload.items ?? []);
     renderSelections();
   } catch (error) {
@@ -255,42 +261,7 @@ function renderCatalog(items) {
     grid.className = "catalog-group-grid";
 
     for (const item of groupItems) {
-      const card = document.createElement("article");
-      card.className = "item-card";
-      const variantOptions = (item.variants?.length ? item.variants : ["default"])
-        .map((variant) => `<option value="${escapeHtml(variant)}">${escapeHtml(variant)}</option>`)
-        .join("");
-
-      card.innerHTML = `
-        <header>
-          <div>
-            <h3>${escapeHtml(item.name)}</h3>
-            <div class="muted">${escapeHtml(item.typeName)} · ${escapeHtml(item.category)}</div>
-          </div>
-          <span class="chip">${escapeHtml(item.requiredBodyTypes.join(", "))}</span>
-        </header>
-        <div class="chips">
-          ${(item.tags ?? []).slice(0, 4).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
-          ${(item.animations ?? []).slice(0, 3).map((anim) => `<span class="chip">${escapeHtml(anim)}</span>`).join("")}
-        </div>
-        <div class="item-actions">
-          <select class="variant-select">${variantOptions}</select>
-          <button class="primary mini">Use</button>
-        </div>
-      `;
-
-      const button = card.querySelector("button");
-      const select = card.querySelector("select");
-      button.addEventListener("click", async () => {
-        pushUndoSnapshot();
-        state.selections[item.id] = select.value;
-        state.redoStack = [];
-        updateBuilderActionState();
-        renderSelections();
-        await refreshRender();
-      });
-
-      grid.appendChild(card);
+      grid.appendChild(createCatalogCard(item));
     }
 
     section.appendChild(grid);
@@ -314,6 +285,9 @@ function renderSelections() {
     const subtitle = item
       ? `${item.typeName} · ${variant}`
       : `Variant: ${variant}`;
+    const index = entries.findIndex(([entryItemId]) => entryItemId === itemId);
+    const isFirst = index === 0;
+    const isLast = index === entries.length - 1;
     const card = document.createElement("article");
     card.className = "selected-card";
     card.innerHTML = `
@@ -324,10 +298,18 @@ function renderSelections() {
         </div>
       </header>
       <div class="selected-actions">
-        <button class="mini ghost">Remove</button>
+        <button class="mini ghost" data-action="up" ${isFirst ? "disabled" : ""}>Up</button>
+        <button class="mini ghost" data-action="down" ${isLast ? "disabled" : ""}>Down</button>
+        <button class="mini ghost" data-action="remove">Remove</button>
       </div>
     `;
-    card.querySelector("button").addEventListener("click", async () => {
+    card.querySelector('[data-action="up"]').addEventListener("click", async () => {
+      await moveSelection(itemId, -1);
+    });
+    card.querySelector('[data-action="down"]').addEventListener("click", async () => {
+      await moveSelection(itemId, 1);
+    });
+    card.querySelector('[data-action="remove"]').addEventListener("click", async () => {
       pushUndoSnapshot();
       delete state.selections[itemId];
       state.redoStack = [];
@@ -620,6 +602,60 @@ function ensureCatalogFilters() {
   elements.catalogFilters = controls;
 }
 
+function ensureQuickAccess() {
+  if (elements.quickAccess) {
+    return;
+  }
+
+  const section = document.createElement("section");
+  section.className = "quick-access";
+  section.innerHTML = `
+    <header class="catalog-group-header">
+      <div>
+        <p class="eyebrow">Quick access</p>
+        <h3>Favorites and pinned items</h3>
+      </div>
+      <span class="chip" data-role="quick-count">0 items</span>
+    </header>
+    <div class="quick-access-grid" data-role="quick-grid">
+      <div class="muted">Favorite or pin catalog items to keep them handy here.</div>
+    </div>
+  `;
+
+  elements.catalogList.parentElement.insertBefore(section, elements.catalogList);
+  elements.quickAccess = section;
+}
+
+function renderQuickAccess() {
+  if (!elements.quickAccess) {
+    return;
+  }
+
+  const grid = elements.quickAccess.querySelector('[data-role="quick-grid"]');
+  const count = elements.quickAccess.querySelector('[data-role="quick-count"]');
+  const orderedIds = [
+    ...state.pinnedItems,
+    ...state.favoriteItems.filter((itemId) => !state.pinnedItems.includes(itemId)),
+  ];
+  const items = orderedIds
+    .map((itemId) => state.catalogItemsById[itemId])
+    .filter(Boolean);
+
+  count.textContent = `${items.length} item${items.length === 1 ? "" : "s"}`;
+  grid.innerHTML = "";
+
+  if (!items.length) {
+    grid.innerHTML = '<div class="muted">Favorite or pin catalog items to keep them handy here.</div>';
+    return;
+  }
+
+  for (const item of items) {
+    const card = createCatalogCard(item, { compact: true });
+    card.classList.add("quick-access-card");
+    grid.appendChild(card);
+  }
+}
+
 function syncCategoryOptions(items) {
   if (!elements.catalogFilters) {
     return;
@@ -666,6 +702,85 @@ function groupCatalogItems(items) {
   );
 }
 
+async function moveSelection(itemId, direction) {
+  const entries = Object.entries(state.selections);
+  const index = entries.findIndex(([entryItemId]) => entryItemId === itemId);
+  if (index < 0) {
+    return;
+  }
+
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= entries.length) {
+    return;
+  }
+
+  pushUndoSnapshot();
+  const reordered = [...entries];
+  const [moved] = reordered.splice(index, 1);
+  reordered.splice(nextIndex, 0, moved);
+  state.selections = Object.fromEntries(reordered);
+  state.redoStack = [];
+  updateBuilderActionState();
+  renderSelections();
+  await refreshRender();
+}
+
+function createCatalogCard(item, { compact = false } = {}) {
+  const card = document.createElement("article");
+  card.className = "item-card";
+  const variantOptions = (item.variants?.length ? item.variants : ["default"])
+    .map((variant) => `<option value="${escapeHtml(variant)}">${escapeHtml(variant)}</option>`)
+    .join("");
+  const isFavorite = state.favoriteItems.includes(item.id);
+  const isPinned = state.pinnedItems.includes(item.id);
+
+  card.innerHTML = `
+    <header>
+      <div>
+        <h3>${escapeHtml(item.name)}</h3>
+        <div class="muted">${escapeHtml(item.typeName)} · ${escapeHtml(item.category)}</div>
+      </div>
+      <span class="chip">${escapeHtml(item.requiredBodyTypes.join(", "))}</span>
+    </header>
+    <div class="chips">
+      ${(item.tags ?? []).slice(0, compact ? 2 : 4).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
+      ${(item.animations ?? []).slice(0, compact ? 2 : 3).map((anim) => `<span class="chip">${escapeHtml(anim)}</span>`).join("")}
+    </div>
+    <div class="item-actions">
+      <select class="variant-select">${variantOptions}</select>
+      <button class="primary mini" data-action="use">Use</button>
+    </div>
+    <div class="item-actions secondary-actions">
+      <button class="mini ghost ${isFavorite ? "active" : ""}" data-action="favorite">${isFavorite ? "Favorited" : "Favorite"}</button>
+      <button class="mini ghost ${isPinned ? "active" : ""}" data-action="pin">${isPinned ? "Pinned" : "Pin"}</button>
+    </div>
+  `;
+
+  const useButton = card.querySelector('[data-action="use"]');
+  const favoriteButton = card.querySelector('[data-action="favorite"]');
+  const pinButton = card.querySelector('[data-action="pin"]');
+  const select = card.querySelector("select");
+
+  useButton.addEventListener("click", async () => {
+    pushUndoSnapshot();
+    state.selections[item.id] = select.value;
+    state.redoStack = [];
+    updateBuilderActionState();
+    renderSelections();
+    await refreshRender();
+  });
+
+  favoriteButton.addEventListener("click", () => {
+    toggleFavorite(item.id);
+  });
+
+  pinButton.addEventListener("click", () => {
+    togglePinned(item.id);
+  });
+
+  return card;
+}
+
 function normalizeCategoryLabel(category) {
   if (!category) {
     return "Misc";
@@ -676,6 +791,70 @@ function normalizeCategoryLabel(category) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function loadStudioPreferences() {
+  try {
+    const raw = window.localStorage.getItem("spritecraft-preferences");
+    if (!raw) {
+      return;
+    }
+
+    const stored = JSON.parse(raw);
+    state.favoriteItems = Array.isArray(stored.favoriteItems)
+      ? stored.favoriteItems
+      : [];
+    state.pinnedItems = Array.isArray(stored.pinnedItems)
+      ? stored.pinnedItems
+      : [];
+  } catch (error) {
+    console.warn("Could not load SpriteCraft preferences.", error);
+  }
+}
+
+function saveStudioPreferences() {
+  try {
+    window.localStorage.setItem(
+      "spritecraft-preferences",
+      JSON.stringify({
+        favoriteItems: state.favoriteItems,
+        pinnedItems: state.pinnedItems,
+      }),
+    );
+  } catch (error) {
+    console.warn("Could not save SpriteCraft preferences.", error);
+  }
+}
+
+function toggleFavorite(itemId) {
+  if (state.favoriteItems.includes(itemId)) {
+    state.favoriteItems = state.favoriteItems.filter((entry) => entry !== itemId);
+    showToast("Removed from favorites.");
+  } else {
+    state.favoriteItems = [itemId, ...state.favoriteItems].slice(0, 24);
+    showToast("Added to favorites.");
+  }
+
+  saveStudioPreferences();
+  renderQuickAccess();
+  void refreshCatalog();
+}
+
+function togglePinned(itemId) {
+  if (state.pinnedItems.includes(itemId)) {
+    state.pinnedItems = state.pinnedItems.filter((entry) => entry !== itemId);
+    showToast("Removed from pinned items.");
+  } else {
+    state.pinnedItems = [itemId, ...state.pinnedItems.filter((entry) => entry !== itemId)].slice(0, 12);
+    if (!state.favoriteItems.includes(itemId)) {
+      state.favoriteItems = [itemId, ...state.favoriteItems].slice(0, 24);
+    }
+    showToast("Pinned for quick access.");
+  }
+
+  saveStudioPreferences();
+  renderQuickAccess();
+  void refreshCatalog();
 }
 
 function renderHealth() {

@@ -569,6 +569,19 @@ button.btn-loading::after {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+.selected-card {
+  position: relative;
+}
+
+.selected-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 214, 102, 0.9), rgba(255, 255, 255, 0.12));
+}
 .preview-modes {
   display: flex;
   flex-wrap: wrap;
@@ -617,4 +630,27 @@ button.btn-loading::after {
 
 .hidden {
   display: none !important;
+}
+.quick-access {
+  margin-bottom: 1.25rem;
+}
+
+.quick-access-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.quick-access-card {
+  border-color: rgba(255, 214, 102, 0.22);
+  background: linear-gradient(180deg, rgba(255, 214, 102, 0.06), rgba(255, 255, 255, 0.04));
+}
+
+.secondary-actions {
+  margin-top: 0.5rem;
+}
+
+.secondary-actions .active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.22);
 }
