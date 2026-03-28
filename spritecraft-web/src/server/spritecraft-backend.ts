@@ -57,6 +57,27 @@ const catalogResponseSchema = z.object({
 
 export type SpriteCraftCatalogItem = z.infer<typeof catalogItemSchema>;
 
+const renderLayerSchema = z.object({
+	itemId: z.string(),
+	itemName: z.string(),
+	typeName: z.string(),
+	variant: z.string(),
+	layerId: z.string(),
+	zPos: z.number(),
+	assetPath: z.string(),
+});
+
+const renderPreviewSchema = z.object({
+	width: z.number(),
+	height: z.number(),
+	imageBase64: z.string(),
+	metadata: z.record(z.any()).default({}),
+	usedLayers: z.array(renderLayerSchema).default([]),
+	credits: z.array(z.record(z.any())).default([]),
+});
+
+export type SpriteCraftRenderPreview = z.infer<typeof renderPreviewSchema>;
+
 const saveRequestSchema = z.object({
 	projectName: z.string().optional(),
 	notes: z.string().optional(),
@@ -166,6 +187,23 @@ export async function getSpriteCraftCatalog(input: {
 	}
 
 	return fetchJson(`/api/lpc/catalog?${params.toString()}`, catalogResponseSchema);
+}
+
+export async function renderSpriteCraftPreview(input: {
+	bodyType: string;
+	animation: string;
+	prompt?: string;
+	selections: Record<string, string>;
+}) {
+	return fetchJson("/api/lpc/render", renderPreviewSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			bodyType: input.bodyType,
+			animation: input.animation,
+			prompt: input.prompt ?? "",
+			selections: input.selections,
+		}),
+	});
 }
 
 export async function getSpriteCraftHistory() {

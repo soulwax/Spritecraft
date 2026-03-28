@@ -1,3 +1,17 @@
+## 0.4.12 - 2026-03-29
+
+### Changed
+
+- Added a comprehensive CLI command reference to the README covering `pack`, `plan`, `studio`, common options, and practical examples.
+- Upgraded the `spritecraft-web` selection workspace so staged layers can now be edited, reordered, and removed more intentionally before handing off into Studio.
+
+## 0.4.11 - 2026-03-29
+
+### Changed
+
+- Added a lightweight web-side workspace preview in `spritecraft-web` using the existing Dart render pipeline, including rendered image feedback and resolved layer-stack details.
+- Improved the `pack` CLI error for missing input directories so it now reports the resolved absolute path and current working directory instead of only echoing the raw relative path.
+
 ## 0.4.10 - 2026-03-29
 
 ### Changed

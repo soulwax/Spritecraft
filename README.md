@@ -69,6 +69,102 @@ What the Studio does:
 - builds a zip bundle for every Studio export
 - can emit Godot and Unity companion preset files during export
 
+## Command reference
+
+General:
+
+```powershell
+dart run bin/spritecraft.dart --help
+dart run bin/spritecraft.dart --version
+```
+
+`pack`:
+
+```powershell
+dart run bin/spritecraft.dart pack `
+  --input <frames-directory> `
+  --output <sheet-png-path> `
+  --metadata <metadata-json-path> `
+  [--columns <count>] `
+  [--padding <pixels>] `
+  [--tile-width <pixels>] `
+  [--tile-height <pixels>] `
+  [--power-of-two]
+```
+
+`pack` options:
+
+- `--input`, `-i`: directory containing source frames
+- `--output`, `-o`: output PNG path for the packed sheet
+- `--metadata`, `-m`: output JSON path for metadata
+- `--columns`: fixed number of columns to use
+- `--padding`: pixels between frames
+- `--tile-width`: force every tile to this width
+- `--tile-height`: force every tile to this height
+- `--power-of-two`: expand the sheet dimensions to the next power of two
+
+`plan`:
+
+```powershell
+dart run bin/spritecraft.dart plan `
+  --prompt "<describe the sprite or animation>" `
+  [--frame-count <count>] `
+  [--style "<style hint>"] `
+  [--model <gemini-model>]
+```
+
+`plan` options:
+
+- `--prompt`, `-p`: sprite or animation prompt
+- `--frame-count`: optional animation frame target
+- `--style`: optional style hint
+- `--model`: Gemini model to use, default `gemini-2.5-flash`
+
+`studio`:
+
+```powershell
+dart run bin/spritecraft.dart studio `
+  [--host <host>] `
+  [--port <port>] `
+  [--open]
+  [--no-open]
+```
+
+`studio` options:
+
+- `--host`: host interface to bind, default `127.0.0.1`
+- `--port`: port to serve the Studio on, default `8080`
+- `--open`: open the Studio in the default browser after startup
+- `--no-open`: keep the server running without opening a browser
+
+Useful examples:
+
+```powershell
+# Show CLI version
+dart run bin/spritecraft.dart --version
+
+# Start Studio without opening a browser tab
+dart run bin/spritecraft.dart studio --no-open
+
+# Start Studio on another port
+dart run bin/spritecraft.dart studio --port 9090
+
+# Pack a folder with fixed tile sizing
+dart run bin/spritecraft.dart pack `
+  --input .\frames\walk `
+  --output .\build\walk.png `
+  --metadata .\build\walk.json `
+  --tile-width 64 `
+  --tile-height 64 `
+  --padding 2
+
+# Ask Gemini for a production-style plan
+dart run bin/spritecraft.dart plan `
+  --prompt "6-frame rogue attack animation" `
+  --frame-count 6 `
+  --style "pixel art, top-down RPG, readable silhouette"
+```
+
 ## Pack a normal frame folder
 
 ```powershell

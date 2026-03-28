@@ -15,7 +15,10 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
-import type { SpriteCraftCatalogItem } from "~/server/spritecraft-backend";
+import type {
+	SpriteCraftCatalogItem,
+	SpriteCraftRenderPreview,
+} from "~/server/spritecraft-backend";
 
 type CatalogScoutProps = {
 	bodyTypes: string[];
@@ -58,6 +61,11 @@ export function CatalogScout({
 	const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
 	const [errorMessage, setErrorMessage] = useState("");
 	const [workspaceSavedAt, setWorkspaceSavedAt] = useState<string | null>(null);
+	const [preview, setPreview] = useState<SpriteCraftRenderPreview | null>(null);
+	const [previewStatus, setPreviewStatus] = useState<"idle" | "loading" | "error">(
+		"idle",
+	);
+	const [previewError, setPreviewError] = useState("");
 
 	useEffect(() => {
 		try {
@@ -149,6 +157,68 @@ export function CatalogScout({
 		variantChoices,
 		workspaceName,
 	]);
+
+	useEffect(() => {
+		if (!Object.keys(stagedSelections).length) {
+			setPreview(null);
+			setPreviewStatus("idle");
+			setPreviewError("");
+			return;
+		}
+
+		let cancelled = false;
+
+		async function loadPreview() {
+			setPreviewStatus("loading");
+			setPreviewError("");
+
+			try {
+				const response = await fetch("/api/spritecraft/render", {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+					},
+					body: JSON.stringify({
+						bodyType,
+						animation,
+						prompt: query,
+						selections: stagedSelections,
+					}),
+					cache: "no-store",
+				});
+				const payload = (await response.json()) as SpriteCraftRenderPreview & {
+					error?: string;
+				};
+				if (!response.ok) {
+					throw new Error(
+						payload.error ?? "SpriteCraft Web could not render the workspace preview.",
+					);
+				}
+				if (cancelled) {
+					return;
+				}
+				setPreview(payload);
+				setPreviewStatus("idle");
+			} catch (error) {
+				if (cancelled) {
+					return;
+				}
+				setPreview(null);
+				setPreviewStatus("error");
+				setPreviewError(
+					error instanceof Error
+						? error.message
+						: "SpriteCraft Web could not render the workspace preview.",
+				);
+			}
+		}
+
+		void loadPreview();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [animation, bodyType, query, stagedSelections]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -261,6 +331,26 @@ export function CatalogScout({
 			const next = { ...current };
 			delete next[itemId];
 			return next;
+		});
+	}
+
+	function moveStagedItem(itemId: string, direction: -1 | 1) {
+		setStagedSelections((current) => {
+			const entries = Object.entries(current);
+			const index = entries.findIndex(([entryItemId]) => entryItemId === itemId);
+			if (index < 0) {
+				return current;
+			}
+
+			const nextIndex = index + direction;
+			if (nextIndex < 0 || nextIndex >= entries.length) {
+				return current;
+			}
+
+			const reordered = [...entries];
+			const [moved] = reordered.splice(index, 1);
+			reordered.splice(nextIndex, 0, moved);
+			return Object.fromEntries(reordered);
 		});
 	}
 
@@ -450,17 +540,65 @@ export function CatalogScout({
 						<Badge>{stagedItems.length} staged</Badge>
 					</div>
 					{stagedItems.length ? (
-						<div className="flex flex-wrap gap-2">
-							{stagedItems.map((item) => (
-								<button
-									className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-3 py-2 text-sm"
+						<div className="grid gap-3">
+							{stagedItems.map((item, index) => (
+								<div
+									className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3"
 									key={item.id}
-									onClick={() => unstageItem(item.id)}
-									type="button"
 								>
-									<span>{item.name}</span>
-									<Badge>{stagedSelections[item.id]}</Badge>
-								</button>
+									<div className="mb-3 flex items-center justify-between gap-3">
+										<div>
+											<strong>{item.name}</strong>
+											<p className="text-sm text-[color:var(--muted-foreground)]">
+												{item.typeName} · {item.category}
+											</p>
+										</div>
+										<Badge>{stagedSelections[item.id]}</Badge>
+									</div>
+									<div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+										<Select
+											onChange={(event) => {
+												updateVariantChoice(item.id, event.target.value);
+												setStagedSelections((current) => ({
+													...current,
+													[item.id]: event.target.value,
+												}));
+											}}
+											value={stagedSelections[item.id]}
+										>
+											{(item.variants.length ? item.variants : ["default"]).map(
+												(variant) => (
+													<option key={`${item.id}-staged-${variant}`} value={variant}>
+														{variant}
+													</option>
+												),
+											)}
+										</Select>
+										<Button
+											disabled={index === 0}
+											onClick={() => moveStagedItem(item.id, -1)}
+											type="button"
+											variant="secondary"
+										>
+											Up
+										</Button>
+										<Button
+											disabled={index === stagedItems.length - 1}
+											onClick={() => moveStagedItem(item.id, 1)}
+											type="button"
+											variant="secondary"
+										>
+											Down
+										</Button>
+										<Button
+											onClick={() => unstageItem(item.id)}
+											type="button"
+											variant="secondary"
+										>
+											Remove
+										</Button>
+									</div>
+								</div>
 							))}
 						</div>
 					) : (
@@ -469,6 +607,81 @@ export function CatalogScout({
 							selections already queued.
 						</p>
 					)}
+				</div>
+
+				<div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+					<div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+						<div className="mb-3 flex items-center justify-between gap-3">
+							<div>
+								<p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+									Workspace Preview
+								</p>
+								<h3 className="mt-2 text-lg font-semibold">Live render glimpse</h3>
+							</div>
+							<Badge>
+								{previewStatus === "loading"
+									? "Rendering"
+									: previewStatus === "error"
+										? "Needs attention"
+										: preview
+											? `${preview.width} x ${preview.height}`
+											: "Idle"}
+							</Badge>
+						</div>
+						<div className="grid min-h-64 place-items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/40 p-4">
+							{preview ? (
+								<img
+									alt="SpriteCraft workspace preview"
+									className="max-h-64 w-auto max-w-full [image-rendering:pixelated]"
+									src={`data:image/png;base64,${preview.imageBase64}`}
+								/>
+							) : (
+								<p className="text-sm text-[color:var(--muted-foreground)]">
+									Stage some layers to render a workspace preview here.
+								</p>
+							)}
+						</div>
+						{previewError ? (
+							<p className="mt-3 text-sm text-[color:var(--destructive)]">
+								{previewError}
+							</p>
+						) : null}
+					</div>
+
+					<div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+						<div className="mb-3 flex items-center justify-between gap-3">
+							<div>
+								<p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+									Layer Stack
+								</p>
+								<h3 className="mt-2 text-lg font-semibold">Resolved preview layers</h3>
+							</div>
+							<Badge>{preview?.usedLayers.length ?? 0} layers</Badge>
+						</div>
+						<div className="space-y-3">
+							{preview?.usedLayers.length ? (
+								preview.usedLayers.map((layer) => (
+									<div
+										className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3"
+										key={`${layer.itemId}-${layer.layerId}-${layer.zPos}`}
+									>
+										<div className="mb-2 flex items-center justify-between gap-3">
+											<strong>{layer.itemName}</strong>
+											<Badge>{layer.variant}</Badge>
+										</div>
+										<p className="text-sm text-[color:var(--muted-foreground)]">
+											{layer.typeName} · {layer.layerId} · z {layer.zPos}
+										</p>
+									</div>
+								))
+							) : (
+								<p className="text-sm text-[color:var(--muted-foreground)]">
+									The web app can now preview a small selection workspace, but full
+									layer management still belongs to the Dart Studio.
+								</p>
+							)}
+						</div>
+					</div>
 				</div>
 
 				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
