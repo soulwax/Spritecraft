@@ -1,3 +1,17 @@
+## 0.4.14 - 2026-03-29
+
+### Changed
+
+- Added direct project creation from the `spritecraft-web` selection workspace so web-side builder intent can now be saved into SpriteCraft history before launching Studio.
+- Continued moving early project/session creation into the web app, making `spritecraft-web` participate in actual project authoring instead of only staging and handoff.
+
+## 0.4.13 - 2026-03-29
+
+### Changed
+
+- Added named local workspace presets to the `spritecraft-web` selection workspace so multiple reusable builder setups can now be saved, loaded, and deleted.
+- Continued shifting early builder-session management into the web app, making the workspace feel more like a real pre-builder environment instead of a single transient draft.
+
 ## 0.4.12 - 2026-03-29
 
 ### Changed
