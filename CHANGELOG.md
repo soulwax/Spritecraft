@@ -1,3 +1,10 @@
+## 0.4.7 - 2026-03-28
+
+### Changed
+
+- Added a dedicated `spritecraft-web` project launcher with template cards and a configurable launch form so new project framing now has a proper home in the web app.
+- Removed the duplicated template-launch section from the web project browser, making the launcher the clearer start surface and the browser the clearer saved-work surface.
+
 ## 0.4.6 - 2026-03-28
 
 ### Changed
