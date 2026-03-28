@@ -286,3 +286,134 @@ button.ghost {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Toast notifications ─────────────────────────────────────────────────── */
+
+.toast-container {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 260px;
+  max-width: 420px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(31, 42, 44, 0.18);
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
+  color: var(--ink);
+  animation: toast-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.toast.toast-removing {
+  animation: toast-out 180ms ease-in both;
+}
+
+.toast-success {
+  border-left: 4px solid #3aaa6e;
+}
+
+.toast-error {
+  border-left: 4px solid #c0392b;
+}
+
+.toast-info {
+  border-left: 4px solid var(--accent);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+/* ── Button loading state ────────────────────────────────────────────────── */
+
+button.btn-loading {
+  opacity: 0.65;
+  cursor: wait;
+  position: relative;
+}
+
+button.btn-loading::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── History restore button ──────────────────────────────────────────────── */
+
+.restore-btn {
+  background: rgba(212, 106, 61, 0.10);
+  color: var(--accent-deep);
+  border: 1px solid rgba(212, 106, 61, 0.25);
+}
+
+.restore-btn:hover {
+  background: rgba(212, 106, 61, 0.20);
+}
+
+/* ── Delete button (history) ─────────────────────────────────────────────── */
+
+.delete-btn {
+  background: rgba(192, 57, 43, 0.08);
+  color: #c0392b;
+  border: 1px solid rgba(192, 57, 43, 0.20);
+}
+
+.delete-btn:hover {
+  background: rgba(192, 57, 43, 0.16);
+}
+
+/* ── Selection count badge hidden when empty ─────────────────────────────── */
+
+#selectionCount:empty {
+  display: none;
+}
+
+/* ── Export detail block ─────────────────────────────────────────────────── */
+
+.export-detail {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  word-break: break-all;
+}
