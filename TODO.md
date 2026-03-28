@@ -17,7 +17,7 @@ Goal: make the current app dependable enough for real early use.
 - [x] Add `GET /health` and a simple app status panel in Studio
 - [x] Normalize render/export error handling and show actionable messages in the UI
 - [x] Add render caching so repeated preview refreshes are fast
-- [ ] Add stronger tests for export naming, zip bundles, and engine preset generation
+- [x] Add stronger tests for export naming, zip bundles, and engine preset generation
 - [ ] Add snapshot-style tests for metadata schema stability
 - [ ] Finalize the current `build/exports` bundle flow and verify it end-to-end
 
@@ -26,7 +26,7 @@ Goal: make the current app dependable enough for real early use.
 Goal: make the Studio genuinely comfortable for building sprites, not just technically capable.
 
 - [ ] Replace raw item-id selection display with human-friendly selected item cards
-- [ ] Group catalog results by category such as body, head, hair, torso, weapons, and accessories
+- [x] Group catalog results by category such as body, head, hair, torso, weapons, and accessories
 - [ ] Add filters for body type, animation compatibility, tags, and category
 - [ ] Add search result ranking that favors likely creator intent, not only keyword hits
 - [ ] Add favorites and pinned items for repeated workflows

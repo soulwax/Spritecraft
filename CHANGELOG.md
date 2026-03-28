@@ -6,6 +6,8 @@
 - Runtime configuration diagnostics for malformed `.env` lines so startup issues are surfaced instead of silently ignored.
 - A Studio runtime health panel with refresh support so startup problems are visible in the UI instead of only surfacing as failed requests later.
 - Server-side render result caching for repeated preview and export requests using the same layer selection.
+- Focused export helper coverage for bundle naming, engine preset files, and zip archive contents.
+- Catalog browsing improvements in Studio with category filter chips and grouped result sections for faster asset discovery.
 
 ## 0.2.0 - 2026-03-28
 

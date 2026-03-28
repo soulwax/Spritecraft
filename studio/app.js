@@ -3,6 +3,7 @@
 const state = {
   bodyType: "male",
   animation: "idle",
+  category: "all",
   selections: {},
   latestImageBase64: null,
   latestMetadata: null,
@@ -23,6 +24,7 @@ const elements = {
   renderNow: document.querySelector("#renderNow"),
   exportRender: document.querySelector("#exportRender"),
   catalogSearch: document.querySelector("#catalogSearch"),
+  catalogFilters: null,
   catalogList: document.querySelector("#catalogList"),
   catalogCount: document.querySelector("#catalogCount"),
   selectedItems: document.querySelector("#selectedItems"),
@@ -98,6 +100,8 @@ async function refreshCatalog() {
     for (const item of payload.items ?? []) {
       state.catalogItemsById[item.id] = item;
     }
+    ensureCatalogFilters();
+    syncCategoryOptions(payload.items ?? []);
     renderCatalog(payload.items ?? []);
     renderSelections();
   } catch (error) {
@@ -184,48 +188,77 @@ async function saveProject() {
 }
 
 function renderCatalog(items) {
-  elements.catalogCount.textContent = `${items.length} results`;
+  const groupedItems = groupCatalogItems(items);
+  const visibleGroups = Object.entries(groupedItems).filter((entry) =>
+    state.category === "all" ? true : entry[0] === state.category,
+  );
+  const visibleCount = visibleGroups.reduce(
+    (total, [, groupItems]) => total + groupItems.length,
+    0,
+  );
+
+  elements.catalogCount.textContent = `${visibleCount} results`;
   elements.catalogList.innerHTML = "";
 
-  if (!items.length) {
+  if (!visibleGroups.length) {
     elements.catalogList.innerHTML = '<div class="muted">No catalog matches.</div>';
     return;
   }
 
-  for (const item of items) {
-    const card = document.createElement("article");
-    card.className = "item-card";
-    const variantOptions = (item.variants?.length ? item.variants : ["default"])
-      .map((variant) => `<option value="${escapeHtml(variant)}">${escapeHtml(variant)}</option>`)
-      .join("");
-
-    card.innerHTML = `
-      <header>
+  for (const [groupName, groupItems] of visibleGroups) {
+    const section = document.createElement("section");
+    section.className = "catalog-group";
+    section.innerHTML = `
+      <header class="catalog-group-header">
         <div>
-          <h3>${escapeHtml(item.name)}</h3>
-          <div class="muted">${escapeHtml(item.typeName)} · ${escapeHtml(item.category)}</div>
+          <p class="eyebrow">Category</p>
+          <h3>${escapeHtml(groupName)}</h3>
         </div>
-        <span class="chip">${escapeHtml(item.requiredBodyTypes.join(", "))}</span>
+        <span class="chip">${groupItems.length} item${groupItems.length === 1 ? "" : "s"}</span>
       </header>
-      <div class="chips">
-        ${(item.tags ?? []).slice(0, 4).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
-        ${(item.animations ?? []).slice(0, 3).map((anim) => `<span class="chip">${escapeHtml(anim)}</span>`).join("")}
-      </div>
-      <div class="item-actions">
-        <select class="variant-select">${variantOptions}</select>
-        <button class="primary mini">Use</button>
-      </div>
     `;
 
-    const button = card.querySelector("button");
-    const select = card.querySelector("select");
-    button.addEventListener("click", async () => {
-      state.selections[item.id] = select.value;
-      renderSelections();
-      await refreshRender();
-    });
+    const grid = document.createElement("div");
+    grid.className = "catalog-group-grid";
 
-    elements.catalogList.appendChild(card);
+    for (const item of groupItems) {
+      const card = document.createElement("article");
+      card.className = "item-card";
+      const variantOptions = (item.variants?.length ? item.variants : ["default"])
+        .map((variant) => `<option value="${escapeHtml(variant)}">${escapeHtml(variant)}</option>`)
+        .join("");
+
+      card.innerHTML = `
+        <header>
+          <div>
+            <h3>${escapeHtml(item.name)}</h3>
+            <div class="muted">${escapeHtml(item.typeName)} · ${escapeHtml(item.category)}</div>
+          </div>
+          <span class="chip">${escapeHtml(item.requiredBodyTypes.join(", "))}</span>
+        </header>
+        <div class="chips">
+          ${(item.tags ?? []).slice(0, 4).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
+          ${(item.animations ?? []).slice(0, 3).map((anim) => `<span class="chip">${escapeHtml(anim)}</span>`).join("")}
+        </div>
+        <div class="item-actions">
+          <select class="variant-select">${variantOptions}</select>
+          <button class="primary mini">Use</button>
+        </div>
+      `;
+
+      const button = card.querySelector("button");
+      const select = card.querySelector("select");
+      button.addEventListener("click", async () => {
+        state.selections[item.id] = select.value;
+        renderSelections();
+        await refreshRender();
+      });
+
+      grid.appendChild(card);
+    }
+
+    section.appendChild(grid);
+    elements.catalogList.appendChild(section);
   }
 }
 
@@ -526,6 +559,78 @@ function ensureStatusPanel() {
     .addEventListener("click", refreshHealth);
 
   elements.healthPanel = panel;
+}
+
+function ensureCatalogFilters() {
+  if (elements.catalogFilters) {
+    return;
+  }
+
+  const controls = document.createElement("div");
+  controls.className = "catalog-filters";
+  controls.innerHTML = `
+    <button class="chip active" type="button" data-category="all">All</button>
+  `;
+  elements.catalogList.parentElement.insertBefore(controls, elements.catalogList);
+  elements.catalogFilters = controls;
+}
+
+function syncCategoryOptions(items) {
+  if (!elements.catalogFilters) {
+    return;
+  }
+
+  const categories = [...new Set(items.map((item) => normalizeCategoryLabel(item.category)))].sort();
+  const filterMarkup = [
+    `<button class="chip ${state.category === "all" ? "active" : ""}" type="button" data-category="all">All</button>`,
+    ...categories.map((category) => {
+      const isActive = state.category === category ? "active" : "";
+      return `<button class="chip ${isActive}" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`;
+    }),
+  ].join("");
+
+  elements.catalogFilters.innerHTML = filterMarkup;
+  for (const button of elements.catalogFilters.querySelectorAll("[data-category]")) {
+    button.addEventListener("click", () => {
+      state.category = button.dataset.category || "all";
+      syncCategoryOptions(items);
+      renderCatalog(items);
+    });
+  }
+
+  if (
+    state.category !== "all" &&
+    !categories.includes(state.category)
+  ) {
+    state.category = "all";
+    syncCategoryOptions(items);
+  }
+}
+
+function groupCatalogItems(items) {
+  const groups = {};
+  for (const item of items) {
+    const group = normalizeCategoryLabel(item.category);
+    if (!groups[group]) {
+      groups[group] = [];
+    }
+    groups[group].push(item);
+  }
+  return Object.fromEntries(
+    Object.entries(groups).sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
+function normalizeCategoryLabel(category) {
+  if (!category) {
+    return "Misc";
+  }
+
+  return String(category)
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function renderHealth() {

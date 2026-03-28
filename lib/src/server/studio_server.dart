@@ -18,6 +18,7 @@ import '../lpc/lpc_renderer.dart';
 import '../models/lpc_models.dart';
 import '../models/sprite_plan.dart';
 import '../persistence/history_repository.dart';
+import 'export_support.dart';
 
 class StudioServer {
   StudioServer._({
@@ -284,9 +285,14 @@ class StudioServer {
       final String enginePreset =
           payload['enginePreset']?.toString().toLowerCase() ?? 'none';
 
-      final String baseName = _buildExportBaseName(
-        renderRequest,
+      final String baseName = ExportSupport.buildBaseName(
+        prompt: renderRequest.prompt,
         projectName: projectName,
+        timestamp: DateTime.now(),
+      );
+      final Map<String, Object?> metadata = result.toMetadataJson(
+        request: renderRequest,
+        imageName: '$baseName.png',
       );
 
       await config.exportDirectory.create(recursive: true);
@@ -300,20 +306,18 @@ class StudioServer {
       await imageFile.writeAsBytes(result.pngBytes);
       await metadataFile.writeAsString(
         const JsonEncoder.withIndent('  ').convert(
-          result.toMetadataJson(
-            request: renderRequest,
-            imageName: path.basename(imageFile.path),
-          ),
+          metadata,
         ),
       );
 
-      final List<File> extraFiles = await _writeEnginePresetFiles(
+      final List<File> extraFiles = await ExportSupport.writeEnginePresetFiles(
+        exportDirectory: config.exportDirectory,
         enginePreset: enginePreset,
         baseName: baseName,
-        request: renderRequest,
-        renderResult: result,
+        metadata: metadata,
       );
-      final File zipFile = await _writeExportBundle(
+      final File zipFile = await ExportSupport.writeExportBundle(
+        exportDirectory: config.exportDirectory,
         baseName: baseName,
         files: <File>[imageFile, metadataFile, ...extraFiles],
       );
