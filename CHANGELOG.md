@@ -1,3 +1,10 @@
+## 0.4.25 - 2026-03-29
+
+### Changed
+
+- Added a type-focused alternative-browsing flow in `spritecraft-web` so staged items can now jump the catalog directly into “show me alternatives for this layer type”.
+- Improved the web-side builder feel by pairing same-type replacement mode with explicit alternative discovery instead of leaving replacement as a manual search task.
+
 ## 0.4.24 - 2026-03-29
 
 ### Changed

@@ -1603,6 +1603,21 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           </Select>
         </div>
 
+        {activeTypeFocus ? (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-soft)]/30 px-4 py-3 text-sm text-[color:var(--muted-foreground)]">
+            <div>
+              Focusing catalog alternatives for{" "}
+              <span className="font-medium text-[color:var(--foreground)]">
+                {activeTypeFocus}
+              </span>
+              .
+            </div>
+            <Button onClick={clearTypeFocus} type="button" variant="secondary">
+              Show all types
+            </Button>
+          </div>
+        ) : null}
+
         {status === "error" ? (
           <div className="rounded-2xl border border-[color:var(--destructive)]/40 bg-[color:var(--surface-soft)] p-4 text-sm text-[color:var(--muted-foreground)]">
             {errorMessage}
@@ -1667,7 +1682,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                     </div>
                     <Badge>{stagedSelections[item.id]}</Badge>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
                     <Select
                       onChange={(event) => {
                         updateVariantChoice(item.id, event.target.value);
@@ -1711,6 +1726,13 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                       variant="secondary"
                     >
                       Remove
+                    </Button>
+                    <Button
+                      onClick={() => focusTypeAlternatives(item.typeName)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Alternatives
                     </Button>
                   </div>
                 </div>
@@ -1811,7 +1833,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="font-medium">{item.name}</h3>
-                <Badge>{item.typeName}</Badge>
+                <div className="flex flex-wrap gap-2">
+                  <Badge>{item.typeName}</Badge>
+                  {activeTypeFocus === item.typeName ? (
+                    <Badge variant="warning">focused type</Badge>
+                  ) : null}
+                </div>
               </div>
               <p className="mb-3 text-sm text-[color:var(--muted-foreground)]">
                 {item.category} ·{" "}
