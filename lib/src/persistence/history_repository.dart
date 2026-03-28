@@ -98,6 +98,33 @@ class HistoryRepository {
         .toList();
   }
 
+  Future<StudioHistoryEntry?> findById(String id) async {
+    final Result result = await _connection.execute(
+      Sql.named('''
+        SELECT id, created_at, body_type, animation, prompt, selections, used_layers, credits
+        FROM sprite_history
+        WHERE id = @id:text
+        LIMIT 1
+      '''),
+      parameters: <String, Object>{'id': id},
+    );
+
+    if (result.isEmpty) {
+      return null;
+    }
+    return _entryFromRow(result.first.toColumnMap());
+  }
+
+  Future<bool> delete(String id) async {
+    final Result result = await _connection.execute(
+      Sql.named(
+        'DELETE FROM sprite_history WHERE id = @id:text',
+      ),
+      parameters: <String, Object>{'id': id},
+    );
+    return result.affectedRows > 0;
+  }
+
   StudioHistoryEntry _entryFromRow(Map<String, dynamic> row) {
     final Map<String, dynamic> selectionsMap =
         _normalizeJsonMap(row['selections']) ?? <String, dynamic>{};

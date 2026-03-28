@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
-import 'package:path/path.dart' as path;
 import 'package:mime/mime.dart';
+import 'package:path/path.dart' as path;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
@@ -56,7 +56,10 @@ class StudioServer {
       ..post('/api/lpc/export', _export)
       ..post('/api/ai/brief', _brief)
       ..get('/api/history', _history)
-      ..post('/api/history/save', _saveHistory);
+      ..post('/api/history/save', _saveHistory)
+      ..post('/api/history/restore', _restoreHistory)
+      ..get('/api/history/<id>', _historyEntry)
+      ..delete('/api/history/<id>', _deleteHistory);
 
     final MimeTypeResolver mimeTypeResolver = MimeTypeResolver();
     final Handler staticHandler = createStaticHandler(
@@ -272,6 +275,71 @@ class StudioServer {
     );
 
     return _json(200, entry.toJson());
+  }
+
+  Future<Response> _historyEntry(Request request, String id) async {
+    if (historyRepository == null) {
+      return _json(503, <String, Object>{
+        'error': 'DATABASE_URL is not configured.',
+      });
+    }
+    final StudioHistoryEntry? entry = await historyRepository!.findById(id);
+    if (entry == null) {
+      return _json(404, <String, Object>{'error': 'History entry not found.'});
+    }
+    return _json(200, entry.toJson());
+  }
+
+  Future<Response> _deleteHistory(Request request, String id) async {
+    if (historyRepository == null) {
+      return _json(503, <String, Object>{
+        'error': 'DATABASE_URL is not configured.',
+      });
+    }
+    final bool deleted = await historyRepository!.delete(id);
+    if (!deleted) {
+      return _json(404, <String, Object>{'error': 'History entry not found.'});
+    }
+    return _json(200, <String, Object>{'deleted': id});
+  }
+
+  /// Restores a saved history entry: re-renders it and returns the full render
+  /// payload so the frontend can reload selections, preview, and credits.
+  Future<Response> _restoreHistory(Request request) async {
+    if (historyRepository == null) {
+      return _json(503, <String, Object>{
+        'error': 'DATABASE_URL is not configured.',
+      });
+    }
+
+    final Map<String, dynamic> payload = await request.readAsJson();
+    final String id = payload['id']?.toString() ?? '';
+    if (id.isEmpty) {
+      return _json(400, <String, Object>{'error': 'id is required.'});
+    }
+
+    final StudioHistoryEntry? entry = await historyRepository!.findById(id);
+    if (entry == null) {
+      return _json(404, <String, Object>{'error': 'History entry not found.'});
+    }
+
+    final LpcRenderRequest renderRequest = LpcRenderRequest(
+      bodyType: entry.bodyType,
+      animation: entry.animation,
+      selections: entry.selections,
+      prompt: entry.prompt,
+    );
+
+    try {
+      final LpcRenderResult result = await renderer.render(renderRequest);
+      final String imageName = _buildPreviewImageName(renderRequest);
+      return _json(200, <String, Object?>{
+        ...result.toApiJson(request: renderRequest, imageName: imageName),
+        'restored': entry.toJson(),
+      });
+    } on StateError catch (error) {
+      return _json(400, <String, Object>{'error': error.message});
+    }
   }
 
   Future<void> close() async {
