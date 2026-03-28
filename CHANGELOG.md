@@ -1,3 +1,10 @@
+## 0.4.19 - 2026-03-29
+
+### Changed
+
+- Added related-history context to the `spritecraft-web` workspace so restored projects now bring nearby versions and snapshots into the web-side iteration view.
+- Updated the web workspace load contract to carry richer browser context, making saved-project restoration feel more connected to ongoing versioned work instead of loading in isolation.
+
 ## 0.4.18 - 2026-03-29
 
 ### Changed

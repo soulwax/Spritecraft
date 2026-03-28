@@ -27,7 +27,11 @@ import {
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
 import { buildStudioRestoreUrl } from "~/app/_components/project-launching";
-import { workspaceLoadEventName } from "~/app/_components/web-workspace-bridge";
+import {
+  getRelatedWorkspaceProjects,
+  workspaceLoadEventName,
+  type WorkspaceLoadPayload,
+} from "~/app/_components/web-workspace-bridge";
 import type { SpriteCraftProjectSummary } from "~/server/spritecraft-backend";
 
 type ProjectBrowserProps = {
@@ -238,9 +242,13 @@ export function ProjectBrowser({
   }
 
   function loadProjectIntoWebWorkspace(project: SpriteCraftProjectSummary) {
+    const payload: WorkspaceLoadPayload = {
+      project,
+      relatedProjects: getRelatedWorkspaceProjects(project, projects),
+    };
     window.dispatchEvent(
-      new CustomEvent<SpriteCraftProjectSummary>(workspaceLoadEventName, {
-        detail: project,
+      new CustomEvent<WorkspaceLoadPayload>(workspaceLoadEventName, {
+        detail: payload,
       }),
     );
     setFeedback({

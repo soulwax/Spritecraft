@@ -12,6 +12,8 @@ import {
 
 import { buildStudioTemplateUrl } from "~/app/_components/project-launching";
 import {
+  type WorkspaceLinkedProject,
+  type WorkspaceLoadPayload,
   normalizeWorkspaceDraft,
   projectToWorkspaceDraft,
   type CatalogWorkspaceDraft,
@@ -60,6 +62,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [sourceProjectLabel, setSourceProjectLabel] = useState<string | null>(
     null,
   );
+  const [relatedProjects, setRelatedProjects] = useState<WorkspaceLinkedProject[]>(
+    [],
+  );
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
@@ -95,6 +100,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setPromptHistory(draft.promptHistory);
     setSourceProjectId(draft.sourceProjectId);
     setSourceProjectLabel(draft.sourceProjectLabel);
+    setRelatedProjects(draft.relatedProjects);
     setBodyType(
       bodyTypes.includes(draft.bodyType)
         ? draft.bodyType
@@ -135,16 +141,17 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
 
   useEffect(() => {
     function handleWorkspaceLoad(event: Event) {
-      const detail = (event as CustomEvent<SpriteCraftProjectSummary>).detail;
-      if (!detail) {
+      const detail = (event as CustomEvent<WorkspaceLoadPayload>).detail;
+      if (!detail?.project) {
         return;
       }
 
-      const draft = projectToWorkspaceDraft(detail);
+      const draft = projectToWorkspaceDraft(detail.project);
+      draft.relatedProjects = detail.relatedProjects;
       applyWorkspaceDraft(draft);
       setWorkspaceFeedback({
         tone: "success",
-        message: `Loaded ${detail.projectName ?? "saved project"} into the web workspace.`,
+        message: `Loaded ${detail.project.projectName ?? "saved project"} into the web workspace.`,
       });
     }
 
@@ -190,6 +197,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         promptHistory,
         sourceProjectId,
         sourceProjectLabel,
+        relatedProjects,
         bodyType,
         animation,
         category,
@@ -209,6 +217,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     category,
     promptHistory,
     query,
+    relatedProjects,
     sourceProjectId,
     sourceProjectLabel,
     stagedSelections,
@@ -427,6 +436,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setPromptHistory([]);
     setSourceProjectId(null);
     setSourceProjectLabel(null);
+    setRelatedProjects([]);
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
@@ -450,6 +460,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       promptHistory,
       sourceProjectId,
       sourceProjectLabel,
+      relatedProjects,
       bodyType,
       animation,
       category,
@@ -581,6 +592,22 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       setWorkspaceTags(payload.tags ?? mergedTags);
       setPromptHistory(payload.promptHistory ?? mergedPromptHistory);
       setWorkspaceNotes(payload.notes ?? mergedNotes);
+      setRelatedProjects((current) => {
+        const nextEntry: WorkspaceLinkedProject = {
+          id: payload.id,
+          label: payload.projectName ?? projectName,
+          createdAt: payload.createdAt,
+          updatedAt: payload.updatedAt ?? null,
+          tags: payload.tags ?? mergedTags,
+          animation: payload.animation,
+          layerCount: Object.keys(payload.selections).length,
+        };
+
+        return [
+          nextEntry,
+          ...current.filter((entry) => entry.id !== payload.id),
+        ].slice(0, 6);
+      });
       setWorkspaceFeedback({
         tone: "success",
         message:
@@ -620,6 +647,20 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   function formatSavedAt(value: string | null) {
     if (!value) {
       return "Not saved yet";
+    }
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  }
+
+  function formatProjectDate(value: string | null) {
+    if (!value) {
+      return "Unknown";
     }
     try {
       return new Intl.DateTimeFormat(undefined, {
@@ -926,6 +967,56 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             )}
           </div>
         </div>
+
+        {sourceProjectId ? (
+          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Related History
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  Nearby versions and snapshots
+                </h3>
+              </div>
+              <Badge>{relatedProjects.length} entries</Badge>
+            </div>
+            {relatedProjects.length ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {relatedProjects.map((entry) => (
+                  <div
+                    className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3"
+                    key={entry.id}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <strong>{entry.label}</strong>
+                      <Badge>{entry.animation}</Badge>
+                    </div>
+                    <p className="text-sm text-[color:var(--muted-foreground)]">
+                      {formatProjectDate(entry.updatedAt ?? entry.createdAt)}
+                    </p>
+                    <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
+                      {entry.layerCount} layer
+                      {entry.layerCount === 1 ? "" : "s"}
+                    </p>
+                    {entry.tags.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {entry.tags.slice(0, 3).map((tag) => (
+                          <Badge key={`${entry.id}-${tag}`}>{tag}</Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[color:var(--muted-foreground)]">
+                Load a saved project from the browser to bring its nearby
+                version context into the web workspace.
+              </p>
+            )}
+          </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
