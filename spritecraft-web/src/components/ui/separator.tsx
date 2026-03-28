@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/components/ui/separator.tsx
+
 import * as SeparatorPrimitive from "@radix-ui/react-separator";
 
 import { cn } from "~/lib/utils";

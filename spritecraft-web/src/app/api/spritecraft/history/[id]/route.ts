@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/app/api/spritecraft/history/[id]/route.ts
+
 import { NextResponse } from "next/server";
 
 import { deleteSpriteCraftHistoryEntry, getSpriteCraftProject } from "~/server/spritecraft-backend";

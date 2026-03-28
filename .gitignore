@@ -1,12 +1,11 @@
 # File: .gitignore
-
 # https://dart.dev/guides/libraries/private-files
 # Created by `dart pub`
+
 .dart_tool/
 build/
 .env
 !CLAUDE.md
 
 lpc-spriteshet-creator/
-
 

@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/app/page.tsx
+
 import Link from "next/link";
 import {
 	AlertTriangle,

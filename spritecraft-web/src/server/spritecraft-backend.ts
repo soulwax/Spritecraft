@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/server/spritecraft-backend.ts
+
 import "server-only";
 
 import { env } from "~/env";
@@ -34,6 +36,23 @@ const historyEntrySchema = z.object({
 });
 
 export type SpriteCraftProjectSummary = z.infer<typeof historyEntrySchema>;
+
+const saveRequestSchema = z.object({
+	projectName: z.string().optional(),
+	notes: z.string().optional(),
+	tags: z.array(z.string()).default([]),
+	enginePreset: z.string().optional(),
+	bodyType: z.string(),
+	animation: z.string(),
+	prompt: z.string().optional(),
+	selections: z.record(z.string()).default({}),
+	renderSettings: z.record(z.any()).default({}),
+	exportSettings: z.record(z.any()).default({}),
+	promptHistory: z.array(z.string()).default([]),
+	exportHistory: z.array(z.record(z.any())).default([]),
+});
+
+export type SpriteCraftSaveRequest = z.infer<typeof saveRequestSchema>;
 
 const bootstrapSchema = z.object({
 	config: z.object({
@@ -140,5 +159,12 @@ export async function importSpriteCraftHistoryPackage(packagePath: string) {
 	return fetchJson("/api/history/import", historyEntrySchema, {
 		method: "POST",
 		body: JSON.stringify({ packagePath }),
+	});
+}
+
+export async function saveSpriteCraftHistoryEntry(payload: SpriteCraftSaveRequest) {
+	return fetchJson("/api/history/save", historyEntrySchema, {
+		method: "POST",
+		body: JSON.stringify(saveRequestSchema.parse(payload)),
 	});
 }

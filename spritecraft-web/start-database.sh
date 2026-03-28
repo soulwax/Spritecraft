@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# File: spritecraft-web/start-database.sh
+
 # Use this script to start a docker container for a local development database
 
 # TO RUN ON WINDOWS:

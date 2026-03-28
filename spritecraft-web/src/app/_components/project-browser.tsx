@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/app/_components/project-browser.tsx
+
 "use client";
 
 import { useDeferredValue, useMemo, useState, useTransition } from "react";
@@ -5,9 +7,11 @@ import {
 	Download,
 	ExternalLink,
 	FolderSearch,
+	History,
 	PackagePlus,
 	RefreshCw,
 	Search,
+	Save,
 	Trash2,
 } from "lucide-react";
 
@@ -81,6 +85,13 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 	const [feedback, setFeedback] = useState<FeedbackState | null>(null);
 	const [importPath, setImportPath] = useState("");
 	const [activeAction, setActiveAction] = useState<string | null>(null);
+	const [editorProjectName, setEditorProjectName] = useState(
+		initialProjects[0]?.projectName ?? "",
+	);
+	const [editorNotes, setEditorNotes] = useState(initialProjects[0]?.notes ?? "");
+	const [editorTags, setEditorTags] = useState(
+		initialProjects[0]?.tags.join(", ") ?? "",
+	);
 	const [isPending, startTransition] = useTransition();
 
 	const filtered = useMemo(() => {
@@ -140,6 +151,12 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 		projects[0] ??
 		null;
 
+	function syncEditorFromProject(project: SpriteCraftProjectSummary | null) {
+		setEditorProjectName(project?.projectName ?? "");
+		setEditorNotes(project?.notes ?? "");
+		setEditorTags(project?.tags.join(", ") ?? "");
+	}
+
 	async function refreshProjects(options?: { keepMessage?: boolean }) {
 		const history = await readJson<{ items: SpriteCraftProjectSummary[] }>(
 			"/api/spritecraft/history",
@@ -151,6 +168,7 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 					? current
 					: (history.items[0]?.id ?? null),
 			);
+			syncEditorFromProject(history.items[0] ?? null);
 			if (!options?.keepMessage) {
 				setFeedback({
 					tone: "success",
@@ -183,6 +201,39 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 		} finally {
 			setActiveAction(null);
 		}
+	}
+
+	function buildSavePayload(
+		project: SpriteCraftProjectSummary,
+		overrides?: Partial<{
+			projectName: string;
+			notes: string;
+			tags: string[];
+		}>,
+	) {
+		return {
+			projectName:
+				overrides?.projectName ??
+				editorProjectName.trim() ??
+				project.projectName ??
+				"",
+			notes: overrides?.notes ?? editorNotes.trim() ?? project.notes ?? "",
+			tags:
+				overrides?.tags ??
+				editorTags
+					.split(",")
+					.map((tag) => tag.trim())
+					.filter(Boolean),
+			enginePreset: project.enginePreset ?? "none",
+			bodyType: project.bodyType,
+			animation: project.animation,
+			prompt: project.prompt ?? "",
+			selections: project.selections,
+			renderSettings: project.renderSettings ?? {},
+			exportSettings: project.exportSettings ?? {},
+			promptHistory: project.promptHistory ?? [],
+			exportHistory: project.exportHistory ?? [],
+		};
 	}
 
 	return (
@@ -328,7 +379,10 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 													: "border-[color:var(--border)] bg-[color:var(--surface-soft)] hover:border-[color:var(--accent-soft)] hover:bg-[color:var(--surface-strong)]"
 											}`}
 											key={project.id}
-											onClick={() => setSelectedId(project.id)}
+											onClick={() => {
+												setSelectedId(project.id);
+												syncEditorFromProject(project);
+											}}
 											type="button"
 										>
 											<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -423,6 +477,25 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 											</p>
 										</div>
 
+										<div className="grid gap-3">
+											<Input
+												onChange={(event) => setEditorProjectName(event.target.value)}
+												placeholder="Project name"
+												value={editorProjectName}
+											/>
+											<Input
+												onChange={(event) => setEditorTags(event.target.value)}
+												placeholder="Tags, comma separated"
+												value={editorTags}
+											/>
+											<textarea
+												className="min-h-28 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--ring)]"
+												onChange={(event) => setEditorNotes(event.target.value)}
+												placeholder="Notes"
+												value={editorNotes}
+											/>
+										</div>
+
 										<div className="flex flex-wrap gap-2">
 											<Badge>{selectedProject.bodyType}</Badge>
 											<Badge>{selectedProject.animation}</Badge>
@@ -486,6 +559,86 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 										</div>
 
 										<div className="flex flex-wrap gap-3">
+											<Button
+												onClick={() =>
+													void runAction(
+														`save-version-${selectedProject.id}`,
+														() =>
+															readJson<SpriteCraftProjectSummary>(
+																"/api/spritecraft/history/save",
+																{
+																	method: "POST",
+																	body: JSON.stringify(
+																		buildSavePayload(selectedProject),
+																	),
+																},
+															),
+														(saved) => {
+															setProjects((current) => [saved, ...current]);
+															setSelectedId(saved.id);
+															syncEditorFromProject(saved);
+															setFeedback({
+																tone: "success",
+																message: `Saved ${getProjectLabel(saved)} as a new project version.`,
+															});
+														},
+													)
+												}
+												variant="secondary"
+											>
+												<Save className="mr-2 size-4" />
+												Save Version
+											</Button>
+											<Button
+												onClick={() =>
+													void runAction(
+														`snapshot-${selectedProject.id}`,
+														() =>
+															readJson<SpriteCraftProjectSummary>(
+																"/api/spritecraft/history/save",
+																{
+																	method: "POST",
+																	body: JSON.stringify(
+																		buildSavePayload(selectedProject, {
+																			projectName:
+																				(editorProjectName.trim() ||
+																					getProjectLabel(selectedProject)) +
+																				" Snapshot",
+																			notes: [
+																				editorNotes.trim(),
+																				`Snapshot created from ${getProjectLabel(selectedProject)}.`,
+																			]
+																				.filter(Boolean)
+																				.join("\n\n"),
+																			tags: Array.from(
+																				new Set([
+																					...editorTags
+																						.split(",")
+																						.map((tag) => tag.trim())
+																						.filter(Boolean),
+																					"snapshot",
+																				]),
+																			),
+																		}),
+																	),
+																},
+															),
+														(snapshot) => {
+															setProjects((current) => [snapshot, ...current]);
+															setSelectedId(snapshot.id);
+															syncEditorFromProject(snapshot);
+															setFeedback({
+																tone: "success",
+																message: `Created snapshot ${getProjectLabel(snapshot)}.`,
+															});
+														},
+													)
+												}
+												variant="secondary"
+											>
+												<History className="mr-2 size-4" />
+												Create Snapshot
+											</Button>
 											<Button asChild>
 												<a
 													href={buildStudioRestoreUrl(selectedProject.id)}
@@ -587,9 +740,9 @@ export function ProjectBrowser({ projects: initialProjects }: ProjectBrowserProp
 								Current migration boundary
 							</p>
 							<p className="mt-2">
-								This web shell now owns browsing, restore handoff, duplication,
-								deletion, and package transfer. The Dart Studio remains the active
-								builder and renderer.
+								This web shell now owns browsing, restore handoff, saved-project
+								versioning, snapshots, duplication, deletion, and package
+								transfer. The Dart Studio remains the active live builder and renderer.
 							</p>
 							<Button asChild className="mt-4" variant="ghost">
 								<a

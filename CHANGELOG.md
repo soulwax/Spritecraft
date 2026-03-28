@@ -1,3 +1,11 @@
+## 0.4.3 - 2026-03-28
+
+### Changed
+
+- Moved named snapshot creation out of the Dart Studio and into `spritecraft-web`, where snapshots can now be created directly from saved projects.
+- Added web-side saved-project versioning so edited project metadata can be saved as a new history version from the new project browser.
+- Clarified the Studio role as the live builder while the web app now owns more of the project-management workflow surface.
+
 ## 0.4.2 - 2026-03-28
 
 ### Changed

@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/app/api/spritecraft/history/[id]/duplicate/route.ts
+
 import { NextResponse } from "next/server";
 
 import { duplicateSpriteCraftHistoryEntry } from "~/server/spritecraft-backend";

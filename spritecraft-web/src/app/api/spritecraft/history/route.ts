@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/app/api/spritecraft/history/route.ts
+
 import { NextResponse } from "next/server";
 
 import { getSpriteCraftHistory } from "~/server/spritecraft-backend";

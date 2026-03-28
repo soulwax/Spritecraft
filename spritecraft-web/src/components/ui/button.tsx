@@ -1,3 +1,5 @@
+// File: spritecraft-web/src/components/ui/button.tsx
+
 import Link from "next/link";
 import type * as React from "react";
 import { Slot } from "@radix-ui/react-slot";

@@ -138,7 +138,6 @@ const elements = {
   healthPanel: null,
   previewModes: null,
   comparisonGrid: null,
-  snapshotActions: null,
 };
 
 init().catch((error) => {
@@ -152,7 +151,6 @@ async function init() {
   ensureBuilderActions();
   ensurePreviewModes();
   ensureProjectMeta();
-  ensureSnapshotActions();
   ensureQuickAccess();
   loadStudioPreferences();
   loadDraft();
@@ -1314,26 +1312,6 @@ function ensureProjectMeta() {
   renderProjectMeta();
 }
 
-function ensureSnapshotActions() {
-  if (elements.snapshotActions || !elements.saveProject?.parentElement) {
-    return;
-  }
-
-  const section = document.createElement("div");
-  section.className = "snapshot-actions";
-  section.innerHTML = `
-    <button class="mini ghost" type="button" data-action="save-snapshot">Save Named Snapshot</button>
-    <span class="muted" data-role="draft-status">Draft idle</span>
-  `;
-
-  elements.saveProject.parentElement.insertAdjacentElement("afterend", section);
-  elements.snapshotActions = section;
-  section
-    .querySelector('[data-action="save-snapshot"]')
-    .addEventListener("click", saveNamedSnapshot);
-  updateDraftStatus();
-}
-
 function ensurePreviewModes() {
   if (elements.previewModes || !elements.previewMeta?.parentElement) {
     return;
@@ -1544,64 +1522,7 @@ function loadDraft() {
 }
 
 function updateDraftStatus(savedAt) {
-  const label = elements.snapshotActions?.querySelector('[data-role="draft-status"]');
-  if (!label) {
-    return;
-  }
-
-  if (state.draftStatus === "pending") {
-    label.textContent = "Draft saving...";
-    return;
-  }
-
-  if (state.draftStatus === "error") {
-    label.textContent = "Draft save failed";
-    return;
-  }
-
-  if (state.draftStatus === "saved") {
-    const stamp = savedAt || buildDraftPayload().savedAt;
-    label.textContent = `Draft saved ${new Date(stamp).toLocaleTimeString()}`;
-    return;
-  }
-
-  label.textContent = "Draft idle";
-}
-
-async function saveNamedSnapshot() {
-  const baseName = elements.projectName?.value?.trim() || "Snapshot";
-  const snapshotName = window.prompt(
-    "Snapshot name",
-    `${baseName} ${new Date().toLocaleString()}`,
-  );
-  if (!snapshotName || !snapshotName.trim()) {
-    return;
-  }
-
-  try {
-    if (elements.prompt.value.trim()) {
-      rememberPrompt(elements.prompt.value.trim());
-    }
-    const payload = await api("/api/history/save", {
-      method: "POST",
-      body: JSON.stringify({
-        ...buildRequest(),
-        projectName: snapshotName.trim(),
-        tags: [...state.projectTags, "snapshot"].filter(
-          (tag, index, list) => list.indexOf(tag) === index,
-        ),
-        notes: [state.projectNotes, `Snapshot saved from ${baseName || "untitled project"}.`]
-          .filter(Boolean)
-          .join("\n\n"),
-      }),
-    });
-    saveDraft({ savedProjectId: payload.id });
-    showToast("Named snapshot saved.");
-  } catch (error) {
-    const message = actionableMessage("Snapshot save failed.", error);
-    elements.planOutput.textContent = message;
-    showToast(message, "error");
-  }
+  void savedAt;
 }
 
 function parseProjectTags(value) {

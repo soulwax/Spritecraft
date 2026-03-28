@@ -1,3 +1,5 @@
+// File: test/metadata_snapshot_test.dart
+
 import 'dart:convert';
 
 import 'package:spritecraft/src/models/lpc_models.dart';
