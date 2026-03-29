@@ -1,3 +1,10 @@
+## 0.20.0 - 2026-03-30
+
+### Changed
+
+- Redesigned the Studio home shell around a creator-first workflow with a stronger launchpad, clearer builder handoff, calmer project context, and much less dashboard-style clutter.
+- Refined the Kanagawa-inspired visual system with a stronger hero surface, softer supporting panels, updated global atmosphere, and more deliberate button and card styling.
+
 ## 0.19.4 - 2026-03-30
 
 ### Fixed

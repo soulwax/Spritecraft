@@ -11,7 +11,7 @@ function Card({
 	return (
 		<div
 			className={cn(
-				"rounded-[28px] border border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_20px_80px_rgba(0,0,0,0.18)]",
+				"rounded-[28px] border border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_18px_56px_rgba(0,0,0,0.2)] backdrop-blur-sm",
 				className,
 			)}
 			{...props}
