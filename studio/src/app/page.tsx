@@ -27,6 +27,7 @@ import {
 } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import {
+  getSpriteCraftBaseUrl,
   getSpriteCraftBootstrap,
   getSpriteCraftHealth,
 } from "~/server/spritecraft-backend";
@@ -45,6 +46,9 @@ export default async function Home() {
     getSpriteCraftBootstrap(),
     getSpriteCraftHealth(),
   ]);
+  const backendBaseUrl = getSpriteCraftBaseUrl();
+  const backendHealthUrl = `${backendBaseUrl}/health`;
+  const backendBootstrapUrl = `${backendBaseUrl}/api/bootstrap`;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-8 lg:px-10">
@@ -91,14 +95,14 @@ export default async function Home() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Button asChild>
-                <Link href="http://127.0.0.1:8080/health" target="_blank">
+                <a href={backendHealthUrl} rel="noreferrer" target="_blank">
                   Open Backend Health
-                </Link>
+                </a>
               </Button>
               <Button asChild variant="secondary">
-                <Link href="http://127.0.0.1:8080/api/bootstrap" target="_blank">
+                <a href={backendBootstrapUrl} rel="noreferrer" target="_blank">
                   Backend Bootstrap
-                </Link>
+                </a>
               </Button>
             </div>
           </CardContent>

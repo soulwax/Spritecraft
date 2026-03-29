@@ -63,6 +63,8 @@ class StudioServer {
   Future<HttpServer> serve({String host = '127.0.0.1', int port = 8080}) async {
     final Router router = Router()
       ..get('/health', _health)
+      ..get('/api/health', _health)
+      ..get('/bootstrap', _bootstrap)
       ..get('/api/bootstrap', _bootstrap)
       ..get('/api/studio/bootstrap', _bootstrap)
       ..get('/api/lpc/catalog', _catalog)
@@ -81,7 +83,9 @@ class StudioServer {
     final Handler handler = Pipeline().addMiddleware(logRequests()).addHandler((
       Request request,
     ) async {
-      if (request.url.path == 'health' || request.url.path.startsWith('api/')) {
+      if (request.url.path == 'health' ||
+          request.url.path == 'bootstrap' ||
+          request.url.path.startsWith('api/')) {
         final Response response = await router.call(request);
         if (response.statusCode == 404) {
           return _json(404, <String, Object>{'error': 'Not found'});

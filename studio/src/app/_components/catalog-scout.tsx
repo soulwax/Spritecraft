@@ -12,14 +12,15 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { buildWorkspaceLaunchUrl } from "~/app/_components/project-launching";
 import {
+  type WorkspaceLaunchPayload,
   type WorkspaceLinkedProject,
   type WorkspaceLoadPayload,
   getRelatedWorkspaceProjects,
   normalizeWorkspaceDraft,
   projectToWorkspaceDraft,
   type CatalogWorkspaceDraft,
+  workspaceLaunchEventName,
   workspaceLoadEventName,
   workspacePresetsStorageKey,
   workspaceStorageKey,
@@ -207,7 +208,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
 
     const draft = normalizeWorkspaceDraft({
       name: params.get("projectName") ?? "Web Builder Workspace",
-      query: params.get("prompt") ?? "",
+      query: params.get("catalogSearch") ?? params.get("prompt") ?? "",
       bodyType: params.get("bodyType") ?? bodyTypes[0] ?? "male",
       animation: params.get("animation") ?? animations[0] ?? "idle",
       enginePreset: params.get("enginePreset") ?? "none",
@@ -272,6 +273,48 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     window.addEventListener(workspaceLoadEventName, handleWorkspaceLoad);
     return () => {
       window.removeEventListener(workspaceLoadEventName, handleWorkspaceLoad);
+    };
+  }, [animations, bodyTypes]);
+
+  useEffect(() => {
+    function handleWorkspaceLaunch(event: Event) {
+      const detail = (event as CustomEvent<WorkspaceLaunchPayload>).detail;
+      if (!detail?.config) {
+        return;
+      }
+
+      const draft = normalizeWorkspaceDraft({
+        name: detail.config.projectName || "Web Builder Workspace",
+        query: detail.config.catalogSearch ?? detail.config.prompt,
+        bodyType: detail.config.bodyType,
+        animation: detail.config.animation,
+        enginePreset: detail.config.enginePreset,
+        exportSettings: { ...defaultExportSettings },
+        batchAnimations: [],
+        batchVariantPresetNames: [],
+        category: detail.config.category,
+        tag: detail.config.tagFilter,
+        stagedSelections: detail.config.seededSelections ?? {},
+        variantChoices: detail.config.seededSelections ?? {},
+        savedAt: new Date().toISOString(),
+      });
+      if (!draft) {
+        return;
+      }
+
+      applyWorkspaceDraft(draft);
+      setWorkspaceFeedback({
+        tone: "success",
+        message: `Loaded ${draft.name} into the builder workspace.`,
+      });
+    }
+
+    window.addEventListener(workspaceLaunchEventName, handleWorkspaceLaunch);
+    return () => {
+      window.removeEventListener(
+        workspaceLaunchEventName,
+        handleWorkspaceLaunch,
+      );
     };
   }, [animations, bodyTypes]);
 
@@ -1449,21 +1492,56 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     }
   }
 
-  const workspaceLaunchUrl = buildWorkspaceLaunchUrl({
+  function relaunchBuilderWorkspace() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const config = {
       bodyType,
       animation,
       projectName:
-      workspaceName.trim() ||
-      (query.trim() ? `Scout ${query.trim()}` : "Scouted Project"),
-    prompt: "",
-    enginePreset: "none",
-    previewMode: "single",
-    category,
-    animationFilter: "current",
-    tagFilter: tag,
-    catalogSearch: query.trim(),
-    seededSelections: stagedSelections,
-  });
+        workspaceName.trim() ||
+        (query.trim() ? `Scout ${query.trim()}` : "Scouted Project"),
+      prompt: query.trim(),
+      enginePreset: workspaceEnginePreset,
+      previewMode: "single",
+      category,
+      animationFilter: "current",
+      tagFilter: tag,
+      catalogSearch: query.trim(),
+      seededSelections: stagedSelections,
+    };
+
+    window.dispatchEvent(
+      new CustomEvent<WorkspaceLaunchPayload>(workspaceLaunchEventName, {
+        detail: { config },
+      }),
+    );
+    const params = new URLSearchParams({
+      bodyType: config.bodyType,
+      animation: config.animation,
+      projectName: config.projectName,
+      prompt: config.prompt,
+      enginePreset: config.enginePreset,
+      previewMode: config.previewMode,
+      category: config.category,
+      animationFilter: config.animationFilter,
+      tagFilter: config.tagFilter,
+    });
+    if (config.catalogSearch) {
+      params.set("catalogSearch", config.catalogSearch);
+    }
+    if (Object.keys(config.seededSelections ?? {}).length) {
+      params.set("selections", JSON.stringify(config.seededSelections));
+    }
+    window.history.replaceState({}, "", `/?${params.toString()}#builder`);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("builder")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   const currentLayerIds = useMemo(
     () => Object.keys(stagedSelections),
@@ -1657,11 +1735,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               </option>
             ))}
           </Select>
-            <Button asChild>
-              <a href={workspaceLaunchUrl}>
-                <ExternalLink className="mr-2 size-4" />
-                Open In Builder
-              </a>
+            <Button onClick={relaunchBuilderWorkspace} type="button">
+              <ExternalLink className="mr-2 size-4" />
+              Open In Builder
             </Button>
         </div>
 

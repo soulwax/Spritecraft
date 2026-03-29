@@ -202,6 +202,10 @@ function getBaseUrl() {
 	);
 }
 
+export function getSpriteCraftBaseUrl() {
+	return getBaseUrl();
+}
+
 async function fetchJson<T>(path: string, schema: z.ZodSchema<T>, init?: RequestInit) {
 	const response = await fetch(`${getBaseUrl()}${path}`, {
 		headers: {

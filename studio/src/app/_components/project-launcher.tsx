@@ -8,6 +8,10 @@ import {
 	projectTemplates,
 	type SpriteCraftLaunchConfig,
 } from "~/app/_components/project-launching";
+import {
+	type WorkspaceLaunchPayload,
+	workspaceLaunchEventName,
+} from "~/app/_components/web-workspace-bridge";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -99,6 +103,24 @@ export function ProjectLauncher({
 		previewMode,
 	};
 
+	function launchIntoBuilder(config: SpriteCraftLaunchConfig) {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		window.dispatchEvent(
+			new CustomEvent<WorkspaceLaunchPayload>(workspaceLaunchEventName, {
+				detail: { config },
+			}),
+		);
+		window.history.replaceState({}, "", buildWorkspaceLaunchUrl(config));
+		window.requestAnimationFrame(() => {
+			document
+				.getElementById("builder")
+				?.scrollIntoView({ behavior: "smooth", block: "start" });
+		});
+	}
+
 	return (
 		<section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
 			<Card className="border-[color:var(--accent-soft)] bg-transparent">
@@ -137,13 +159,12 @@ export function ProjectLauncher({
 								>
 									Use In Form
 								</Button>
-								<Button asChild type="button">
-									<a
-										href={buildWorkspaceLaunchUrl(template)}
-									>
-										<ExternalLink className="mr-2 size-4" />
-										Launch
-									</a>
+								<Button
+									onClick={() => launchIntoBuilder(template)}
+									type="button"
+								>
+									<ExternalLink className="mr-2 size-4" />
+									Launch
 								</Button>
 							</div>
 						</div>
@@ -245,13 +266,13 @@ export function ProjectLauncher({
 						</p>
 					</div>
 
-					<Button asChild className="w-full">
-						<a
-							href={buildWorkspaceLaunchUrl(launchConfig)}
-						>
-							<ExternalLink className="mr-2 size-4" />
-							Open In Builder
-						</a>
+					<Button
+						className="w-full"
+						onClick={() => launchIntoBuilder(launchConfig)}
+						type="button"
+					>
+						<ExternalLink className="mr-2 size-4" />
+						Open In Builder
 					</Button>
 				</CardContent>
 			</Card>

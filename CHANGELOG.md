@@ -1,3 +1,17 @@
+## 0.19.3 - 2026-03-30
+
+### Fixed
+
+- Fixed backend status links in `studio` so they now use the configured SpriteCraft API base URL instead of a hardcoded local origin.
+- Added backend aliases for `/api/health` and `/bootstrap` alongside `/health` and `/api/bootstrap` to make health and bootstrap entry points more resilient.
+
+## 0.19.2 - 2026-03-30
+
+### Fixed
+
+- Fixed in-page builder launch so `Open In Builder` and launch-template flows now actively load the builder workspace instead of only updating the URL.
+- Made builder launch parsing honor `catalogSearch` as well as prompt text so same-page workspace relaunches keep their intended scoped search context.
+
 ## 0.19.1 - 2026-03-30
 
 ### Fixed

@@ -1,5 +1,6 @@
 "use client";
 
+import type { SpriteCraftLaunchConfig } from "~/app/_components/project-launching";
 import type { SpriteCraftProjectSummary } from "~/server/spritecraft-backend";
 
 export type WorkspaceLinkedProject = {
@@ -15,6 +16,10 @@ export type WorkspaceLinkedProject = {
 export type WorkspaceLoadPayload = {
 	project: SpriteCraftProjectSummary;
 	relatedProjects: WorkspaceLinkedProject[];
+};
+
+export type WorkspaceLaunchPayload = {
+	config: SpriteCraftLaunchConfig;
 };
 
 export type CatalogWorkspaceDraft = {
@@ -55,6 +60,7 @@ export const workspaceStorageKey = "studio.catalog-workspace";
 export const workspacePresetsStorageKey =
 	"studio.catalog-workspace-presets";
 export const workspaceLoadEventName = "spritecraft:load-web-workspace";
+export const workspaceLaunchEventName = "spritecraft:launch-web-workspace";
 
 export function normalizeWorkspaceDraft(
 	input: unknown,
