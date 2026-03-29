@@ -8,7 +8,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.8.1';
+const String version = '0.9.0';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -46,6 +46,24 @@ ArgParser buildParser() {
       ..addOption('padding', help: 'Pixels between frames.', defaultsTo: '0')
       ..addOption('tile-width', help: 'Force every tile to this width.')
       ..addOption('tile-height', help: 'Force every tile to this height.')
+      ..addOption(
+        'animation-name',
+        help: 'Animation sequence name to write into metadata.',
+        defaultsTo: 'default',
+      )
+      ..addOption(
+        'frame-duration-ms',
+        help: 'Per-frame duration in milliseconds for metadata.',
+        defaultsTo: '100',
+      )
+      ..addOption(
+        'pivot-x',
+        help: 'Per-frame pivot X in pixels for metadata. Defaults to tile center.',
+      )
+      ..addOption(
+        'pivot-y',
+        help: 'Per-frame pivot Y in pixels for metadata. Defaults to tile center.',
+      )
       ..addFlag(
         'power-of-two',
         negatable: false,
@@ -207,6 +225,10 @@ Future<void> _runPack(ArgResults results) async {
     forcePowerOfTwo: results.flag('power-of-two'),
     tileWidth: _parseIntOption(results, 'tile-width'),
     tileHeight: _parseIntOption(results, 'tile-height'),
+    animationName: results.option('animation-name') ?? 'default',
+    frameDurationMs: _parseIntOption(results, 'frame-duration-ms') ?? 100,
+    pivotX: _parseIntOption(results, 'pivot-x'),
+    pivotY: _parseIntOption(results, 'pivot-y'),
   );
 
   final SpritesheetBuildResult result = await const SpritesheetPacker().pack(

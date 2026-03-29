@@ -128,9 +128,17 @@ class SpritesheetPacker {
           offsetY: y - tileY,
           sourceWidth: frame.image.width,
           sourceHeight: frame.image.height,
+          durationMs: options.frameDurationMs,
+          pivotX: options.pivotX ?? (tileWidth ~/ 2),
+          pivotY: options.pivotY ?? (tileHeight ~/ 2),
+          tags: _deriveFrameTags(path.basenameWithoutExtension(frame.file.path)),
         ),
       );
     }
+
+    final String animationName = options.animationName.trim().isEmpty
+        ? 'default'
+        : options.animationName.trim();
 
     final File outputImage = File(options.outputImagePath);
     await outputImage.parent.create(recursive: true);
@@ -146,6 +154,20 @@ class SpritesheetPacker {
       imagePath: path.normalize(options.outputImagePath),
       metadataPath: path.normalize(options.outputMetadataPath),
       frames: placements,
+      animations: <SpritesheetAnimationSequence>[
+        SpritesheetAnimationSequence(
+          name: animationName,
+          loop: true,
+          frameIndices: placements
+              .map((SpriteFramePlacement placement) => placement.index)
+              .toList(),
+          totalDurationMs: placements.fold<int>(
+            0,
+            (int total, SpriteFramePlacement placement) =>
+                total + placement.durationMs,
+          ),
+        ),
+      ],
     );
 
     final File outputMetadata = File(options.outputMetadataPath);
@@ -155,6 +177,16 @@ class SpritesheetPacker {
     );
 
     return result;
+  }
+
+  List<String> _deriveFrameTags(String frameName) {
+    return frameName
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((String token) => token.isNotEmpty)
+        .where((String token) => int.tryParse(token) == null)
+        .toSet()
+        .toList();
   }
 
   int nextPowerOfTwo(int value) {

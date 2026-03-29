@@ -60,8 +60,65 @@ void main() {
       expect(metadata['image']['height'], 16);
       expect(metadata['layout']['columns'], 2);
       expect(metadata['layout']['frameCount'], 2);
+      expect(metadata['animations'], hasLength(1));
+      expect(metadata['animations'][0]['name'], 'default');
+      expect(metadata['animations'][0]['frameIndices'], <int>[0, 1]);
       expect(metadata['frames'][0]['column'], 0);
       expect(metadata['frames'][1]['column'], 1);
+      expect(metadata['frames'][0]['durationMs'], 100);
+      expect(metadata['frames'][0]['pivotX'], 8);
+      expect(metadata['frames'][0]['pivotY'], 8);
+      expect(metadata['frames'][0]['tags'], contains('idle'));
+    });
+
+    test('writes explicit animation timing and pivot metadata when configured', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'spritesheet_creator_animation_metadata',
+      );
+      addTearDown(() => sandbox.delete(recursive: true));
+
+      final Directory framesDir = Directory(path.join(sandbox.path, 'frames'));
+      await framesDir.create(recursive: true);
+
+      await _writeFrame(
+        path.join(framesDir.path, 'walk_0.png'),
+        width: 20,
+        height: 30,
+        color: img.ColorRgb8(255, 255, 0),
+      );
+      await _writeFrame(
+        path.join(framesDir.path, 'walk_1.png'),
+        width: 20,
+        height: 30,
+        color: img.ColorRgb8(0, 255, 255),
+      );
+
+      final String outputImage = path.join(sandbox.path, 'build', 'sheet.png');
+      final String outputMetadata = path.join(sandbox.path, 'build', 'sheet.json');
+
+      await const SpritesheetPacker().pack(
+        SpritesheetOptions(
+          inputDirectory: framesDir.path,
+          outputImagePath: outputImage,
+          outputMetadataPath: outputMetadata,
+          columns: 2,
+          animationName: 'walk',
+          frameDurationMs: 80,
+          pivotX: 10,
+          pivotY: 24,
+        ),
+      );
+
+      final Map<String, dynamic> metadata =
+          jsonDecode(await File(outputMetadata).readAsString())
+              as Map<String, dynamic>;
+
+      expect(metadata['animations'][0]['name'], 'walk');
+      expect(metadata['animations'][0]['totalDurationMs'], 160);
+      expect(metadata['frames'][0]['durationMs'], 80);
+      expect(metadata['frames'][0]['pivotX'], 10);
+      expect(metadata['frames'][0]['pivotY'], 24);
+      expect(metadata['frames'][0]['tags'], contains('walk'));
     });
 
     test('rounds sheet dimensions to powers of two when requested', () async {

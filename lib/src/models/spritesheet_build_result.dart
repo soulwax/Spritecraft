@@ -21,6 +21,10 @@ class SpriteFramePlacement {
     required this.offsetY,
     required this.sourceWidth,
     required this.sourceHeight,
+    required this.durationMs,
+    required this.pivotX,
+    required this.pivotY,
+    required this.tags,
   });
 
   final String name;
@@ -40,6 +44,10 @@ class SpriteFramePlacement {
   final int offsetY;
   final int sourceWidth;
   final int sourceHeight;
+  final int durationMs;
+  final int pivotX;
+  final int pivotY;
+  final List<String> tags;
 
   Map<String, Object> toJson() {
     return <String, Object>{
@@ -60,6 +68,33 @@ class SpriteFramePlacement {
       'offsetY': offsetY,
       'sourceWidth': sourceWidth,
       'sourceHeight': sourceHeight,
+      'durationMs': durationMs,
+      'pivotX': pivotX,
+      'pivotY': pivotY,
+      'tags': tags,
+    };
+  }
+}
+
+class SpritesheetAnimationSequence {
+  const SpritesheetAnimationSequence({
+    required this.name,
+    required this.loop,
+    required this.frameIndices,
+    required this.totalDurationMs,
+  });
+
+  final String name;
+  final bool loop;
+  final List<int> frameIndices;
+  final int totalDurationMs;
+
+  Map<String, Object> toJson() {
+    return <String, Object>{
+      'name': name,
+      'loop': loop,
+      'frameIndices': frameIndices,
+      'totalDurationMs': totalDurationMs,
     };
   }
 }
@@ -75,6 +110,7 @@ class SpritesheetBuildResult {
     required this.imagePath,
     required this.metadataPath,
     required this.frames,
+    required this.animations,
   });
 
   final int sheetWidth;
@@ -86,6 +122,7 @@ class SpritesheetBuildResult {
   final String imagePath;
   final String metadataPath;
   final List<SpriteFramePlacement> frames;
+  final List<SpritesheetAnimationSequence> animations;
 
   Map<String, Object> toJson() {
     return <String, Object>{
@@ -107,6 +144,9 @@ class SpritesheetBuildResult {
         'frameCount': frames.length,
       },
       'metadataPath': metadataPath,
+      'animations': animations
+          .map((SpritesheetAnimationSequence animation) => animation.toJson())
+          .toList(),
       'frames': frames
           .map((SpriteFramePlacement frame) => frame.toJson())
           .toList(),

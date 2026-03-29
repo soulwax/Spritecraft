@@ -20,6 +20,7 @@ Top-level fields:
 - `image`
 - `layout`
 - `metadataPath`
+- `animations`
 - `frames`
 
 `schema`:
@@ -42,6 +43,13 @@ Top-level fields:
 - `rows`
 - `frameCount`
 
+Each `animations[]` entry includes:
+
+- `name`
+- `loop`
+- `frameIndices`
+- `totalDurationMs`
+
 Each `frames[]` entry includes:
 
 - `name`
@@ -61,6 +69,10 @@ Each `frames[]` entry includes:
 - `offsetY`
 - `sourceWidth`
 - `sourceHeight`
+- `durationMs`
+- `pivotX`
+- `pivotY`
+- `tags`
 
 ## `spritecraft.render` v2
 

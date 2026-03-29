@@ -14,7 +14,7 @@ Goal: make the current app dependable enough for real early use.
 
 - [x] Make `dart run bin/spritecraft.dart studio` consistently start without hanging in local environments
 - [x] Add startup diagnostics for missing submodule assets, bad `.env`, DB connection failures, and Gemini failures
-- [x] Add `GET /health` and a simple app status panel in Studio
+- [x] Add `GET /health` and a simple app status panel in SpriteCraft Web
 - [x] Normalize render/export error handling and show actionable messages in the UI
 - [x] Add render caching so repeated preview refreshes are fast
 - [x] Add stronger tests for export naming, zip bundles, and engine preset generation
@@ -23,7 +23,7 @@ Goal: make the current app dependable enough for real early use.
 
 ## Phase 2 — Usable Character Builder
 
-Goal: make the Studio genuinely comfortable for building sprites, not just technically capable.
+Goal: make SpriteCraft Web genuinely comfortable for building sprites, not just technically capable.
 
 - [x] Replace raw item-id selection display with human-friendly selected item cards
 - [x] Group catalog results by category such as body, head, hair, torso, weapons, and accessories
@@ -46,10 +46,10 @@ Goal: turn one-off renders into reusable projects creators can come back to.
 - [x] Add automatic draft saving and explicit named snapshots
 - [x] Support project templates such as NPC base, player character, enemy, portrait, and animation study
 
-## Phase 3.5 - Initialise t3 project and translate existing code to t3
+## Phase 3.5 — SpriteCraft Web Foundation
 
-- [x] Initialise a t3-style project in the repo, migrate the primary UI into `spritecraft-web`, use shadcn-style components where appropriate, and carry the Kanagawa wave theme into the new frontend.
-- [x] Skip the remaining legacy Phase 3.5 follow-up items and continue with Phase 4+, since `spritecraft-web` is now the primary UI and the old `/studio` frontend is retired.
+- [x] Establish `spritecraft-web` as the primary web app with shadcn-style components and the Kanagawa wave theme.
+- [x] Treat SpriteCraft Web as the product surface directly and continue with Phase 4+ work from there.
 
 ## Phase 4 — Metadata and Export Excellence
 
@@ -57,7 +57,7 @@ Goal: make SpriteCraft exports production-grade for engines and asset pipelines.
 
 - [x] Lock the metadata schema and document it as a stable contract
 - [x] Add schema version migration handling for older saved projects and exports
-- [ ] Export animated spritesheets with explicit frame sequences, timing, pivots, and per-frame tags
+- [x] Export animated spritesheets with explicit frame sequences, timing, pivots, and per-frame tags
 - [ ] Add atlas export options beyond uniform fullsheet render output
 - [ ] Improve Godot export toward native `SpriteFrames`-oriented output
 - [ ] Improve Unity export toward importer-ready sprite slicing metadata
@@ -126,7 +126,7 @@ Goal: make the app feel finished.
 - [ ] Improve empty states so new users always know the next useful action
 - [ ] Add keyboard shortcuts for common creator flows
 - [ ] Add better responsive layout behavior for smaller screens and tablets
-- [ ] Improve typography, motion, and visual hierarchy across the Studio
+- [ ] Improve typography, motion, and visual hierarchy across SpriteCraft Web
 - [ ] Add accessibility passes for contrast, focus handling, labels, and keyboard navigation
 
 ## Phase 10 — Ecosystem and Community

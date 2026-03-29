@@ -103,6 +103,10 @@ dart run bin/spritecraft.dart pack `
   [--padding <pixels>] `
   [--tile-width <pixels>] `
   [--tile-height <pixels>] `
+  [--animation-name <name>] `
+  [--frame-duration-ms <ms>] `
+  [--pivot-x <pixels>] `
+  [--pivot-y <pixels>] `
   [--power-of-two]
 ```
 
@@ -115,6 +119,10 @@ dart run bin/spritecraft.dart pack `
 - `--padding`: pixels between frames
 - `--tile-width`: force every tile to this width
 - `--tile-height`: force every tile to this height
+- `--animation-name`: animation sequence name to write into metadata
+- `--frame-duration-ms`: per-frame duration in milliseconds for metadata
+- `--pivot-x`: per-frame pivot X in pixels for metadata
+- `--pivot-y`: per-frame pivot Y in pixels for metadata
 - `--power-of-two`: expand the sheet dimensions to the next power of two
 
 `plan`:
@@ -199,6 +207,10 @@ dart run bin/spritecraft.dart pack `
   --metadata .\build\walk.json `
   --tile-width 64 `
   --tile-height 64 `
+  --animation-name walk `
+  --frame-duration-ms 80 `
+  --pivot-x 32 `
+  --pivot-y 48 `
   --padding 2
 
 # Ask Gemini for a production-style plan
@@ -224,7 +236,8 @@ The generated JSON is meant to be reconstruction-grade metadata:
 
 - image path and exact output dimensions
 - layout mode, tile size, columns, rows, and frame count
-- per-frame source path, grid position, tile bounds, actual content bounds, and offsets
+- explicit animation sequences with total timing
+- per-frame source path, grid position, tile bounds, actual content bounds, offsets, timing, pivots, and tags
 
 Export naming is now project-friendly by default:
 
