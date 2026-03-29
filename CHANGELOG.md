@@ -1,3 +1,14 @@
+## 0.8.0 - 2026-03-29
+
+### Added
+
+- Added a formal metadata schema contract document for `spritecraft.spritesheet`, `spritecraft.render`, and `spritecraft.project` in `docs/metadata-schema.md`.
+
+### Changed
+
+- Centralized SpriteCraft metadata schema names and versions in shared model constants so emitted JSON contracts are locked to one canonical source.
+- Updated the roadmap to treat the web migration as complete enough to skip the remaining old Phase 3.5 follow-up items and continue with Phase 4 work.
+
 ## 0.7.1 - 2026-03-29
 
 ### Fixed

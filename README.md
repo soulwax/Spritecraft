@@ -250,3 +250,15 @@ SpriteCraft Web intentionally takes the best reusable parts from the LPC project
 - the credit metadata model
 
 It does not attempt to port the full upstream UI one-to-one. The goal here is a cleaner Dart-first backend plus a smarter web workflow with room for our own product direction.
+
+## Metadata Contract
+
+SpriteCraft now treats its emitted metadata schemas as stable, documented contracts.
+
+See [metadata-schema.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/metadata-schema.md) for:
+
+- `spritecraft.spritesheet` v1
+- `spritecraft.render` v2
+- `spritecraft.project` v2
+
+If a consumer depends on SpriteCraft JSON output, it should branch on `schema.name` and `schema.version` rather than assuming an undocumented payload shape.

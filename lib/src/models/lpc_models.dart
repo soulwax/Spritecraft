@@ -2,8 +2,7 @@
 
 import 'dart:convert';
 
-const int kSpriteCraftRenderSchemaVersion = 2;
-const int kSpriteCraftProjectSchemaVersion = 2;
+import 'metadata_schema.dart';
 
 class LpcLayerDefinition {
   const LpcLayerDefinition({
@@ -303,7 +302,7 @@ class LpcRenderResult {
   }) {
     return <String, Object>{
       'schema': <String, Object>{
-        'name': 'spritecraft.render',
+        'name': kSpriteCraftRenderSchemaName,
         'version': kSpriteCraftRenderSchemaVersion,
       },
       'image': <String, Object>{
@@ -445,7 +444,7 @@ class StudioHistoryEntry {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'schema': <String, Object>{
-        'name': 'spritecraft.project',
+        'name': kSpriteCraftProjectSchemaName,
         'version': kSpriteCraftProjectSchemaVersion,
       },
       'id': id,
@@ -488,7 +487,7 @@ class SpriteCraftSchemaMigrations {
 
     return <String, Object?>{
       'schema': <String, Object>{
-        'name': 'spritecraft.project',
+        'name': kSpriteCraftProjectSchemaName,
         'version': kSpriteCraftProjectSchemaVersion,
       },
       'id': working['id']?.toString() ?? '',
@@ -543,7 +542,7 @@ class SpriteCraftSchemaMigrations {
     return <String, Object?>{
       ...working,
       'schema': <String, Object>{
-        'name': schema['name']?.toString() ?? 'spritecraft.render',
+        'name': schema['name']?.toString() ?? kSpriteCraftRenderSchemaName,
         'version': kSpriteCraftRenderSchemaVersion,
       },
       'content': <String, Object?>{

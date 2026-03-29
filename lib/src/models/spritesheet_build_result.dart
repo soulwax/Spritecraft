@@ -1,5 +1,7 @@
 // File: lib/src/models/spritesheet_build_result.dart
 
+import 'metadata_schema.dart';
+
 class SpriteFramePlacement {
   const SpriteFramePlacement({
     required this.name,
@@ -88,8 +90,8 @@ class SpritesheetBuildResult {
   Map<String, Object> toJson() {
     return <String, Object>{
       'schema': <String, Object>{
-        'name': 'spritecraft.spritesheet',
-        'version': 1,
+        'name': kSpriteCraftSpritesheetSchemaName,
+        'version': kSpriteCraftSpritesheetSchemaVersion,
       },
       'image': <String, Object>{
         'path': imagePath,
