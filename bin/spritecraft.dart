@@ -7,7 +7,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.4.28';
+const String version = '0.6.0';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -71,21 +71,21 @@ ArgParser buildParser() {
 
   parser.addCommand(
     'studio',
-    ArgParser()
-      ..addOption(
-        'host',
-        help: 'Host interface to bind.',
-        defaultsTo: '127.0.0.1',
-      )
-      ..addOption(
-        'port',
-        help: 'Port to serve the Studio on.',
-        defaultsTo: '8080',
-      )
+      ArgParser()
+        ..addOption(
+          'host',
+          help: 'Host interface to bind.',
+          defaultsTo: '127.0.0.1',
+        )
+        ..addOption(
+          'port',
+          help: 'Port to serve the SpriteCraft backend API on.',
+          defaultsTo: '8080',
+        )
       ..addFlag(
         'open',
-        help: 'Open the Studio in the default browser after startup.',
-        defaultsTo: true,
+        help: 'Open the backend URL in the default browser after startup.',
+        defaultsTo: false,
       ),
   );
 
@@ -101,7 +101,7 @@ void printUsage(ArgParser parser) {
   );
   print('  plan    Ask Gemini for a structured sprite animation plan.');
   print(
-    '  studio  Run the browser-based LPC Studio with AI and history support.',
+    '  studio  Run the SpriteCraft Dart backend API used by spritecraft-web.',
   );
   print('');
   print(parser.usage);
@@ -209,13 +209,13 @@ Future<void> _runStudio(ArgResults results) async {
   final RuntimeConfig config = await RuntimeConfig.load().timeout(
     _studioStartupTimeout,
     onTimeout: () => throw StateError(
-      'Studio startup timed out while loading configuration. Check your .env and project paths.',
+      'Backend startup timed out while loading configuration. Check your .env and project paths.',
     ),
   );
   final StudioServer studioServer = await StudioServer.create(config).timeout(
     _studioStartupTimeout,
     onTimeout: () => throw StateError(
-      'Studio startup timed out while preparing LPC assets or database connections.',
+      'Backend startup timed out while preparing LPC assets or database connections.',
     ),
   );
 
@@ -226,14 +226,17 @@ Future<void> _runStudio(ArgResults results) async {
       .timeout(
         _studioStartupTimeout,
         onTimeout: () => throw StateError(
-          'Studio startup timed out while binding the local web server. Check whether the port is already in use.',
+          'Backend startup timed out while binding the local API server. Check whether the port is already in use.',
         ),
       );
   final Uri studioUri = Uri.parse(
     'http://${server.address.host}:${server.port}',
   );
 
-  stdout.writeln('Studio running at $studioUri');
+  stdout.writeln('SpriteCraft backend running at $studioUri');
+  stdout.writeln(
+    'Start spritecraft-web separately for the UI. This Dart process now serves backend APIs only.',
+  );
   if (!config.hasLpcProject) {
     stdout.writeln(
       'Warning: LPC source assets were not found in ./lpc-spritesheet-creator.',

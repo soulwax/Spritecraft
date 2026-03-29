@@ -29,6 +29,7 @@ export type CatalogWorkspaceDraft = {
 	replaceByType: boolean;
 	activeTypeFocus: string | null;
 	activeStagedItemId: string | null;
+	enginePreset: string;
 	bodyType: string;
 	animation: string;
 	category: string;
@@ -121,6 +122,10 @@ export function normalizeWorkspaceDraft(
 			typeof draft.activeStagedItemId === "string"
 				? draft.activeStagedItemId
 				: null,
+		enginePreset:
+			typeof draft.enginePreset === "string" && draft.enginePreset
+				? draft.enginePreset
+				: "none",
 		bodyType: typeof draft.bodyType === "string" ? draft.bodyType : "male",
 		animation: typeof draft.animation === "string" ? draft.animation : "idle",
 		category: typeof draft.category === "string" ? draft.category : "all",
@@ -182,6 +187,10 @@ export function projectToWorkspaceDraft(
 		replaceByType: true,
 		activeTypeFocus: null,
 		activeStagedItemId: Object.keys(project.selections)[0] ?? null,
+		enginePreset:
+			typeof project.enginePreset === "string" && project.enginePreset
+				? project.enginePreset
+				: "none",
 		bodyType: project.bodyType,
 		animation: project.animation,
 		category,

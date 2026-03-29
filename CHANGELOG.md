@@ -1,3 +1,19 @@
+## 0.6.0 - 2026-03-29
+
+### Changed
+
+- Finalized the frontend cutover to `spritecraft-web` by making the Dart server API-only and moving the primary creator surface fully to the web app.
+- Added web-side AI brief and export flows so the last major `/studio`-only creator actions now run from the new frontend.
+- Removed the legacy `/studio` frontend files from the repository.
+
+## 0.5.0 - 2026-03-29
+
+### Changed
+
+- Added web-side AI brief generation and recommendation staging in `spritecraft-web`, bringing another major creator workflow out of the legacy `/studio` surface.
+- Added direct web-side export bundle generation with engine preset selection, so the new web builder can now produce PNG, metadata JSON, zip bundles, and preset companion files without relying on `/studio`.
+- Continued consolidating the migration by moving more of the last clearly Studio-only creator actions into the new web workspace.
+
 ## 0.4.28 - 2026-03-29
 
 ### Changed

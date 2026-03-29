@@ -3,7 +3,8 @@
 This repository is `SpriteCraft`, a Dart-first spritesheet generator with:
 
 - a CLI for packing frame folders into spritesheets
-- a browser-based Studio served by Dart + Shelf
+- a Dart backend API served by Shelf
+- a TypeScript web frontend in `spritecraft-web`
 - Gemini-powered sprite planning and recommendation assistance
 - Neon/Postgres-backed history storage
 - an LPC asset/definition submodule at `lpc-spritesheet-creator`
@@ -18,14 +19,16 @@ Use this file as the primary AI navigation guide for the repo.
    `dart pub get`
 3. Optional local env:
    `Copy-Item .env.example .env`
-4. Run the Studio:
+4. Run the backend:
    `dart run bin/spritecraft.dart studio`
-5. Run tests:
+5. Run the web app from `spritecraft-web`:
+   `pnpm dev`
+6. Run tests:
    `dart test`
 
 Important env vars:
 
-- `GEMINI_API_KEY` enables AI planning and Studio brief generation
+- `GEMINI_API_KEY` enables AI planning and web brief generation
 - `DATABASE_URL` enables history persistence endpoints
 
 The app also reads a local `.env` file via `RuntimeConfig.load()`.
@@ -39,7 +42,7 @@ The app also reads a local `.env` file via `RuntimeConfig.load()`.
 - `lib/src/spritesheet_packer.dart`
   Core packer for arbitrary frame folders.
 - `lib/src/server/studio_server.dart`
-  Shelf server, API routes, export bundle generation, and Studio bootstrap.
+  Shelf server, backend API routes, export bundle generation, and bootstrap.
 - `lib/src/config/runtime_config.dart`
   Resolves project paths, `.env`, env vars, submodule directories, export dir.
 - `lib/src/ai/gemini_sprite_planner.dart`
@@ -49,15 +52,15 @@ The app also reads a local `.env` file via `RuntimeConfig.load()`.
 - `lib/src/lpc/lpc_renderer.dart`
   Composes layered LPC sprites from the submodule spritesheets.
 - `lib/src/persistence/history_repository.dart`
-  Postgres persistence for saved Studio renders/history.
+  Postgres persistence for saved SpriteCraft projects/history.
 - `lib/src/models/`
   Shared request/result/domain models.
-- `studio/index.html`
-  Studio shell and UI structure.
-- `studio/app.js`
-  Frontend state, fetch calls, render flow, history interactions.
-- `studio/styles.css`
-  Studio styling.
+- `spritecraft-web/src/app/page.tsx`
+  Main web app shell.
+- `spritecraft-web/src/app/_components/`
+  Web builder, project browser, launcher, and migration UI slices.
+- `spritecraft-web/src/server/spritecraft-backend.ts`
+  Web-side typed bridge to the Dart backend API.
 - `test/`
   Coverage for packer, catalog loading, renderer behavior, and Gemini parsing.
 - `lpc-spritesheet-creator/`
@@ -65,14 +68,14 @@ The app also reads a local `.env` file via `RuntimeConfig.load()`.
 
 ## Architecture Notes
 
-### 1. CLI vs Studio
+### 1. CLI vs Web App
 
 There are two main product surfaces:
 
 - `pack`: build a spritesheet from a normal folder of frame PNGs
-- `studio`: launch the browser UI for LPC-style layered composition
+- `spritecraft-web`: the primary browser UI for LPC-style layered composition
 
-The Studio is not a separate frontend build system. It is static HTML/CSS/JS served directly by the Dart server.
+The Dart server now provides backend APIs only. The primary frontend lives in `spritecraft-web`.
 
 ### 2. LPC Integration
 
@@ -91,9 +94,9 @@ It reads them from the git submodule:
 Gemini is used in two places:
 
 - CLI `plan` command
-- Studio `POST /api/ai/brief`
+- Backend `POST /api/ai/brief`
 
-If Gemini is unavailable, the Studio still works and falls back to local catalog recommendations.
+If Gemini is unavailable, the web app still works and falls back to local catalog recommendations.
 
 ### 4. Persistence
 
@@ -101,7 +104,7 @@ History is optional.
 
 If `DATABASE_URL` is absent:
 
-- Studio still boots
+- Backend still boots
 - history endpoints return `503`
 - no database connection is created
 
@@ -109,9 +112,9 @@ If present, `HistoryRepository` creates `sprite_history` if needed.
 
 ## API Surface
 
-Main Studio routes in `lib/src/server/studio_server.dart`:
+Main backend routes in `lib/src/server/studio_server.dart`:
 
-- `GET /api/studio/bootstrap`
+- `GET /api/bootstrap`
 - `GET /api/lpc/catalog`
 - `POST /api/lpc/render`
 - `POST /api/lpc/export`
@@ -122,7 +125,7 @@ Main Studio routes in `lib/src/server/studio_server.dart`:
 - `GET /api/history/<id>`
 - `DELETE /api/history/<id>`
 
-When changing frontend behavior, check both `studio/app.js` and the matching server route.
+When changing frontend behavior, check the matching `spritecraft-web` component and the server route.
 
 ## Common Change Map
 
@@ -132,7 +135,7 @@ If the task is about:
   edit `bin/spritecraft.dart`
 - frame packing layout/metadata:
   edit `lib/src/spritesheet_packer.dart`
-- Studio API behavior:
+- Backend API behavior:
   edit `lib/src/server/studio_server.dart`
 - env/config/path resolution:
   edit `lib/src/config/runtime_config.dart`
@@ -144,12 +147,8 @@ If the task is about:
   edit `lib/src/lpc/lpc_renderer.dart`
 - saved history schema/queries:
   edit `lib/src/persistence/history_repository.dart`
-- UI structure:
-  edit `studio/index.html`
-- UI behavior:
-  edit `studio/app.js`
-- UI styling:
-  edit `studio/styles.css`
+- web UI:
+  edit files in `spritecraft-web/src/app/` and `spritecraft-web/src/components/`
 - behavior verification:
   add or update tests in `test/`
 
@@ -163,14 +162,14 @@ If the task is about:
 ## Working Assumptions
 
 - This is a pure Dart project, not Flutter.
-- The Studio frontend is intentionally lightweight and framework-free.
+- The primary frontend now lives in `spritecraft-web`.
 - The source of truth for current behavior is code, not always `TODO.md`.
 - `TODO.md` may lag behind implementation. Verify actual behavior before planning edits.
 
 ## Known Project Realities
 
 - `TODO.md` currently references `v0.3.0`, while `pubspec.yaml`, `CHANGELOG.md`, and `bin/spritecraft.dart` still show `0.2.0`.
-- The Studio HTML already includes items that `TODO.md` still lists, such as favicon wiring, a clear-all control, a selection badge, and a toast container.
+- The retired Studio HTML used to include items that `TODO.md` still listed, such as favicon wiring, a clear-all control, a selection badge, and a toast container.
 
 Check the code before assuming a TODO item is unfinished.
 
@@ -180,7 +179,7 @@ Preferred validation after changes:
 
 1. `dart test`
 2. If Dart files changed: `dart analyze`
-3. If Studio behavior changed: run `dart run bin/spritecraft.dart studio` and verify the relevant route/UI flow manually
+3. If web/backend behavior changed: run `dart run bin/spritecraft.dart studio` and verify the relevant API flow manually
 
 ## Production Build and PM2
 
@@ -205,7 +204,7 @@ The existing tests are small but useful:
 
 - Start by checking whether the submodule is initialized before debugging missing LPC data.
 - For missing catalog or render results, inspect `RuntimeConfig` paths first.
-- For Studio issues, follow this path:
-  `studio/app.js` -> API request -> `studio_server.dart` -> underlying service/module.
+- For web UI issues, follow this path:
+  `spritecraft-web` component -> web API route -> `spritecraft-backend.ts` -> `studio_server.dart` -> underlying service/module.
 - For export issues, inspect `POST /api/lpc/export` and the `build/exports` output files.
 - For history bugs, confirm whether `DATABASE_URL` is present before assuming the route is broken.

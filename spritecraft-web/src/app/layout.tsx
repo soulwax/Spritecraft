@@ -7,7 +7,7 @@ import { Geist } from "next/font/google";
 
 export const metadata: Metadata = {
 	title: "SpriteCraft Web",
-	description: "Kanagawa-themed Next.js shell for the SpriteCraft Studio migration.",
+	description: "Kanagawa-themed Next.js frontend for the primary SpriteCraft creator experience.",
 	icons: [{ rel: "icon", url: "/favicon.svg", type: "image/svg+xml" }],
 };
 

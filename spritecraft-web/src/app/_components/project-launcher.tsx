@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ExternalLink, Sparkles, WandSparkles } from "lucide-react";
 
 import {
-	buildStudioTemplateUrl,
+	buildWorkspaceLaunchUrl,
 	projectTemplates,
 	type SpriteCraftLaunchConfig,
 } from "~/app/_components/project-launching";
@@ -108,8 +108,8 @@ export function ProjectLauncher({
 						<span>New Project Launcher</span>
 					</CardTitle>
 					<CardDescription>
-						Start from a template or shape a launch config here, then hand off
-						into the live Dart builder with your setup already in place.
+						Start from a template or shape a launch config here, then open the
+						web builder with your setup already in place.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-3 sm:grid-cols-2">
@@ -139,7 +139,7 @@ export function ProjectLauncher({
 								</Button>
 								<Button asChild type="button">
 									<a
-										href={buildStudioTemplateUrl(template)}
+										href={buildWorkspaceLaunchUrl(template)}
 										rel="noreferrer"
 										target="_blank"
 									>
@@ -160,8 +160,8 @@ export function ProjectLauncher({
 						<span>Custom Launch Setup</span>
 					</CardTitle>
 					<CardDescription>
-						This is the new starting surface for project framing while the
-						builder itself still lives in the Dart Studio.
+						This is the main starting surface for project framing before you
+						drop into the builder workspace below.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
@@ -239,19 +239,19 @@ export function ProjectLauncher({
 							<Badge>{launchConfig.previewMode}</Badge>
 						</div>
 						<p>
-							Launching from here keeps project framing in the web app while the
-							Dart Studio stays centered on composition and rendering.
+							Launching from here keeps framing and building in one web-native
+							SpriteCraft flow.
 						</p>
 					</div>
 
 					<Button asChild className="w-full">
 						<a
-							href={buildStudioTemplateUrl(launchConfig)}
+							href={buildWorkspaceLaunchUrl(launchConfig)}
 							rel="noreferrer"
 							target="_blank"
 						>
 							<ExternalLink className="mr-2 size-4" />
-							Launch In Studio
+							Open In Builder
 						</a>
 					</Button>
 				</CardContent>

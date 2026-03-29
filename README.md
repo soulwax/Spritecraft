@@ -1,15 +1,16 @@
 # SpriteCraft
 
-Pure Dart tooling for building spritesheets, now with a browser-based Studio that borrows the strongest ideas from LPC while keeping the actual LPC project as a git submodule dependency.
+Pure Dart tooling for building spritesheets, now with a Next.js-based SpriteCraft Web frontend and a Dart backend API, while keeping the actual LPC project as a git submodule dependency.
 
 ## What is in here
 
 - A pure Dart CLI for packing arbitrary image frames into spritesheets
-- A local Studio server with a modern GUI
+- A Dart backend API used by `spritecraft-web`
+- A modern TypeScript web frontend in `spritecraft-web`
 - LPC catalog loading and layered sprite composition from `./lpc-spritesheet-creator`
 - Gemini-assisted sprite briefs and local recommendation search
 - Neon/Postgres-backed history for saved sprite projects
-- Structured metadata JSON for every spritesheet export and Studio render
+- Structured metadata JSON for every spritesheet export and web-rendered preview/export
 
 ## LPC dependency
 
@@ -46,28 +47,35 @@ Supported keys:
 - `GEMINI_API_KEY`
 - `DATABASE_URL`
 
-## Run the Studio
+## Run SpriteCraft
+
+Start the Dart backend:
 
 ```powershell
 dart run bin/spritecraft.dart studio
 ```
 
-Options:
+Then start the web UI from `spritecraft-web`:
+
+```powershell
+pnpm dev
+```
+
+Backend options:
 
 ```powershell
 dart run bin/spritecraft.dart studio --host 127.0.0.1 --port 8080 --no-open
 ```
 
-What the Studio does:
+What the backend + web app do together:
 
 - searches LPC layer definitions from the submodule
 - composes layered sprite previews from LPC spritesheet assets
 - asks Gemini for a structured sprite brief
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
-- exports a matched PNG and JSON pair to `build/exports`
-- builds a zip bundle for every Studio export
-- can emit Godot and Unity companion preset files during export
+- exports matched PNG, JSON, zip bundles, and engine preset companion files
+- powers the full `spritecraft-web` builder workflow
 
 ## Command reference
 
@@ -133,9 +141,9 @@ dart run bin/spritecraft.dart studio `
 `studio` options:
 
 - `--host`: host interface to bind, default `127.0.0.1`
-- `--port`: port to serve the Studio on, default `8080`
-- `--open`: open the Studio in the default browser after startup
-- `--no-open`: keep the server running without opening a browser
+- `--port`: port to serve the backend API on, default `8080`
+- `--open`: open the backend URL after startup
+- `--no-open`: keep the backend running without opening a browser
 
 Useful examples:
 
@@ -143,10 +151,10 @@ Useful examples:
 # Show CLI version
 dart run bin/spritecraft.dart --version
 
-# Start Studio without opening a browser tab
+# Start the backend without opening a browser tab
 dart run bin/spritecraft.dart studio --no-open
 
-# Start Studio on another port
+# Start the backend on another port
 dart run bin/spritecraft.dart studio --port 9090
 
 # Pack a folder with fixed tile sizing
@@ -183,7 +191,7 @@ The generated JSON is meant to be reconstruction-grade metadata:
 - layout mode, tile size, columns, rows, and frame count
 - per-frame source path, grid position, tile bounds, actual content bounds, and offsets
 
-Studio export naming is now project-friendly by default:
+Export naming is now project-friendly by default:
 
 - prefers the explicit project name from the UI
 - otherwise falls back to the prompt
@@ -200,10 +208,10 @@ dart run bin/spritecraft.dart plan `
 
 ## Current scope
 
-The Studio intentionally takes the best reusable parts from the LPC project first:
+SpriteCraft Web intentionally takes the best reusable parts from the LPC project first:
 
 - the layer definition corpus
 - the spritesheet asset library
 - the credit metadata model
 
-It does not attempt to port the full upstream UI one-to-one. The goal here is a cleaner Dart-first toolchain with a smarter workflow and room for our own product direction.
+It does not attempt to port the full upstream UI one-to-one. The goal here is a cleaner Dart-first backend plus a smarter web workflow with room for our own product direction.

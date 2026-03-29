@@ -82,7 +82,7 @@ export const projectTemplates: SpriteCraftLaunchConfig[] = [
 	},
 ];
 
-export function buildStudioTemplateUrl(template: SpriteCraftLaunchConfig) {
+export function buildWorkspaceLaunchUrl(template: SpriteCraftLaunchConfig) {
 	const params = new URLSearchParams({
 		bodyType: template.bodyType,
 		animation: template.animation,
@@ -100,9 +100,9 @@ export function buildStudioTemplateUrl(template: SpriteCraftLaunchConfig) {
 	if (template.seededSelections && Object.keys(template.seededSelections).length) {
 		params.set("selections", JSON.stringify(template.seededSelections));
 	}
-	return `http://127.0.0.1:8080/?${params.toString()}`;
+	return `/?${params.toString()}#builder`;
 }
 
-export function buildStudioRestoreUrl(id: string) {
-	return `http://127.0.0.1:8080/?restore=${encodeURIComponent(id)}`;
+export function buildWorkspaceRestoreUrl(id: string) {
+	return `/?restore=${encodeURIComponent(id)}#builder`;
 }

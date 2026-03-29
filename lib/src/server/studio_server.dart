@@ -3,12 +3,10 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
-import 'package:shelf_static/shelf_static.dart';
 
 import '../ai/gemini_sprite_planner.dart';
 import '../config/runtime_config.dart';
@@ -52,6 +50,7 @@ class StudioServer {
   Future<HttpServer> serve({String host = '127.0.0.1', int port = 8080}) async {
     final Router router = Router()
       ..get('/health', _health)
+      ..get('/api/bootstrap', _bootstrap)
       ..get('/api/studio/bootstrap', _bootstrap)
       ..get('/api/lpc/catalog', _catalog)
       ..post('/api/lpc/render', _render)
@@ -66,14 +65,6 @@ class StudioServer {
       ..get('/api/history/<id>', _historyEntry)
       ..delete('/api/history/<id>', _deleteHistory);
 
-    final MimeTypeResolver mimeTypeResolver = MimeTypeResolver();
-    final Handler staticHandler = createStaticHandler(
-      config.studioDirectory.path,
-      defaultDocument: 'index.html',
-      serveFilesOutsidePath: false,
-      contentTypeResolver: mimeTypeResolver,
-    );
-
     final Handler handler = Pipeline().addMiddleware(logRequests()).addHandler((
       Request request,
     ) async {
@@ -84,7 +75,10 @@ class StudioServer {
         }
         return response;
       }
-      return staticHandler(request);
+      return _json(404, <String, Object>{
+        'error':
+            'SpriteCraft now serves the UI from spritecraft-web. Start the web app separately and use this Dart server as the backend API.',
+      });
     });
 
     return shelf_io.serve(handler, host, port);
@@ -124,12 +118,6 @@ class StudioServer {
 
   Future<Response> _health(Request request) async {
     final List<Map<String, String>> checks = <Map<String, String>>[
-      _healthCheck(
-        label: 'Studio assets',
-        isOk: config.studioDirectory.existsSync(),
-        okDetail: 'Studio assets are ready.',
-        failDetail: 'Missing studio directory at ${config.studioDirectory.path}.',
-      ),
       _healthCheck(
         label: 'LPC project',
         isOk: config.hasLpcProject,

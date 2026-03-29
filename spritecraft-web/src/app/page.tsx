@@ -53,18 +53,16 @@ export default async function Home() {
           <CardHeader className="gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <Badge variant="success">Web Migration</Badge>
-              <Badge>Alongside Existing Studio</Badge>
+              <Badge>Primary UI</Badge>
               <Badge>Kanagawa Wave</Badge>
             </div>
             <CardTitle className="max-w-3xl text-4xl leading-tight sm:text-5xl">
-              SpriteCraft Web is becoming the new Studio shell, one safe slice
-              at a time.
+              SpriteCraft Web is now the primary SpriteCraft creator surface.
             </CardTitle>
             <CardDescription className="max-w-2xl text-base">
-              This app lives alongside the working Dart Studio so we can migrate
-              project workflows without losing momentum. The current slice
-              focuses on visibility, project browsing, and operational actions
-              while the builder remains in the existing app.
+              The legacy `/studio` frontend has been retired. The Dart app now
+              serves backend APIs, and this web app is where project workflow,
+              builder iteration, AI guidance, and export happen.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -95,13 +93,13 @@ export default async function Home() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Button asChild>
-                <Link href="http://127.0.0.1:8080" target="_blank">
-                  Open Current Studio
+                <Link href="http://127.0.0.1:8080/health" target="_blank">
+                  Open Backend Health
                 </Link>
               </Button>
               <Button asChild variant="secondary">
-                <Link href="https://create.t3.gg" target="_blank">
-                  T3 Reference
+                <Link href="http://127.0.0.1:8080/api/bootstrap" target="_blank">
+                  Backend Bootstrap
                 </Link>
               </Button>
             </div>
@@ -166,7 +164,7 @@ export default async function Home() {
             icon: PlayCircle,
             title: "Start From Template",
             description:
-              "Use the launch templates below to open the Dart builder with a project already framed.",
+              "Use the launch templates below to begin a project directly in the new web workspace.",
           },
           {
             icon: FolderKanban,
@@ -178,7 +176,7 @@ export default async function Home() {
             icon: Compass,
             title: "Open Builder Directly",
             description:
-              "Jump straight into the live Studio if you want a blank composition session without dashboard steps.",
+              "Jump straight into the web builder if you want a blank composition session without dashboard steps.",
           },
         ].map((item) => (
           <Card key={item.title}>
@@ -210,7 +208,7 @@ export default async function Home() {
           <CardHeader>
             <CardTitle>Migration Slices</CardTitle>
             <CardDescription>
-              We are moving the Studio deliberately instead of rewriting it in
+              We moved SpriteCraft deliberately instead of rewriting it in
               place.
             </CardDescription>
           </CardHeader>
@@ -232,7 +230,7 @@ export default async function Home() {
                 icon: Sparkles,
                 title: "Builder migration later",
                 description:
-                  "Selection, previews, AI, and export flows can move over slice by slice after the shell is stable.",
+                  "Selection, previews, AI, and export now live in the web app while the Dart process focuses on backend APIs.",
               },
             ].map((item) => (
               <div
@@ -270,8 +268,8 @@ export default async function Home() {
               <ul className="space-y-2 text-sm text-(--muted-foreground)">
                 <li>
                   {health
-                    ? "The backend is reachable, so web-to-builder handoff is live."
-                    : "Start the Dart Studio backend first to unlock restore handoff and live project data."}
+                    ? "The backend is reachable, so the web app can load catalog, history, AI, render, and export flows."
+                    : "Start the Dart backend first to unlock live project data and render/export APIs."}
                 </li>
                 <li>
                   {bootstrap?.config.hasDatabase
@@ -280,8 +278,8 @@ export default async function Home() {
                 </li>
                 <li>
                   {bootstrap?.config.hasGemini
-                    ? "AI-assisted brief generation is available inside the builder."
-                    : "AI remains optional; the builder still works without GEMINI_API_KEY."}
+                    ? "AI-assisted brief generation is available in the web builder."
+                    : "AI remains optional; the web builder still works without GEMINI_API_KEY."}
                 </li>
               </ul>
             </div>
@@ -307,7 +305,7 @@ export default async function Home() {
             <CardTitle>Why alongside</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-(--muted-foreground)">
-            We keep the working Studio usable while the new web app earns trust.
+            The Dart backend stays stable while the web app carries the full creator workflow.
           </CardContent>
         </Card>
         <Card>

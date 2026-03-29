@@ -2,7 +2,7 @@
 
 This app is the parallel Next.js frontend for SpriteCraft.
 
-It lives alongside the existing Dart Studio and talks to the Dart backend instead
+It is the primary SpriteCraft UI and talks to the Dart backend API
 of replacing it all at once.
 
 ## Current role

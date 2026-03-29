@@ -26,7 +26,7 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
-import { buildStudioRestoreUrl } from "~/app/_components/project-launching";
+import { buildWorkspaceRestoreUrl } from "~/app/_components/project-launching";
 import {
   getRelatedWorkspaceProjects,
   workspaceLoadEventName,
@@ -456,9 +456,8 @@ export function ProjectBrowser({
                   ) : null}
                 </CardTitle>
                 <CardDescription>
-                  Deep-link style inspector for the current migration slice.
-                  Builder restore is still owned by the existing Dart Studio for
-                  now.
+                  Saved project detail and restore controls for the primary web
+                  builder.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -683,12 +682,12 @@ export function ProjectBrowser({
                       </Button>
                       <Button asChild>
                         <a
-                          href={buildStudioRestoreUrl(selectedProject.id)}
+                          href={buildWorkspaceRestoreUrl(selectedProject.id)}
                           rel="noreferrer"
                           target="_blank"
                         >
                           <ExternalLink className="mr-2 size-4" />
-                          Restore In Studio
+                          Open In Builder
                         </a>
                       </Button>
                       <Button
@@ -788,18 +787,16 @@ export function ProjectBrowser({
                 Current migration boundary
               </p>
               <p className="mt-2">
-                This web shell now owns browsing, restore handoff, saved-project
-                versioning, snapshots, duplication, deletion, and package
-                transfer. The Dart Studio remains the active live builder and
-                renderer.
+                This web app now owns browsing, restore, saved-project
+                versioning, snapshots, duplication, deletion, package
+                transfer, and the active builder workflow.
               </p>
               <Button asChild className="mt-4" variant="ghost">
                 <a
-                  href="http://127.0.0.1:8080"
+                  href="/#builder"
                   rel="noreferrer"
-                  target="_blank"
                 >
-                  Open the current Studio builder
+                  Jump to Builder Workspace
                 </a>
               </Button>
             </div>

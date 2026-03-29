@@ -78,6 +78,30 @@ const renderPreviewSchema = z.object({
 
 export type SpriteCraftRenderPreview = z.infer<typeof renderPreviewSchema>;
 
+const briefPlanSchema = z.object({
+	concept: z.string().default(""),
+	styleTags: z.array(z.string()).default([]),
+	framePrompts: z.array(z.string()).default([]),
+}).passthrough();
+
+const briefResponseSchema = z.object({
+	plan: briefPlanSchema.nullable().optional(),
+	recommendations: z.array(catalogItemSchema).default([]),
+});
+
+export type SpriteCraftBriefResponse = z.infer<typeof briefResponseSchema>;
+
+const exportResponseSchema = z.object({
+	imagePath: z.string(),
+	metadataPath: z.string(),
+	bundlePath: z.string(),
+	enginePreset: z.string().default("none"),
+	extraPaths: z.array(z.string()).default([]),
+	baseName: z.string(),
+});
+
+export type SpriteCraftExportResponse = z.infer<typeof exportResponseSchema>;
+
 const saveRequestSchema = z.object({
 	projectName: z.string().optional(),
 	notes: z.string().optional(),
@@ -164,7 +188,7 @@ export async function getSpriteCraftHealth() {
 
 export async function getSpriteCraftBootstrap() {
 	try {
-		return await fetchJson("/api/studio/bootstrap", bootstrapSchema);
+		return await fetchJson("/api/bootstrap", bootstrapSchema);
 	} catch {
 		return null;
 	}
@@ -198,6 +222,40 @@ export async function renderSpriteCraftPreview(input: {
 	return fetchJson("/api/lpc/render", renderPreviewSchema, {
 		method: "POST",
 		body: JSON.stringify({
+			bodyType: input.bodyType,
+			animation: input.animation,
+			prompt: input.prompt ?? "",
+			selections: input.selections,
+		}),
+	});
+}
+
+export async function briefSpriteCraftWorkspace(input: {
+	prompt: string;
+	bodyType: string;
+}) {
+	return fetchJson("/api/ai/brief", briefResponseSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			prompt: input.prompt,
+			bodyType: input.bodyType,
+		}),
+	});
+}
+
+export async function exportSpriteCraftWorkspace(input: {
+	projectName?: string;
+	enginePreset?: string;
+	bodyType: string;
+	animation: string;
+	prompt?: string;
+	selections: Record<string, string>;
+}) {
+	return fetchJson("/api/lpc/export", exportResponseSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			projectName: input.projectName ?? "",
+			enginePreset: input.enginePreset ?? "none",
 			bodyType: input.bodyType,
 			animation: input.animation,
 			prompt: input.prompt ?? "",

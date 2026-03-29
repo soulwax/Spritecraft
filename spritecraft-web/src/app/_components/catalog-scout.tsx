@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Compass,
   ExternalLink,
+  PackageCheck,
   RotateCcw,
   Save,
   Search,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 
-import { buildStudioTemplateUrl } from "~/app/_components/project-launching";
+import { buildWorkspaceLaunchUrl } from "~/app/_components/project-launching";
 import {
   type WorkspaceLinkedProject,
   type WorkspaceLoadPayload,
+  getRelatedWorkspaceProjects,
   normalizeWorkspaceDraft,
   projectToWorkspaceDraft,
   type CatalogWorkspaceDraft,
@@ -33,7 +36,9 @@ import {
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
 import type {
+  SpriteCraftBriefResponse,
   SpriteCraftCatalogItem,
+  SpriteCraftExportResponse,
   SpriteCraftProjectSummary,
   SpriteCraftRenderPreview,
 } from "~/server/spritecraft-backend";
@@ -53,6 +58,7 @@ type WorkspaceFeedback = {
 };
 
 export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
+  const didHydrateFromUrl = useRef(false);
   const [workspaceName, setWorkspaceName] = useState("Web Builder Workspace");
   const [query, setQuery] = useState("");
   const [workspaceNotes, setWorkspaceNotes] = useState("");
@@ -70,6 +76,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [activeStagedItemId, setActiveStagedItemId] = useState<string | null>(
     null,
   );
+  const [workspaceEnginePreset, setWorkspaceEnginePreset] = useState("none");
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
@@ -111,6 +118,19 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     "idle" | "loading" | "error"
   >("idle");
   const [comparedPreviewError, setComparedPreviewError] = useState("");
+  const [briefStatus, setBriefStatus] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
+  const [briefResult, setBriefResult] = useState<SpriteCraftBriefResponse | null>(
+    null,
+  );
+  const [briefError, setBriefError] = useState("");
+  const [exportStatus, setExportStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [exportResult, setExportResult] =
+    useState<SpriteCraftExportResponse | null>(null);
+  const [exportError, setExportError] = useState("");
 
   function applyWorkspaceDraft(draft: CatalogWorkspaceDraft) {
     setWorkspaceName(draft.name);
@@ -126,6 +146,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setActiveStagedItemId(
       Object.keys(draft.stagedSelections)[0] ?? draft.activeStagedItemId ?? null,
     );
+    setWorkspaceEnginePreset(draft.enginePreset);
     setBodyType(
       bodyTypes.includes(draft.bodyType)
         ? draft.bodyType
@@ -141,6 +162,50 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setStagedSelections(draft.stagedSelections);
     setVariantChoices(draft.variantChoices);
     setWorkspaceSavedAt(draft.savedAt);
+  }
+
+  function applyLaunchParams(params: URLSearchParams) {
+    const rawSelections = params.get("selections");
+    let parsedSelections: Record<string, string> = {};
+    if (rawSelections) {
+      try {
+        const parsed = JSON.parse(rawSelections) as unknown;
+        if (parsed && typeof parsed === "object") {
+          parsedSelections = Object.fromEntries(
+            Object.entries(parsed).filter(
+              ([key, value]) =>
+                typeof key === "string" &&
+                key &&
+                typeof value === "string" &&
+                value,
+            ),
+          );
+        }
+      } catch {}
+    }
+
+    const draft = normalizeWorkspaceDraft({
+      name: params.get("projectName") ?? "Web Builder Workspace",
+      query: params.get("prompt") ?? "",
+      bodyType: params.get("bodyType") ?? bodyTypes[0] ?? "male",
+      animation: params.get("animation") ?? animations[0] ?? "idle",
+      enginePreset: params.get("enginePreset") ?? "none",
+      category: params.get("category") ?? "all",
+      tag: params.get("tagFilter") ?? "all",
+      stagedSelections: parsedSelections,
+      variantChoices: parsedSelections,
+      savedAt: new Date().toISOString(),
+    });
+
+    if (!draft) {
+      return;
+    }
+
+    applyWorkspaceDraft(draft);
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Opened ${draft.name} in the web builder workspace.`,
+    });
   }
 
   useEffect(() => {
@@ -187,6 +252,86 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   }, [animations, bodyTypes]);
 
   useEffect(() => {
+    if (didHydrateFromUrl.current) {
+      return;
+    }
+    didHydrateFromUrl.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    if (![...params.keys()].length) {
+      return;
+    }
+
+    const restoreId = params.get("restore")?.trim();
+    if (!restoreId) {
+      applyLaunchParams(params);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function hydrateFromRestore() {
+      try {
+        const [projectResponse, historyResponse] = await Promise.all([
+          fetch(`/api/spritecraft/history/${restoreId}`, { cache: "no-store" }),
+          fetch("/api/spritecraft/history", { cache: "no-store" }),
+        ]);
+
+        const projectPayload = (await projectResponse.json()) as
+          | SpriteCraftProjectSummary
+          | { error?: string };
+        if (!projectResponse.ok) {
+          throw new Error(
+            "error" in projectPayload && projectPayload.error
+              ? projectPayload.error
+              : "Could not restore that SpriteCraft project into the web workspace.",
+          );
+        }
+
+        const project = projectPayload as SpriteCraftProjectSummary;
+        const draft = projectToWorkspaceDraft(project);
+
+        if (historyResponse.ok) {
+          const historyPayload = (await historyResponse.json()) as {
+            items?: SpriteCraftProjectSummary[];
+          };
+          draft.relatedProjects = getRelatedWorkspaceProjects(
+            project,
+            historyPayload.items ?? [],
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        applyWorkspaceDraft(draft);
+        setWorkspaceFeedback({
+          tone: "success",
+          message: `Restored ${project.projectName ?? "saved project"} into the web builder workspace.`,
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setWorkspaceFeedback({
+          tone: "destructive",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not restore that SpriteCraft project into the web workspace.",
+        });
+      }
+    }
+
+    void hydrateFromRestore();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [animations, bodyTypes]);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(workspacePresetsStorageKey);
       if (!raw) {
@@ -226,6 +371,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         replaceByType,
         activeTypeFocus,
         activeStagedItemId,
+        enginePreset: workspaceEnginePreset,
         bodyType,
         animation,
         category,
@@ -244,6 +390,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     bodyType,
     category,
     activeStagedItemId,
+    workspaceEnginePreset,
     promptHistory,
     query,
     relatedProjects,
@@ -722,6 +869,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setReplaceByType(true);
     setActiveTypeFocus(null);
     setActiveStagedItemId(null);
+    setWorkspaceEnginePreset("none");
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
@@ -798,6 +946,106 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     );
   }
 
+  async function runAiBrief() {
+    const prompt = query.trim();
+    if (!prompt) {
+      setWorkspaceFeedback({
+        tone: "warning",
+        message: "Write a creative brief before asking for AI guidance.",
+      });
+      return;
+    }
+
+    setBriefStatus("loading");
+    setBriefError("");
+    setBriefResult(null);
+
+    try {
+      const response = await fetch("/api/spritecraft/brief", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          bodyType,
+        }),
+      });
+      const payload = (await response.json()) as SpriteCraftBriefResponse & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(
+          payload.error ?? "SpriteCraft Web could not create the AI brief.",
+        );
+      }
+
+      setBriefResult(payload);
+      setBriefStatus("idle");
+      commitPromptHistory(prompt);
+    } catch (error) {
+      setBriefStatus("error");
+      setBriefError(
+        error instanceof Error
+          ? error.message
+          : "SpriteCraft Web could not create the AI brief.",
+      );
+    }
+  }
+
+  async function exportWorkspace() {
+    if (!Object.keys(stagedSelections).length) {
+      setWorkspaceFeedback({
+        tone: "warning",
+        message: "Stage at least one layer before exporting.",
+      });
+      return;
+    }
+
+    setExportStatus("loading");
+    setExportError("");
+    setExportResult(null);
+
+    try {
+      const response = await fetch("/api/spritecraft/export", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          projectName: workspaceName.trim(),
+          enginePreset: workspaceEnginePreset,
+          bodyType,
+          animation,
+          prompt: query.trim(),
+          selections: stagedSelections,
+        }),
+      });
+      const payload = (await response.json()) as SpriteCraftExportResponse & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(
+          payload.error ?? "SpriteCraft Web could not export the workspace.",
+        );
+      }
+
+      setExportResult(payload);
+      setExportStatus("idle");
+      setWorkspaceFeedback({
+        tone: "success",
+        message: `Exported ${payload.baseName} with ${payload.enginePreset} preset output.`,
+      });
+    } catch (error) {
+      setExportStatus("error");
+      setExportError(
+        error instanceof Error
+          ? error.message
+          : "SpriteCraft Web could not export the workspace.",
+      );
+    }
+  }
+
   async function saveWorkspaceProject(mode: "fresh" | "version") {
     if (!Object.keys(stagedSelections).length) {
       setWorkspaceFeedback({
@@ -828,10 +1076,10 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       ]),
     );
     const mergedNotes =
-      workspaceNotes.trim() ||
-      (mode === "version" && sourceProjectLabel
-        ? `Saved as a new web workspace version of ${sourceProjectLabel}.`
-        : "Created from the SpriteCraft Web workspace before launching into the Dart Studio.");
+        workspaceNotes.trim() ||
+        (mode === "version" && sourceProjectLabel
+          ? `Saved as a new web workspace version of ${sourceProjectLabel}.`
+        : "Created from the SpriteCraft Web workspace.");
 
     try {
       const response = await fetch("/api/spritecraft/history/save", {
@@ -843,7 +1091,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           projectName,
           notes: mergedNotes,
           tags: mergedTags,
-          enginePreset: "none",
+          enginePreset: workspaceEnginePreset,
           bodyType,
           animation,
           prompt: query.trim(),
@@ -858,7 +1106,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             versionMode: mode,
           },
           exportSettings: {
-            enginePreset: "none",
+            enginePreset: workspaceEnginePreset,
           },
           promptHistory: mergedPromptHistory,
           exportHistory: [],
@@ -1073,10 +1321,10 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     }
   }
 
-  const studioScoutUrl = buildStudioTemplateUrl({
-    bodyType,
-    animation,
-    projectName:
+  const workspaceLaunchUrl = buildWorkspaceLaunchUrl({
+      bodyType,
+      animation,
+      projectName:
       workspaceName.trim() ||
       (query.trim() ? `Scout ${query.trim()}` : "Scouted Project"),
     prompt: "",
@@ -1117,11 +1365,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           <Compass className="size-5 text-[color:var(--accent)]" />
           <span>Catalog Scout</span>
         </CardTitle>
-        <CardDescription>
-          Scout the LPC catalog from the web app, keep a small persistent
-          selection workspace, then open the Dart Studio with that intent
-          already applied.
-        </CardDescription>
+          <CardDescription>
+            Scout the LPC catalog from the web app, keep a small persistent
+            selection workspace, and keep iterating in the web builder with
+            that intent already applied.
+          </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
@@ -1191,8 +1439,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             <div className="flex items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-3 text-sm text-[color:var(--muted-foreground)]">
               {sourceProjectId
                 ? "This restored workspace can now save forward as a new version or branch off as a fresh project."
-                : "Saving here creates a real SpriteCraft project from the current web workspace, even before opening Studio."}
-            </div>
+                : "Saving here creates a real SpriteCraft project directly from the current web workspace."}
+              </div>
           )}
         </div>
 
@@ -1281,12 +1529,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               </option>
             ))}
           </Select>
-          <Button asChild>
-            <a href={studioScoutUrl} rel="noreferrer" target="_blank">
-              <ExternalLink className="mr-2 size-4" />
-              Scout In Studio
-            </a>
-          </Button>
+            <Button asChild>
+              <a href={workspaceLaunchUrl} rel="noreferrer" target="_blank">
+                <ExternalLink className="mr-2 size-4" />
+                Open In Builder
+              </a>
+            </Button>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_0.9fr]">
@@ -1307,6 +1555,15 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               )}
             </div>
             <div className="grid gap-3">
+              <Select
+                onChange={(event) => setWorkspaceEnginePreset(event.target.value)}
+                value={workspaceEnginePreset}
+              >
+                <option value="none">No engine preset</option>
+                <option value="godot">Godot</option>
+                <option value="unity">Unity</option>
+                <option value="both">Godot + Unity</option>
+              </Select>
               <Input
                 onChange={(event) =>
                   setWorkspaceTags(
@@ -2027,12 +2284,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-[color:var(--muted-foreground)]">
-              Stage a few candidate layers here, then open Studio with those
-              selections already queued.
-            </p>
-          )}
+            ) : (
+              <p className="text-sm text-[color:var(--muted-foreground)]">
+                Stage a few candidate layers here, then keep refining them in
+                the web builder workspace.
+              </p>
+            )}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
@@ -2104,13 +2361,134 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                     </p>
                   </div>
                 ))
-              ) : (
-                <p className="text-sm text-[color:var(--muted-foreground)]">
-                  The web app can now preview a small selection workspace, but
-                  full layer management still belongs to the Dart Studio.
-                </p>
-              )}
+                ) : (
+                  <p className="text-sm text-[color:var(--muted-foreground)]">
+                    The web app now owns layer staging, preview, AI guidance,
+                    and export for this workspace.
+                  </p>
+                )}
             </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  AI Brief
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  Web-side guidance
+                </h3>
+              </div>
+              <Button onClick={() => void runAiBrief()} type="button">
+                <Sparkles className="mr-2 size-4" />
+                {briefStatus === "loading" ? "Thinking..." : "Run AI Brief"}
+              </Button>
+            </div>
+            {briefResult?.plan ? (
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+                <p className="text-sm font-medium text-[color:var(--foreground)]">
+                  {briefResult.plan.concept || "AI concept ready"}
+                </p>
+                {briefResult.plan.styleTags?.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {briefResult.plan.styleTags.map((entry) => (
+                      <Badge key={`style-${entry}`}>{entry}</Badge>
+                    ))}
+                  </div>
+                ) : null}
+                {briefResult.plan.framePrompts?.length ? (
+                  <ul className="mt-3 space-y-2 text-sm text-[color:var(--muted-foreground)]">
+                    {briefResult.plan.framePrompts.slice(0, 5).map((entry) => (
+                      <li key={`frame-${entry}`}>{entry}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-[color:var(--muted-foreground)]">
+                Use the current workspace brief to get a coherent build path and
+                recommended items inside the web app.
+              </p>
+            )}
+            {briefResult?.recommendations?.length ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {briefResult.recommendations.slice(0, 6).map((item) => (
+                  <div
+                    className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3"
+                    key={`ai-${item.id}`}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <strong>{item.name}</strong>
+                      <Badge>{item.typeName}</Badge>
+                    </div>
+                    <p className="text-sm text-[color:var(--muted-foreground)]">
+                      {item.category}
+                    </p>
+                    <div className="mt-3">
+                      <Button
+                        onClick={() => stageItem(item)}
+                        type="button"
+                        variant="secondary"
+                      >
+                        Stage Recommendation
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {briefError ? (
+              <p className="mt-3 text-sm text-[color:var(--destructive)]">
+                {briefError}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Export Bundle
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  Web-side export
+                </h3>
+              </div>
+              <Button onClick={() => void exportWorkspace()} type="button">
+                <PackageCheck className="mr-2 size-4" />
+                {exportStatus === "loading" ? "Exporting..." : "Export"}
+              </Button>
+            </div>
+            {exportResult ? (
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4 text-sm text-[color:var(--muted-foreground)]">
+                <p className="font-medium text-[color:var(--foreground)]">
+                  {exportResult.baseName}
+                </p>
+                <p className="mt-2">PNG: {exportResult.imagePath}</p>
+                <p>JSON: {exportResult.metadataPath}</p>
+                <p>ZIP: {exportResult.bundlePath}</p>
+                {exportResult.extraPaths.length ? (
+                  <div className="mt-3 space-y-1">
+                    {exportResult.extraPaths.map((entry) => (
+                      <p key={`export-extra-${entry}`}>Preset: {entry}</p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-[color:var(--muted-foreground)]">
+                Export the current workspace directly from the web app with the
+                selected engine preset.
+              </p>
+            )}
+            {exportError ? (
+              <p className="mt-3 text-sm text-[color:var(--destructive)]">
+                {exportError}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -2177,9 +2555,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         </div>
 
         <p className="text-sm text-(--muted-foreground)">
-          This is still a narrow migration slice, not full web-side editing yet.
-          But the web app now keeps a persistent working set of layer picks
-          instead of acting like a disposable scout only.
+          This builder now carries the full primary SpriteCraft workflow in the
+          web app while the Dart process focuses on backend APIs.
         </p>
       </CardContent>
     </Card>

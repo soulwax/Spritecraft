@@ -32,7 +32,7 @@ void main() {
           .map((dynamic item) => (item as Map<String, dynamic>)['label'] as String)
           .toList();
 
-      expect(labels, contains('Studio assets'));
+      expect(labels, isNot(contains('Studio assets')));
       expect(labels, contains('LPC project'));
       expect(labels, contains('Gemini'));
       expect(labels, contains('Database'));

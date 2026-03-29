@@ -60,7 +60,6 @@ MISMATCHED_QUOTE="oops
 
       final RuntimeConfig config = await RuntimeConfig.load(projectRoot: root);
 
-      expect(config.studioDirectory.path, path.join(root.path, 'studio'));
       expect(
         config.exportDirectory.path,
         path.join(root.path, 'build', 'exports'),

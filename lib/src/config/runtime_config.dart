@@ -23,8 +23,6 @@ class RuntimeConfig {
   bool get hasDatabase => databaseUrl.isNotEmpty;
   bool get hasLpcProject => lpcProjectRoot.existsSync();
 
-  Directory get studioDirectory =>
-      Directory(path.join(projectRoot.path, 'studio'));
   Directory get exportDirectory =>
       Directory(path.join(projectRoot.path, 'build', 'exports'));
   Directory get projectPackageDirectory =>
