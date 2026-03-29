@@ -258,6 +258,12 @@ export function ProjectBrowser({
   }
 
   function openProjectInBuilder(project: SpriteCraftProjectSummary) {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[spritecraft] Loading project into builder", {
+        id: project.id,
+        label: getProjectLabel(project),
+      });
+    }
     loadProjectIntoWebWorkspace(project);
     if (typeof window !== "undefined") {
       window.history.replaceState({}, "", buildWorkspaceRestoreUrl(project.id));

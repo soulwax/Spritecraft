@@ -1,3 +1,10 @@
+## 0.19.4 - 2026-03-30
+
+### Fixed
+
+- Fixed Studio dev-origin handling so the app now opens on `localhost` and allows both `localhost` and `127.0.0.1` during Next.js development.
+- Added lightweight dev-only builder launch logs to help diagnose launch and restore interactions in the browser.
+
 ## 0.19.3 - 2026-03-30
 
 ### Fixed

@@ -107,6 +107,11 @@ export function ProjectLauncher({
 		if (typeof window === "undefined") {
 			return;
 		}
+		if (process.env.NODE_ENV !== "production") {
+			console.info("[spritecraft] Launching builder from project launcher", {
+				config,
+			});
+		}
 
 		window.dispatchEvent(
 			new CustomEvent<WorkspaceLaunchPayload>(workspaceLaunchEventName, {

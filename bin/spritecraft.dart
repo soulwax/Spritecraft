@@ -8,7 +8,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.19.3';
+const String version = '0.19.4';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -359,7 +359,7 @@ Future<void> _runApp(ArgResults results) async {
   final Uri backendUri = Uri.parse(
     'http://${server.address.host}:${server.port}',
   );
-  final Uri webUri = Uri.parse('http://127.0.0.1:$webPort');
+  final Uri webUri = Uri.parse('http://localhost:$webPort');
 
   stdout.writeln('SpriteCraft backend running at $backendUri');
   stdout.writeln(

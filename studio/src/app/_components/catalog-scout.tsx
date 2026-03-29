@@ -260,6 +260,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       if (!detail?.project) {
         return;
       }
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[spritecraft] Workspace load event received", {
+          id: detail.project.id,
+          label: detail.project.projectName ?? "saved project",
+        });
+      }
 
       const draft = projectToWorkspaceDraft(detail.project);
       draft.relatedProjects = detail.relatedProjects;
@@ -281,6 +287,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       const detail = (event as CustomEvent<WorkspaceLaunchPayload>).detail;
       if (!detail?.config) {
         return;
+      }
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[spritecraft] Workspace launch event received", {
+          config: detail.config,
+        });
       }
 
       const draft = normalizeWorkspaceDraft({
@@ -1512,6 +1523,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       catalogSearch: query.trim(),
       seededSelections: stagedSelections,
     };
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[spritecraft] Relaunching current workspace into builder", {
+        config,
+      });
+    }
 
     window.dispatchEvent(
       new CustomEvent<WorkspaceLaunchPayload>(workspaceLaunchEventName, {
