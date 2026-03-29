@@ -8,7 +8,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.7.0';
+const String version = '0.7.1';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -245,11 +245,14 @@ Future<void> _runPlan(ArgResults results) async {
 }
 
 Future<void> _runStudio(ArgResults results) async {
+  stdout.writeln('Loading SpriteCraft backend configuration...');
   final RuntimeConfig config = await _loadRuntimeConfig();
+  stdout.writeln('Preparing backend services...');
   final StudioServer studioServer = await _createStudioServer(config);
 
   final String host = results.option('host')!;
   final int port = _parseIntOption(results, 'port') ?? 8080;
+  stdout.writeln('Binding backend API on $host:$port...');
   final HttpServer server = await _serveStudioServer(
     studioServer,
     host: host,
@@ -274,7 +277,9 @@ Future<void> _runStudio(ArgResults results) async {
 }
 
 Future<void> _runApp(ArgResults results) async {
+  stdout.writeln('Loading SpriteCraft app configuration...');
   final RuntimeConfig config = await _loadRuntimeConfig();
+  stdout.writeln('Preparing backend services...');
   final StudioServer studioServer = await _createStudioServer(config);
 
   final String host = results.option('host')!;
@@ -309,6 +314,7 @@ Future<void> _runApp(ArgResults results) async {
     port: webPort,
   );
 
+  stdout.writeln('Binding backend API on $host:$port...');
   final HttpServer server = await _serveStudioServer(
     studioServer,
     host: host,
@@ -323,6 +329,7 @@ Future<void> _runApp(ArgResults results) async {
   stdout.writeln(
     'Starting spritecraft-web from ${webDirectory.path} with $packageManagerCommand ${webArguments.join(' ')}',
   );
+  stdout.writeln('Waiting for spritecraft-web to become reachable...');
   if (!config.hasLpcProject) {
     stdout.writeln(
       'Warning: LPC source assets were not found in ./lpc-spritesheet-creator.',

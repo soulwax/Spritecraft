@@ -1,3 +1,10 @@
+## 0.7.1 - 2026-03-29
+
+### Fixed
+
+- Made `dart run bin/spritecraft.dart app` visibly report startup progress instead of appearing idle while backend services initialize.
+- Made backend history persistence startup fail soft when the configured database is unreachable, so the app can still boot and report database availability as a warning.
+
 ## 0.7.0 - 2026-03-29
 
 ### Added

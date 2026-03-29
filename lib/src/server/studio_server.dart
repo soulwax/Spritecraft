@@ -18,6 +18,8 @@ import '../persistence/history_repository.dart';
 import 'export_support.dart';
 
 class StudioServer {
+  static const Duration _historyConnectTimeout = Duration(seconds: 10);
+
   StudioServer._({
     required this.config,
     required this.catalog,
@@ -35,6 +37,14 @@ class StudioServer {
     final LpcCatalog catalog = await const LpcCatalogLoader().load(
       config.lpcDefinitionsDirectory,
     );
+    HistoryRepository? historyRepository;
+    try {
+      historyRepository = await HistoryRepository.connect(
+        config.databaseUrl,
+      ).timeout(_historyConnectTimeout);
+    } on Exception {
+      historyRepository = null;
+    }
 
     return StudioServer._(
       config: config,
@@ -43,7 +53,7 @@ class StudioServer {
         catalog: catalog,
         spritesheetsDirectory: config.lpcSpritesheetsDirectory,
       ),
-      historyRepository: await HistoryRepository.connect(config.databaseUrl),
+      historyRepository: historyRepository,
     );
   }
 

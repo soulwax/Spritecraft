@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as path;
 import 'package:spritecraft/src/config/runtime_config.dart';
 import 'package:spritecraft/src/server/studio_server.dart';
 import 'package:test/test.dart';
@@ -10,8 +11,24 @@ import 'package:test/test.dart';
 void main() {
   group('Bootstrap endpoint', () {
     test('serves the canonical /api/bootstrap route', () async {
+      final Directory root = await Directory.systemTemp.createTemp(
+        'spritecraft-bootstrap-',
+      );
+      addTearDown(() async {
+        if (await root.exists()) {
+          await root.delete(recursive: true);
+        }
+      });
+
+      await Directory(
+        path.join(root.path, 'lpc-spritesheet-creator', 'sheet_definitions'),
+      ).create(recursive: true);
+      await Directory(
+        path.join(root.path, 'lpc-spritesheet-creator', 'spritesheets'),
+      ).create(recursive: true);
+
       final RuntimeConfig config = await RuntimeConfig.load(
-        projectRoot: Directory.current,
+        projectRoot: root,
       );
       final StudioServer studio = await StudioServer.create(config);
       final HttpServer server = await studio.serve(host: '127.0.0.1', port: 0);
