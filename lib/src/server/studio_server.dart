@@ -90,7 +90,7 @@ class StudioServer {
       }
       return _json(404, <String, Object>{
         'error':
-            'SpriteCraft now serves the UI from spritecraft-web. Start the web app separately and use this Dart server as the backend API.',
+            'SpriteCraft now serves the UI from studio. Start the web app separately and use this Dart server as the backend API.',
       });
     });
 
@@ -430,6 +430,10 @@ class StudioServer {
       bodyType: bodyType,
       animation: animation,
     );
+    final List<SpriteBriefCategorySuggestion> categorySuggestions =
+        briefComposer.buildCategorySuggestions(buildPath);
+    final SpriteBriefCandidateBuild candidateBuild = briefComposer
+        .buildCandidateBuild(plan: normalizedPlan, steps: buildPath);
 
     final List<LpcItemDefinition> recommendations = briefComposer
         .collectTopRecommendations(buildPath);
@@ -439,6 +443,12 @@ class StudioServer {
       'buildPath': buildPath
           .map((SpriteBriefGuideStep step) => step.toJson())
           .toList(),
+      'categorySuggestions': categorySuggestions
+          .map(
+            (SpriteBriefCategorySuggestion suggestion) => suggestion.toJson(),
+          )
+          .toList(),
+      'candidateBuild': candidateBuild.toJson(),
       'recommendations': recommendations
           .map((LpcItemDefinition item) => item.toJson())
           .toList(),
@@ -921,3 +931,4 @@ class _ExportArtifact {
   final File metadataFile;
   final List<File> extraFiles;
 }
+

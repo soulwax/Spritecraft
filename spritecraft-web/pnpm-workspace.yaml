@@ -1,5 +1,0 @@
-# File: spritecraft-web/pnpm-workspace.yaml
-
-allowBuilds:
-  esbuild: true
-  sharp: true

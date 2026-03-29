@@ -91,9 +91,15 @@ void main() {
         bodyType: 'male',
         animation: 'idle',
       );
+      final List<SpriteBriefCategorySuggestion> categorySuggestions = composer
+          .buildCategorySuggestions(steps);
+      final SpriteBriefCandidateBuild candidateBuild = composer
+          .buildCandidateBuild(plan: plan, steps: steps);
 
       expect(plan.buildPath, isNotEmpty);
       expect(steps, isNotEmpty);
+      expect(categorySuggestions, isNotEmpty);
+      expect(candidateBuild.selections, isNotEmpty);
       expect(
         steps.any(
           (SpriteBriefGuideStep step) => step.recommendations.isNotEmpty,

@@ -10,7 +10,7 @@ void main() {
   group('detectWebPackageManager', () {
     test('prefers explicit package manager override', () async {
       final Directory root = await Directory.systemTemp.createTemp(
-        'spritecraft-web-launcher-',
+        'studio-launcher-',
       );
       addTearDown(() async {
         if (await root.exists()) {
@@ -26,7 +26,7 @@ void main() {
 
     test('uses packageManager field before lockfiles', () async {
       final Directory root = await Directory.systemTemp.createTemp(
-        'spritecraft-web-launcher-',
+        'studio-launcher-',
       );
       addTearDown(() async {
         if (await root.exists()) {
@@ -36,7 +36,7 @@ void main() {
 
       await File(path.join(root.path, 'package.json')).writeAsString('''
 {
-  "name": "spritecraft-web",
+  "name": "studio",
   "packageManager": "bun@1.2.0"
 }
 ''');
@@ -47,7 +47,7 @@ void main() {
 
     test('falls back to lockfiles and then pnpm default', () async {
       final Directory root = await Directory.systemTemp.createTemp(
-        'spritecraft-web-launcher-',
+        'studio-launcher-',
       );
       addTearDown(() async {
         if (await root.exists()) {
@@ -65,18 +65,57 @@ void main() {
 
   group('buildWebDevArguments', () {
     test('builds package-manager-specific dev arguments', () {
-      expect(
-        buildWebDevArguments(WebPackageManager.pnpm, port: 3210),
-        <String>['dev', '--port', '3210'],
+      expect(buildWebDevArguments(WebPackageManager.pnpm, port: 3210), <String>[
+        'dev',
+        '--port',
+        '3210',
+      ]);
+      expect(buildWebDevArguments(WebPackageManager.npm, port: 3210), <String>[
+        'run',
+        'dev',
+        '--',
+        '--port',
+        '3210',
+      ]);
+      expect(buildWebDevArguments(WebPackageManager.yarn, port: 3210), <String>[
+        'dev',
+        '--port',
+        '3210',
+      ]);
+    });
+  });
+
+  group('webDependenciesInstalled', () {
+    test('detects node_modules presence', () async {
+      final Directory root = await Directory.systemTemp.createTemp(
+        'studio-launcher-',
       );
-      expect(
-        buildWebDevArguments(WebPackageManager.npm, port: 3210),
-        <String>['run', 'dev', '--', '--port', '3210'],
-      );
-      expect(
-        buildWebDevArguments(WebPackageManager.yarn, port: 3210),
-        <String>['dev', '--port', '3210'],
-      );
+      addTearDown(() async {
+        if (await root.exists()) {
+          await root.delete(recursive: true);
+        }
+      });
+
+      expect(webDependenciesInstalled(root), isFalse);
+      await Directory(path.join(root.path, 'node_modules')).create();
+      expect(webDependenciesInstalled(root), isTrue);
+    });
+  });
+
+  group('buildWebInstallArguments', () {
+    test('uses install for supported package managers', () {
+      expect(buildWebInstallArguments(WebPackageManager.pnpm), <String>[
+        'install',
+      ]);
+      expect(buildWebInstallArguments(WebPackageManager.npm), <String>[
+        'install',
+      ]);
+      expect(buildWebInstallArguments(WebPackageManager.yarn), <String>[
+        'install',
+      ]);
+      expect(buildWebInstallArguments(WebPackageManager.bun), <String>[
+        'install',
+      ]);
     });
   });
 }

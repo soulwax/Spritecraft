@@ -1,8 +1,34 @@
+## 0.19.1 - 2026-03-30
+
+### Fixed
+
+- Fixed the `app` launcher so it now detects missing `studio/node_modules`, runs the appropriate package-manager install step automatically, and only then starts the Next.js dev server.
+
+## 0.19.0 - 2026-03-30
+
+### Changed
+
+- Renamed the first-party Next.js app directory from `spritecraft-web` to `studio` and updated the Dart launcher, docs, and repo guidance to use the new path.
+- Removed stale assumptions that the frontend app was external or submodule-like; only `lpc-spritesheet-creator` remains a git submodule.
+- Updated SpriteCraft Studio package metadata and launcher defaults to treat `studio` as the canonical in-repo app directory.
+
+## 0.18.0 - 2026-03-30
+
+### Added
+
+- Added AI-powered category suggestions in SpriteCraft Studio so the brief can recommend concrete layer picks by role and slot.
+- Added candidate-build recommendations that can prefill a staged character setup from the current prompt in one click.
+
+### Changed
+
+- Extended the structured AI brief response so build paths, category suggestions, and candidate builds share the same backend composition logic.
+- Marked the next two Phase 5 AI roadmap items complete.
+
 ## 0.17.0 - 2026-03-30
 
 ### Added
 
-- Added structured AI brief build paths with ordered steps, focused search queries, and per-step layer recommendations in SpriteCraft Web.
+- Added structured AI brief build paths with ordered steps, focused search queries, and per-step layer recommendations in SpriteCraft Studio.
 - Added a reusable `SpriteBriefComposer` so Gemini output and local fallback guidance now produce the same actionable brief shape.
 
 ### Changed
@@ -29,20 +55,20 @@
 
 ### Changed
 
-- Exposed batch animation and preset-variant export controls in SpriteCraft Web.
+- Exposed batch animation and preset-variant export controls in SpriteCraft Studio.
 - Marked the batch export roadmap item complete.
 
 ## 0.14.0 - 2026-03-30
 
 ### Added
 
-- Added export-control options for SpriteCraft Web and the Dart backend, including filename style selection, custom stems, frame-name prefixes, transparent trimming, margin padding, spacing metadata, and pivot overrides.
+- Added export-control options for SpriteCraft Studio and the Dart backend, including filename style selection, custom stems, frame-name prefixes, transparent trimming, margin padding, spacing metadata, and pivot overrides.
 
 ### Changed
 
 - Upgraded `spritecraft.render` to schema version `3` to document the new export-options block in render/export metadata.
 - Marked the export-controls roadmap item complete.
-- Exposed the new export controls in `spritecraft-web`.
+- Exposed the new export controls in `studio`.
 
 ## 0.13.0 - 2026-03-30
 
@@ -53,7 +79,7 @@
 
 ### Changed
 
-- Exposed the new Aseprite, generic, and all-presets export choices in SpriteCraft Web.
+- Exposed the new Aseprite, generic, and all-presets export choices in SpriteCraft Studio.
 - Marked the Aseprite/generic export roadmap item complete.
 
 ## 0.12.0 - 2026-03-30
@@ -70,7 +96,7 @@
 
 ### Fixed
 
-- Fixed the `app` launcher readiness probe so early dropped HTTP connections from `spritecraft-web` are retried instead of crashing the Dart process during startup.
+- Fixed the `app` launcher readiness probe so early dropped HTTP connections from `studio` are retried instead of crashing the Dart process during startup.
 
 ## 0.11.0 - 2026-03-30
 
@@ -93,7 +119,7 @@
 
 ### Changed
 
-- Updated the metadata schema documentation and roadmap to treat SpriteCraft Web as the primary product surface instead of describing it in migration terms.
+- Updated the metadata schema documentation and roadmap to treat SpriteCraft Studio as the primary product surface instead of describing it in migration terms.
 
 ## 0.8.1 - 2026-03-29
 
@@ -123,7 +149,7 @@
 
 ### Added
 
-- Added a new `dart run bin/spritecraft.dart app` command that starts the Dart backend API and `spritecraft-web` together from one CLI entrypoint.
+- Added a new `dart run bin/spritecraft.dart app` command that starts the Dart backend API and `studio` together from one CLI entrypoint.
 - Added web package-manager detection and startup helpers so the combined launcher can use `pnpm`, `npm`, `yarn`, or `bun` and wire `NEXT_PUBLIC_SPRITECRAFT_API_BASE` automatically.
 
 ### Changed
@@ -134,7 +160,7 @@
 
 ### Changed
 
-- Finalized the frontend cutover to `spritecraft-web` by making the Dart server API-only and moving the primary creator surface fully to the web app.
+- Finalized the frontend cutover to `studio` by making the Dart server API-only and moving the primary creator surface fully to the web app.
 - Added web-side AI brief and export flows so the last major `/studio`-only creator actions now run from the new frontend.
 - Removed the legacy `/studio` frontend files from the repository.
 
@@ -142,7 +168,7 @@
 
 ### Changed
 
-- Added web-side AI brief generation and recommendation staging in `spritecraft-web`, bringing another major creator workflow out of the legacy `/studio` surface.
+- Added web-side AI brief generation and recommendation staging in `studio`, bringing another major creator workflow out of the legacy `/studio` surface.
 - Added direct web-side export bundle generation with engine preset selection, so the new web builder can now produce PNG, metadata JSON, zip bundles, and preset companion files without relying on `/studio`.
 - Continued consolidating the migration by moving more of the last clearly Studio-only creator actions into the new web workspace.
 
@@ -150,42 +176,42 @@
 
 ### Changed
 
-- Added active-layer compatibility warnings and focused recommendations to the `spritecraft-web` selected-layer detail panel so the web builder now flags likely body-type, animation, and palette-fit concerns earlier.
+- Added active-layer compatibility warnings and focused recommendations to the `studio` selected-layer detail panel so the web builder now flags likely body-type, animation, and palette-fit concerns earlier.
 - Continued shifting smart builder guidance into the web app by making the active staged layer surface practical next-step advice instead of only metadata and alternatives.
 
 ## 0.4.27 - 2026-03-29
 
 ### Changed
 
-- Added a selected-layer detail workflow to `spritecraft-web` so the active staged layer now surfaces its metadata and a set of same-type alternatives directly inside the web workspace.
+- Added a selected-layer detail workflow to `studio` so the active staged layer now surfaces its metadata and a set of same-type alternatives directly inside the web workspace.
 - Improved web-side replacement decisions by connecting staged-layer focus, compatible alternatives, and same-type catalog browsing into one flow.
 
 ## 0.4.26 - 2026-03-29
 
 ### Changed
 
-- Added staging-aware catalog ranking in `spritecraft-web` so alternatives are now prioritized by focused type, current workspace tags, prompt terms, body type fit, and animation fit.
+- Added staging-aware catalog ranking in `studio` so alternatives are now prioritized by focused type, current workspace tags, prompt terms, body type fit, and animation fit.
 - Made web-side replacement browsing feel more intentional by combining the new type-focus flow with smarter result ordering instead of only static filtering.
 
 ## 0.4.25 - 2026-03-29
 
 ### Changed
 
-- Added a type-focused alternative-browsing flow in `spritecraft-web` so staged items can now jump the catalog directly into “show me alternatives for this layer type”.
+- Added a type-focused alternative-browsing flow in `studio` so staged items can now jump the catalog directly into “show me alternatives for this layer type”.
 - Improved the web-side builder feel by pairing same-type replacement mode with explicit alternative discovery instead of leaving replacement as a manual search task.
 
 ## 0.4.24 - 2026-03-29
 
 ### Changed
 
-- Added a web-side staged-selection mode that can automatically replace existing staged items of the same layer type, making `spritecraft-web` behave more like a practical builder instead of only a loose scouting tray.
+- Added a web-side staged-selection mode that can automatically replace existing staged items of the same layer type, making `studio` behave more like a practical builder instead of only a loose scouting tray.
 - Persisted the new staging mode in the web workspace so creators can choose between stricter layer replacement and free stacking across sessions.
 
 ## 0.4.23 - 2026-03-29
 
 ### Changed
 
-- Added side-by-side render comparison in the `spritecraft-web` version-compare panel so creators can visually inspect the current workspace against a related saved version.
+- Added side-by-side render comparison in the `studio` version-compare panel so creators can visually inspect the current workspace against a related saved version.
 - Improved web-side version decisions by combining metadata comparison with actual rendered sprite feedback before branching or switching.
 
 ## 0.4.22 - 2026-03-29
@@ -193,69 +219,69 @@
 ### Changed
 
 - Made the web-side version comparison flow actionable by allowing the current workspace to branch directly from a compared related version.
-- Continued turning `spritecraft-web` into a usable iteration surface by collapsing compare and continue into one workflow instead of separate navigation steps.
+- Continued turning `studio` into a usable iteration surface by collapsing compare and continue into one workflow instead of separate navigation steps.
 
 ## 0.4.21 - 2026-03-29
 
 ### Changed
 
-- Added a lightweight version-compare panel to the `spritecraft-web` workspace so creators can inspect prompt, tag, and layer-set differences against a related saved version before switching.
+- Added a lightweight version-compare panel to the `studio` workspace so creators can inspect prompt, tag, and layer-set differences against a related saved version before switching.
 - Continued reducing browser bounce during iteration by making related-version comparison part of the web-side workspace itself.
 
 ## 0.4.20 - 2026-03-29
 
 ### Changed
 
-- Made the `spritecraft-web` related-history panel actionable so nearby versions and snapshots can now be loaded directly back into the web workspace.
+- Made the `studio` related-history panel actionable so nearby versions and snapshots can now be loaded directly back into the web workspace.
 - Reduced project-browser bouncing during iteration by letting version-to-version workspace navigation happen from inside the web-side builder surface.
 
 ## 0.4.19 - 2026-03-29
 
 ### Changed
 
-- Added related-history context to the `spritecraft-web` workspace so restored projects now bring nearby versions and snapshots into the web-side iteration view.
+- Added related-history context to the `studio` workspace so restored projects now bring nearby versions and snapshots into the web-side iteration view.
 - Updated the web workspace load contract to carry richer browser context, making saved-project restoration feel more connected to ongoing versioned work instead of loading in isolation.
 
 ## 0.4.18 - 2026-03-29
 
 ### Changed
 
-- Added web-side version saving in the `spritecraft-web` workspace so a restored project can now save forward as a new version directly from the web builder staging surface.
+- Added web-side version saving in the `studio` workspace so a restored project can now save forward as a new version directly from the web builder staging surface.
 - Kept the web workspace save flow flexible by supporting both fresh project saves and versioned follow-up saves from the same restored context.
 
 ## 0.4.17 - 2026-03-29
 
 ### Changed
 
-- Expanded the `spritecraft-web` workspace restore flow so loading a saved project into the web app now carries notes, tags, prompt history, and source-project context instead of only layer selections.
+- Expanded the `studio` workspace restore flow so loading a saved project into the web app now carries notes, tags, prompt history, and source-project context instead of only layer selections.
 - Added editable workspace context and prompt-memory controls in the web scout, making the new frontend feel more like a real builder session surface instead of a temporary staging tray.
 
 ## 0.4.16 - 2026-03-29
 
 ### Changed
 
-- Removed unused auth and Drizzle scaffolding from `spritecraft-web` so the web app now reflects its actual role as a frontend over the Dart backend instead of an inactive full-stack T3 setup.
+- Removed unused auth and Drizzle scaffolding from `studio` so the web app now reflects its actual role as a frontend over the Dart backend instead of an inactive full-stack T3 setup.
 - Simplified the web app environment contract to only require `NEXT_PUBLIC_SPRITECRAFT_API_BASE`, with database ownership remaining on the Dart side.
 
 ## 0.4.15 - 2026-03-29
 
 ### Changed
 
-- Added a direct bridge from the `spritecraft-web` project browser back into the web selection workspace, so saved projects can now repopulate the web builder staging area without first opening the Dart Studio.
-- Continued closing the builder-session loop in `spritecraft-web`, making the new frontend responsible for more of the save, restore, and iterate cycle before full Studio migration.
+- Added a direct bridge from the `studio` project browser back into the web selection workspace, so saved projects can now repopulate the web builder staging area without first opening the Dart Studio.
+- Continued closing the builder-session loop in `studio`, making the new frontend responsible for more of the save, restore, and iterate cycle before full Studio migration.
 
 ## 0.4.14 - 2026-03-29
 
 ### Changed
 
-- Added direct project creation from the `spritecraft-web` selection workspace so web-side builder intent can now be saved into SpriteCraft history before launching Studio.
-- Continued moving early project/session creation into the web app, making `spritecraft-web` participate in actual project authoring instead of only staging and handoff.
+- Added direct project creation from the `studio` selection workspace so web-side builder intent can now be saved into SpriteCraft history before launching Studio.
+- Continued moving early project/session creation into the web app, making `studio` participate in actual project authoring instead of only staging and handoff.
 
 ## 0.4.13 - 2026-03-29
 
 ### Changed
 
-- Added named local workspace presets to the `spritecraft-web` selection workspace so multiple reusable builder setups can now be saved, loaded, and deleted.
+- Added named local workspace presets to the `studio` selection workspace so multiple reusable builder setups can now be saved, loaded, and deleted.
 - Continued shifting early builder-session management into the web app, making the workspace feel more like a real pre-builder environment instead of a single transient draft.
 
 ## 0.4.12 - 2026-03-29
@@ -263,34 +289,34 @@
 ### Changed
 
 - Added a comprehensive CLI command reference to the README covering `pack`, `plan`, `studio`, common options, and practical examples.
-- Upgraded the `spritecraft-web` selection workspace so staged layers can now be edited, reordered, and removed more intentionally before handing off into Studio.
+- Upgraded the `studio` selection workspace so staged layers can now be edited, reordered, and removed more intentionally before handing off into Studio.
 
 ## 0.4.11 - 2026-03-29
 
 ### Changed
 
-- Added a lightweight web-side workspace preview in `spritecraft-web` using the existing Dart render pipeline, including rendered image feedback and resolved layer-stack details.
+- Added a lightweight web-side workspace preview in `studio` using the existing Dart render pipeline, including rendered image feedback and resolved layer-stack details.
 - Improved the `pack` CLI error for missing input directories so it now reports the resolved absolute path and current working directory instead of only echoing the raw relative path.
 
 ## 0.4.10 - 2026-03-29
 
 ### Changed
 
-- Turned the `spritecraft-web` catalog scout into a persistent web-side selection workspace with local draft storage, workspace naming, and clear/reset controls.
+- Turned the `studio` catalog scout into a persistent web-side selection workspace with local draft storage, workspace naming, and clear/reset controls.
 - Kept the Studio handoff aligned with that workspace so the web app now preserves real builder intent across reloads instead of only across a single launch.
 
 ## 0.4.9 - 2026-03-28
 
 ### Changed
 
-- Extended the `spritecraft-web` catalog scout into the first real builder slice by allowing staged layer picks with variant choices before launching into Studio.
-- Added deep-link transfer of staged layer selections from `spritecraft-web` into the Dart Studio so handoff now carries real builder state, not only launch/search intent.
+- Extended the `studio` catalog scout into the first real builder slice by allowing staged layer picks with variant choices before launching into Studio.
+- Added deep-link transfer of staged layer selections from `studio` into the Dart Studio so handoff now carries real builder state, not only launch/search intent.
 
 ## 0.4.8 - 2026-03-28
 
 ### Changed
 
-- Added a `spritecraft-web` catalog scout that can search the LPC catalog, filter by body type and animation, and hand that discovery context off into the Dart Studio.
+- Added a `studio` catalog scout that can search the LPC catalog, filter by body type and animation, and hand that discovery context off into the Dart Studio.
 - Added a shared web-side catalog bridge route so the new frontend can query the existing Dart backend without collapsing the migration boundary.
 - Expanded Studio deep-link handling so `catalogSearch` now survives web-to-builder handoff for scouting flows.
 
@@ -298,39 +324,39 @@
 
 ### Changed
 
-- Added a dedicated `spritecraft-web` project launcher with template cards and a configurable launch form so new project framing now has a proper home in the web app.
+- Added a dedicated `studio` project launcher with template cards and a configurable launch form so new project framing now has a proper home in the web app.
 - Removed the duplicated template-launch section from the web project browser, making the launcher the clearer start surface and the browser the clearer saved-work surface.
 
 ## 0.4.6 - 2026-03-28
 
 ### Changed
 
-- Promoted `spritecraft-web` further into the role of launch dashboard by sharpening its entry-point messaging around starting, continuing, and directly opening SpriteCraft work.
+- Promoted `studio` further into the role of launch dashboard by sharpening its entry-point messaging around starting, continuing, and directly opening SpriteCraft work.
 - Removed the duplicate runtime-health panel from the Dart Studio so runtime status now lives in the web dashboard while the Studio stays focused on live composition, preview, save, and export.
 
 ## 0.4.5 - 2026-03-28
 
 ### Added
 
-- Added template-driven project starts in `spritecraft-web`, with direct deep-link handoff into the Dart Studio builder.
+- Added template-driven project starts in `studio`, with direct deep-link handoff into the Dart Studio builder.
 
 ### Changed
 
 - The Dart Studio can now accept builder setup via URL parameters for project name, prompt, body type, animation, engine preset, preview mode, and filter defaults.
-- This makes `spritecraft-web` a more natural place to begin a project while keeping the Dart Studio focused on composition and rendering.
+- This makes `studio` a more natural place to begin a project while keeping the Dart Studio focused on composition and rendering.
 
 ## 0.4.4 - 2026-03-28
 
 ### Changed
 
-- Removed the remaining editable project metadata controls from the Dart Studio so notes, tags, and snapshot-oriented project management now live in `spritecraft-web`.
+- Removed the remaining editable project metadata controls from the Dart Studio so notes, tags, and snapshot-oriented project management now live in `studio`.
 - Kept the Studio focused on live composition, preview, save, and export while the web app becomes the clearer home for saved-project administration.
 
 ## 0.4.3 - 2026-03-28
 
 ### Changed
 
-- Moved named snapshot creation out of the Dart Studio and into `spritecraft-web`, where snapshots can now be created directly from saved projects.
+- Moved named snapshot creation out of the Dart Studio and into `studio`, where snapshots can now be created directly from saved projects.
 - Added web-side saved-project versioning so edited project metadata can be saved as a new history version from the new project browser.
 - Clarified the Studio role as the live builder while the web app now owns more of the project-management workflow surface.
 
@@ -338,21 +364,21 @@
 
 ### Changed
 
-- Removed the legacy history panel from the Dart Studio now that project browsing has moved to `spritecraft-web`.
-- Added a restore handoff flow from `spritecraft-web` into the Dart Studio using `?restore=<id>` deep links, so the web app can launch saved projects directly into the active builder.
+- Removed the legacy history panel from the Dart Studio now that project browsing has moved to `studio`.
+- Added a restore handoff flow from `studio` into the Dart Studio using `?restore=<id>` deep links, so the web app can launch saved projects directly into the active builder.
 
 ## 0.4.1 - 2026-03-28
 
 ### Changed
 
-- Reduced the legacy Dart Studio history panel to quick restore only now that project browsing, duplication, deletion, and project package transfer have moved into `spritecraft-web`.
+- Reduced the legacy Dart Studio history panel to quick restore only now that project browsing, duplication, deletion, and project package transfer have moved into `studio`.
 - Added explicit messaging in the Studio UI so the migration boundary between the old Studio and the new web app is visible during Phase 3.5 work.
 
 ## 0.4.0 - 2026-03-28
 
 ### Added
 
-- Introduced `spritecraft-web`, a parallel Next.js/TypeScript frontend shell for the ongoing Studio migration.
+- Introduced `studio`, a parallel Next.js/TypeScript frontend shell for the ongoing Studio migration.
 - Added a Kanagawa Wave visual theme for the new web shell, including SpriteCraft branding and favicon support.
 - Added live project-browser actions in the web app for history refresh, duplication, deletion, package export, and package import through the existing Dart backend.
 - Added dedicated Next.js API bridge routes so the web shell can talk to the Dart backend cleanly through one frontend surface.
@@ -360,7 +386,7 @@
 ### Changed
 
 - Reframed the web migration around the existing Dart backend as the source of truth for SpriteCraft project, history, and render flows.
-- Removed auth and local web-backend scaffolding from the active `spritecraft-web` product path so the migration can stay focused on SpriteCraft features instead of unused platform overhead.
+- Removed auth and local web-backend scaffolding from the active `studio` product path so the migration can stay focused on SpriteCraft features instead of unused platform overhead.
 - Made the web app environment model backend-first by treating `NEXT_PUBLIC_SPRITECRAFT_API_BASE` as the primary required integration and making local auth/database variables optional.
 
 ## 0.3.0 - 2026-03-28
@@ -408,3 +434,5 @@
 - Core library API for packing images and writing JSON metadata manifests.
 - Gemini-ready AI planning client for turning a prompt into a structured sprite brief.
 - Initial tests and project documentation for local usage and environment setup.
+
+

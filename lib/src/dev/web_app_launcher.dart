@@ -16,7 +16,9 @@ WebPackageManager detectWebPackageManager(
     return parseWebPackageManager(normalizedPreferred);
   }
 
-  final File packageJsonFile = File(path.join(webDirectory.path, 'package.json'));
+  final File packageJsonFile = File(
+    path.join(webDirectory.path, 'package.json'),
+  );
   if (packageJsonFile.existsSync()) {
     try {
       final Object? decoded = jsonDecode(packageJsonFile.readAsStringSync());
@@ -83,6 +85,23 @@ String webPackageManagerCommand(WebPackageManager manager) {
       return 'yarn';
     case WebPackageManager.bun:
       return 'bun';
+  }
+}
+
+bool webDependenciesInstalled(Directory webDirectory) {
+  return Directory(path.join(webDirectory.path, 'node_modules')).existsSync();
+}
+
+List<String> buildWebInstallArguments(WebPackageManager manager) {
+  switch (manager) {
+    case WebPackageManager.pnpm:
+      return <String>['install'];
+    case WebPackageManager.npm:
+      return <String>['install'];
+    case WebPackageManager.yarn:
+      return <String>['install'];
+    case WebPackageManager.bun:
+      return <String>['install'];
   }
 }
 

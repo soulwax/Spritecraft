@@ -4,7 +4,7 @@ This repository is `SpriteCraft`, a Dart-first spritesheet generator with:
 
 - a CLI for packing frame folders into spritesheets
 - a Dart backend API served by Shelf
-- a TypeScript web frontend in `spritecraft-web`
+- a TypeScript web frontend in `studio`
 - Gemini-powered sprite planning and recommendation assistance
 - Neon/Postgres-backed history storage
 - an LPC asset/definition submodule at `lpc-spritesheet-creator`
@@ -53,11 +53,11 @@ The app also reads a local `.env` file via `RuntimeConfig.load()`.
   Postgres persistence for saved SpriteCraft projects/history.
 - `lib/src/models/`
   Shared request/result/domain models.
-- `spritecraft-web/src/app/page.tsx`
+- `studio/src/app/page.tsx`
   Main web app shell.
-- `spritecraft-web/src/app/_components/`
-  Web builder, project browser, launcher, and migration UI slices.
-- `spritecraft-web/src/server/spritecraft-backend.ts`
+- `studio/src/app/_components/`
+  Studio builder, project browser, launcher, and workspace UI slices.
+- `studio/src/server/spritecraft-backend.ts`
   Web-side typed bridge to the Dart backend API.
 - `test/`
   Coverage for packer, catalog loading, renderer behavior, and Gemini parsing.
@@ -71,9 +71,9 @@ The app also reads a local `.env` file via `RuntimeConfig.load()`.
 There are two main product surfaces:
 
 - `pack`: build a spritesheet from a normal folder of frame PNGs
-- `spritecraft-web`: the primary browser UI for LPC-style layered composition
+- `studio`: the primary browser UI for LPC-style layered composition
 
-The Dart server now provides backend APIs only. The primary frontend lives in `spritecraft-web`.
+The Dart server now provides backend APIs only. The primary frontend lives in `studio`.
 
 ### 2. LPC Integration
 
@@ -123,7 +123,7 @@ Main backend routes in `lib/src/server/studio_server.dart`:
 - `GET /api/history/<id>`
 - `DELETE /api/history/<id>`
 
-When changing frontend behavior, check the matching `spritecraft-web` component and the server route.
+When changing frontend behavior, check the matching `studio` component and the server route.
 
 ## Common Change Map
 
@@ -146,7 +146,7 @@ If the task is about:
 - saved history schema/queries:
   edit `lib/src/persistence/history_repository.dart`
 - web UI:
-  edit files in `spritecraft-web/src/app/` and `spritecraft-web/src/components/`
+  edit files in `studio/src/app/` and `studio/src/components/`
 - behavior verification:
   add or update tests in `test/`
 
@@ -160,7 +160,7 @@ If the task is about:
 ## Working Assumptions
 
 - This is a pure Dart project, not Flutter.
-- The primary frontend now lives in `spritecraft-web`.
+- The primary frontend now lives in `studio`.
 - The source of truth for current behavior is code, not always `TODO.md`.
 - `TODO.md` may lag behind implementation. Verify actual behavior before planning edits.
 
@@ -203,6 +203,7 @@ The existing tests are small but useful:
 - Start by checking whether the submodule is initialized before debugging missing LPC data.
 - For missing catalog or render results, inspect `RuntimeConfig` paths first.
 - For web UI issues, follow this path:
-  `spritecraft-web` component -> web API route -> `spritecraft-backend.ts` -> `studio_server.dart` -> underlying service/module.
+  `studio` component -> web API route -> `spritecraft-backend.ts` -> `studio_server.dart` -> underlying service/module.
 - For export issues, inspect `POST /api/lpc/export` and the `build/exports` output files.
 - For history bugs, confirm whether `DATABASE_URL` is present before assuming the route is broken.
+

@@ -8,7 +8,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.17.0';
+const String version = '0.19.1';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -136,13 +136,13 @@ ArgParser buildParser() {
       )
       ..addOption(
         'web-port',
-        help: 'Port for spritecraft-web dev server.',
+        help: 'Port for studio dev server.',
         defaultsTo: '3000',
       )
       ..addOption(
         'web-dir',
-        help: 'Path to the spritecraft-web app directory.',
-        defaultsTo: 'spritecraft-web',
+        help: 'Path to the studio app directory.',
+        defaultsTo: 'studio',
       )
       ..addOption(
         'package-manager',
@@ -167,10 +167,8 @@ void printUsage(ArgParser parser) {
     '  pack    Build a spritesheet PNG and JSON manifest from a folder of frames.',
   );
   print('  plan    Ask Gemini for a structured sprite animation plan.');
-  print(
-    '  studio  Run the SpriteCraft Dart backend API used by spritecraft-web.',
-  );
-  print('  app     Run the backend API and spritecraft-web together.');
+  print('  studio  Run the SpriteCraft Dart backend API used by studio.');
+  print('  app     Run the backend API and studio together.');
   print('');
   print(parser.usage);
 }
@@ -301,7 +299,7 @@ Future<void> _runStudio(ArgResults results) async {
 
   stdout.writeln('SpriteCraft backend running at $studioUri');
   stdout.writeln(
-    'Start spritecraft-web separately for the UI. This Dart process now serves backend APIs only.',
+    'Start studio separately for the UI. This Dart process now serves backend APIs only.',
   );
   if (!config.hasLpcProject) {
     stdout.writeln(
@@ -331,13 +329,11 @@ Future<void> _runApp(ArgResults results) async {
   );
 
   if (!webDirectory.existsSync()) {
-    throw StateError(
-      'spritecraft-web directory was not found at ${webDirectory.path}.',
-    );
+    throw StateError('studio directory was not found at ${webDirectory.path}.');
   }
   if (!File(path.join(webDirectory.path, 'package.json')).existsSync()) {
     throw StateError(
-      'No package.json was found in ${webDirectory.path}. Expected a spritecraft-web app there.',
+      'No package.json was found in ${webDirectory.path}. Expected a studio app there.',
     );
   }
 
@@ -346,6 +342,9 @@ Future<void> _runApp(ArgResults results) async {
     preferred: results.option('package-manager') ?? 'auto',
   );
   final String packageManagerCommand = webPackageManagerCommand(packageManager);
+  final List<String> installArguments = buildWebInstallArguments(
+    packageManager,
+  );
   final List<String> webArguments = buildWebDevArguments(
     packageManager,
     port: webPort,
@@ -364,13 +363,35 @@ Future<void> _runApp(ArgResults results) async {
 
   stdout.writeln('SpriteCraft backend running at $backendUri');
   stdout.writeln(
-    'Starting spritecraft-web from ${webDirectory.path} with $packageManagerCommand ${webArguments.join(' ')}',
+    'Starting studio from ${webDirectory.path} with $packageManagerCommand ${webArguments.join(' ')}',
   );
-  stdout.writeln('Waiting for spritecraft-web to become reachable...');
+  stdout.writeln('Waiting for studio to become reachable...');
   if (!config.hasLpcProject) {
     stdout.writeln(
       'Warning: LPC source assets were not found in ./lpc-spritesheet-creator.',
     );
+  }
+
+  if (!webDependenciesInstalled(webDirectory)) {
+    stdout.writeln(
+      'Studio dependencies are missing. Running $packageManagerCommand ${installArguments.join(' ')}...',
+    );
+    final int installExitCode = await _runWebCommand(
+      packageManagerCommand,
+      installArguments,
+      workingDirectory: webDirectory.path,
+      environment: <String, String>{
+        ...Platform.environment,
+        'NEXT_PUBLIC_SPRITECRAFT_API_BASE': backendUri.toString(),
+        'PORT': '$webPort',
+      },
+    );
+    if (installExitCode != 0) {
+      await server.close(force: true);
+      throw StateError(
+        'Could not install studio dependencies. $packageManagerCommand exited with code $installExitCode.',
+      );
+    }
   }
 
   final Process webProcess;
@@ -389,7 +410,7 @@ Future<void> _runApp(ArgResults results) async {
   } on ProcessException catch (error) {
     await server.close(force: true);
     throw StateError(
-      'Could not start spritecraft-web with $packageManagerCommand. ${error.message}',
+      'Could not start studio with $packageManagerCommand. ${error.message}',
     );
   }
 
@@ -427,8 +448,8 @@ Future<void> _runApp(ArgResults results) async {
     webExited = true;
     if (!shutdownCompleter.isCompleted) {
       final String message = code == 0
-          ? 'spritecraft-web exited cleanly. Stopping backend...'
-          : 'spritecraft-web exited with code $code. Stopping backend...';
+          ? 'studio exited cleanly. Stopping backend...'
+          : 'studio exited with code $code. Stopping backend...';
       await requestShutdown(message);
     }
     return code;
@@ -439,14 +460,12 @@ Future<void> _runApp(ArgResults results) async {
       _waitForHttpReady(webUri, timeout: const Duration(seconds: 45)),
       webExit.then((int code) {
         throw StateError(
-          'spritecraft-web exited with code $code before it became reachable at $webUri.',
+          'studio exited with code $code before it became reachable at $webUri.',
         );
       }),
     ]);
     stdout.writeln('SpriteCraft web app running at $webUri');
-    stdout.writeln(
-      'spritecraft-web is wired to backend API ${backendUri.toString()}.',
-    );
+    stdout.writeln('studio is wired to backend API ${backendUri.toString()}.');
     if (results.flag('open')) {
       await _openBrowser(webUri);
     }
@@ -465,6 +484,24 @@ Future<void> _runApp(ArgResults results) async {
     await subscription.cancel();
   }
   await server.close(force: true);
+}
+
+Future<int> _runWebCommand(
+  String executable,
+  List<String> arguments, {
+  required String workingDirectory,
+  required Map<String, String> environment,
+}) async {
+  final Process process = await Process.start(
+    executable,
+    arguments,
+    workingDirectory: workingDirectory,
+    runInShell: true,
+    environment: environment,
+  );
+  _pipePrefixedOutput(process.stdout, prefix: '[web]');
+  _pipePrefixedOutput(process.stderr, prefix: '[web]');
+  return process.exitCode;
 }
 
 Future<RuntimeConfig> _loadRuntimeConfig() {
@@ -533,7 +570,7 @@ Future<void> _waitForHttpReady(Uri uri, {required Duration timeout}) async {
     }
 
     throw StateError(
-      'spritecraft-web did not become reachable at $uri within ${timeout.inSeconds} seconds.',
+      'studio did not become reachable at $uri within ${timeout.inSeconds} seconds.',
     );
   } finally {
     client.close(force: true);

@@ -29,6 +29,56 @@ class SpriteBriefGuideStep {
   }
 }
 
+class SpriteBriefCategorySuggestion {
+  const SpriteBriefCategorySuggestion({
+    required this.category,
+    required this.label,
+    required this.reason,
+    required this.recommendations,
+  });
+
+  final String category;
+  final String label;
+  final String reason;
+  final List<LpcItemDefinition> recommendations;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'category': category,
+      'label': label,
+      'reason': reason,
+      'recommendations': recommendations
+          .map((LpcItemDefinition item) => item.toJson())
+          .toList(),
+    };
+  }
+}
+
+class SpriteBriefCandidateBuild {
+  const SpriteBriefCandidateBuild({
+    required this.label,
+    required this.summary,
+    required this.selections,
+    required this.recommendations,
+  });
+
+  final String label;
+  final String summary;
+  final Map<String, String> selections;
+  final List<LpcItemDefinition> recommendations;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'label': label,
+      'summary': summary,
+      'selections': selections,
+      'recommendations': recommendations
+          .map((LpcItemDefinition item) => item.toJson())
+          .toList(),
+    };
+  }
+}
+
 class SpriteBriefComposer {
   const SpriteBriefComposer({required this.catalog});
 
@@ -129,6 +179,52 @@ class SpriteBriefComposer {
       }
     }
     return deduped.values.toList(growable: false);
+  }
+
+  List<SpriteBriefCategorySuggestion> buildCategorySuggestions(
+    List<SpriteBriefGuideStep> steps,
+  ) {
+    return steps
+        .where((SpriteBriefGuideStep step) => step.recommendations.isNotEmpty)
+        .map((SpriteBriefGuideStep step) {
+          final String category = step.recommendations.first.category;
+          return SpriteBriefCategorySuggestion(
+            category: category,
+            label: step.label,
+            reason: step.rationale,
+            recommendations: step.recommendations.take(3).toList(),
+          );
+        })
+        .toList(growable: false);
+  }
+
+  SpriteBriefCandidateBuild buildCandidateBuild({
+    required SpritePlan plan,
+    required List<SpriteBriefGuideStep> steps,
+  }) {
+    final Map<String, LpcItemDefinition> byType = <String, LpcItemDefinition>{};
+    for (final SpriteBriefGuideStep step in steps) {
+      for (final LpcItemDefinition item in step.recommendations) {
+        byType.putIfAbsent(item.typeName, () => item);
+      }
+    }
+
+    final List<LpcItemDefinition> picks = byType.values.toList(growable: false);
+    final Map<String, String> selections = <String, String>{
+      for (final LpcItemDefinition item in picks)
+        item.id: item.variants.isNotEmpty ? item.variants.first : 'default',
+    };
+
+    final String summary = picks.isEmpty
+        ? 'No compatible layers were found yet for this brief.'
+        : picks.take(4).map((LpcItemDefinition item) => item.name).join(', ');
+
+    return SpriteBriefCandidateBuild(
+      label: plan.concept,
+      summary: summary,
+      selections: selections,
+      recommendations: picks,
+    );
   }
 
   List<SpriteBuildPathStep> _fallbackBuildPath({

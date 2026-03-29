@@ -1,14 +1,14 @@
 # SpriteCraft
 
-Pure Dart tooling for building spritesheets, now with a Next.js-based SpriteCraft Web frontend and a Dart backend API, while keeping the actual LPC project as a git submodule dependency.
+Pure Dart tooling for building spritesheets, now with a Next.js-based SpriteCraft Studio app in `studio` and a Dart backend API, while keeping the actual LPC project as a git submodule dependency.
 
 ## What is in here
 
 - A pure Dart CLI for packing arbitrary image frames into spritesheets
-- A Dart backend API used by `spritecraft-web`
-- A modern TypeScript web frontend in `spritecraft-web`
+- A Dart backend API used by `studio`
+- A modern TypeScript web frontend in `studio`
 - LPC catalog loading and layered sprite composition from `./lpc-spritesheet-creator`
-- Gemini-assisted sprite briefs with coherent build paths and local recommendation search
+- Gemini-assisted sprite briefs with coherent build paths, category suggestions, candidate builds, and local recommendation search
 - Neon/Postgres-backed history for saved sprite projects
 - Structured metadata JSON for every spritesheet export and web-rendered preview/export
 
@@ -77,11 +77,11 @@ What the backend + web app do together:
 
 - searches LPC layer definitions from the submodule
 - composes layered sprite previews from LPC spritesheet assets
-- asks Gemini for a structured sprite brief with ordered build steps and matched layer recommendations
+- asks Gemini for a structured sprite brief with ordered build steps, category-level picks, candidate builds, and matched layer recommendations
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
 - exports matched PNG, JSON, zip bundles, and engine companion files such as native Godot `SpriteFrames` `.tres` resources, Unity importer-ready slicing metadata, and Aseprite/generic JSON companions
-- powers the full `spritecraft-web` builder workflow
+- powers the full `studio` builder workflow
 
 ## Command reference
 
@@ -180,8 +180,8 @@ dart run bin/spritecraft.dart app `
 
 - `--host`: backend host interface, default `127.0.0.1`
 - `--port`: backend API port, default `8080`
-- `--web-port`: `spritecraft-web` dev port, default `3000`
-- `--web-dir`: path to the web app, default `spritecraft-web`
+- `--web-port`: `studio` dev port, default `3000`
+- `--web-dir`: path to the web app, default `studio`
 - `--package-manager`: package manager to use for the web app, default `auto`
 - `--open`: open the web app after both services are ready
 - `--no-open`: keep both services running without opening a browser
@@ -261,7 +261,7 @@ Export naming is now project-friendly by default:
 - otherwise falls back to the prompt
 - appends a timestamp so exports stay unique
 
-SpriteCraft Web exports also support:
+SpriteCraft Studio exports also support:
 
 - filename styles like `kebab-case`, `snake_case`, `camelCase`, and `PascalCase`
 - optional custom export stems and frame-name prefixes
@@ -281,7 +281,7 @@ dart run bin/spritecraft.dart plan `
 
 ## Current scope
 
-SpriteCraft Web intentionally takes the best reusable parts from the LPC project first:
+SpriteCraft Studio intentionally takes the best reusable parts from the LPC project first:
 
 - the layer definition corpus
 - the spritesheet asset library
@@ -300,3 +300,5 @@ See [metadata-schema.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/metadata-sc
 - `spritecraft.project` v2
 
 If a consumer depends on SpriteCraft JSON output, it should branch on `schema.name` and `schema.version` rather than assuming an undocumented payload shape.
+
+

@@ -14,7 +14,7 @@ Goal: make the current app dependable enough for real early use.
 
 - [x] Make `dart run bin/spritecraft.dart studio` consistently start without hanging in local environments
 - [x] Add startup diagnostics for missing submodule assets, bad `.env`, DB connection failures, and Gemini failures
-- [x] Add `GET /health` and a simple app status panel in SpriteCraft Web
+- [x] Add `GET /health` and a simple app status panel in SpriteCraft Studio
 - [x] Normalize render/export error handling and show actionable messages in the UI
 - [x] Add render caching so repeated preview refreshes are fast
 - [x] Add stronger tests for export naming, zip bundles, and engine preset generation
@@ -23,7 +23,7 @@ Goal: make the current app dependable enough for real early use.
 
 ## Phase 2 — Usable Character Builder
 
-Goal: make SpriteCraft Web genuinely comfortable for building sprites, not just technically capable.
+Goal: make SpriteCraft Studio genuinely comfortable for building sprites, not just technically capable.
 
 - [x] Replace raw item-id selection display with human-friendly selected item cards
 - [x] Group catalog results by category such as body, head, hair, torso, weapons, and accessories
@@ -46,10 +46,10 @@ Goal: turn one-off renders into reusable projects creators can come back to.
 - [x] Add automatic draft saving and explicit named snapshots
 - [x] Support project templates such as NPC base, player character, enemy, portrait, and animation study
 
-## Phase 3.5 — SpriteCraft Web Foundation
+## Phase 3.5 — Studio Foundation
 
-- [x] Establish `spritecraft-web` as the primary web app with shadcn-style components and the Kanagawa wave theme.
-- [x] Treat SpriteCraft Web as the product surface directly and continue with Phase 4+ work from there.
+- [x] Establish `studio` as the primary first-party app with shadcn-style components and the Kanagawa wave theme.
+- [x] Treat SpriteCraft Studio as the product surface directly and continue with Phase 4+ work from there.
 
 ## Phase 4 — Metadata and Export Excellence
 
@@ -71,8 +71,8 @@ Goal: make SpriteCraft exports production-grade for engines and asset pipelines.
 Goal: make AI genuinely helpful instead of decorative.
 
 - [x] Improve the Gemini brief flow so it suggests coherent build paths, not just free-text prompts
-- [ ] Add AI-powered category suggestions like "pick a ranger hood, leather torso, quiver, and short bow"
-- [ ] Add prompt-to-build recommendations that can prefill a candidate character setup
+- [x] Add AI-powered category suggestions like "pick a ranger hood, leather torso, quiver, and short bow"
+- [x] Add prompt-to-build recommendations that can prefill a candidate character setup
 - [ ] Add prompt memory so repeated art direction stays visually consistent across projects
 - [ ] Add AI-assisted naming for projects, animations, and export bundles
 - [ ] Add consistency checks such as missing matching body color, incompatible animation coverage, or likely clipping
@@ -126,7 +126,7 @@ Goal: make the app feel finished.
 - [ ] Improve empty states so new users always know the next useful action
 - [ ] Add keyboard shortcuts for common creator flows
 - [ ] Add better responsive layout behavior for smaller screens and tablets
-- [ ] Improve typography, motion, and visual hierarchy across SpriteCraft Web
+- [ ] Improve typography, motion, and visual hierarchy across SpriteCraft Studio
 - [ ] Add accessibility passes for contrast, focus handling, labels, and keyboard navigation
 
 ## Phase 10 — Ecosystem and Community
@@ -146,3 +146,5 @@ Goal: make SpriteCraft sustainable as a real project.
 - [ ] Prioritize Phase 2 and Phase 3 next so the app becomes truly usable
 - [ ] Use Phase 4 and Phase 5 to turn usability into production value
 - [ ] Treat Phase 8 and Phase 9 as the bridge from tool to product
+
+
