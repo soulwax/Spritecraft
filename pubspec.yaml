@@ -2,7 +2,7 @@
 
 name: spritecraft
 description: Pure Dart CLI and library for crafting spritesheets, with LPC-powered composition and Gemini-ready AI planning hooks.
-version: 0.4.26
+version: 0.4.27
 # repository: https://github.com/my_org/my_repo
 
 environment:

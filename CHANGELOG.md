@@ -1,3 +1,10 @@
+## 0.4.27 - 2026-03-29
+
+### Changed
+
+- Added a selected-layer detail workflow to `spritecraft-web` so the active staged layer now surfaces its metadata and a set of same-type alternatives directly inside the web workspace.
+- Improved web-side replacement decisions by connecting staged-layer focus, compatible alternatives, and same-type catalog browsing into one flow.
+
 ## 0.4.26 - 2026-03-29
 
 ### Changed

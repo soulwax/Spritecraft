@@ -182,6 +182,18 @@ Preferred validation after changes:
 2. If Dart files changed: `dart analyze`
 3. If Studio behavior changed: run `dart run bin/spritecraft.dart studio` and verify the relevant route/UI flow manually
 
+## Production Build and PM2
+
+Use this workflow only in environments that actually require a `pnpm` install/build plus PM2-managed production restarts. Do not apply it by default in Dart-only or non-PM2 environments.
+
+- Run `pnpm i`
+- Run `pnpm build`
+- If no PM2 process exists with the required app name, run `pnpm pm2:start`
+- Otherwise run `pnpm pm2:restart`
+
+Do not guess the PM2 process name. Read the project scripts or deployment config first and use the explicitly configured name for that environment.
+If the environment does not define `pnpm` production scripts or PM2 process management, skip this section and use the repo's normal validation and run instructions instead.
+
 The existing tests are small but useful:
 
 - `test/spritesheet_packer_test.dart`
@@ -197,4 +209,3 @@ The existing tests are small but useful:
   `studio/app.js` -> API request -> `studio_server.dart` -> underlying service/module.
 - For export issues, inspect `POST /api/lpc/export` and the `build/exports` output files.
 - For history bugs, confirm whether `DATABASE_URL` is present before assuming the route is broken.
-

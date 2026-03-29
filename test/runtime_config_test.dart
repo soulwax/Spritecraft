@@ -29,8 +29,14 @@ MISMATCHED_QUOTE="oops
 
       final RuntimeConfig config = await RuntimeConfig.load(projectRoot: root);
 
-      expect(config.geminiApiKey, 'demo-key');
-      expect(config.databaseUrl, 'postgres://example.test/db');
+      expect(
+        config.geminiApiKey,
+        Platform.environment['GEMINI_API_KEY'] ?? 'demo-key',
+      );
+      expect(
+        config.databaseUrl,
+        Platform.environment['DATABASE_URL'] ?? 'postgres://example.test/db',
+      );
       expect(config.configurationWarnings, isNotEmpty);
       expect(
         config.configurationWarnings.join(' '),

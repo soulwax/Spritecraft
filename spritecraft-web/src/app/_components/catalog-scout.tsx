@@ -67,6 +67,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   );
   const [replaceByType, setReplaceByType] = useState(true);
   const [activeTypeFocus, setActiveTypeFocus] = useState<string | null>(null);
+  const [activeStagedItemId, setActiveStagedItemId] = useState<string | null>(
+    null,
+  );
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
@@ -120,6 +123,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setRelatedProjects(draft.relatedProjects);
     setReplaceByType(draft.replaceByType);
     setActiveTypeFocus(draft.activeTypeFocus);
+    setActiveStagedItemId(
+      Object.keys(draft.stagedSelections)[0] ?? draft.activeStagedItemId ?? null,
+    );
     setBodyType(
       bodyTypes.includes(draft.bodyType)
         ? draft.bodyType
@@ -219,6 +225,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         relatedProjects,
         replaceByType,
         activeTypeFocus,
+        activeStagedItemId,
         bodyType,
         animation,
         category,
@@ -236,6 +243,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     animation,
     bodyType,
     category,
+    activeStagedItemId,
     promptHistory,
     query,
     relatedProjects,
@@ -451,6 +459,41 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     [items, stagedSelections],
   );
 
+  const activeStagedItem =
+    stagedItems.find((item) => item.id === activeStagedItemId) ??
+    stagedItems[0] ??
+    null;
+
+  const activeStagedAlternatives = useMemo(() => {
+    if (!activeStagedItem) {
+      return [];
+    }
+
+    return items
+      .filter(
+        (item) =>
+          item.id !== activeStagedItem.id &&
+          item.typeName === activeStagedItem.typeName,
+      )
+      .slice(0, 6);
+  }, [activeStagedItem, items]);
+
+  useEffect(() => {
+    if (!stagedItems.length) {
+      if (activeStagedItemId !== null) {
+        setActiveStagedItemId(null);
+      }
+      return;
+    }
+
+    if (
+      activeStagedItemId === null ||
+      !stagedItems.some((item) => item.id === activeStagedItemId)
+    ) {
+      setActiveStagedItemId(stagedItems[0]?.id ?? null);
+    }
+  }, [activeStagedItemId, stagedItems]);
+
   const visibleItems = useMemo(() => {
     const filtered = items.filter((item) => {
       if (category !== "all" && item.category !== category) {
@@ -543,6 +586,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
 
   function stageItem(item: SpriteCraftCatalogItem) {
     const nextVariant = getVariantChoice(item);
+    setActiveStagedItemId(item.id);
     setStagedSelections((current) => {
       if (!replaceByType) {
         return {
@@ -567,6 +611,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   }
 
   function unstageItem(itemId: string) {
+    setActiveStagedItemId((current) => (current === itemId ? null : current));
     setStagedSelections((current) => {
       const next = { ...current };
       delete next[itemId];
@@ -619,6 +664,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setRelatedProjects([]);
     setReplaceByType(true);
     setActiveTypeFocus(null);
+    setActiveStagedItemId(null);
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
@@ -1729,11 +1775,99 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               ) : null}
             </div>
           ) : null}
+          {activeStagedItem ? (
+            <div className="mb-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                    Selected Layer Detail
+                  </p>
+                  <h4 className="mt-2 text-lg font-semibold">
+                    {activeStagedItem.name}
+                  </h4>
+                </div>
+                <Badge>{activeStagedItem.typeName}</Badge>
+              </div>
+              <p className="text-sm text-[color:var(--muted-foreground)]">
+                {activeStagedItem.category} · {activeStagedItem.requiredBodyTypes.join(", ") || "any body"} · current variant{" "}
+                {stagedSelections[activeStagedItem.id]}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(activeStagedItem.tags ?? []).slice(0, 4).map((entry) => (
+                  <Badge key={`${activeStagedItem.id}-detail-${entry}`}>
+                    {entry}
+                  </Badge>
+                ))}
+              </div>
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-[color:var(--foreground)]">
+                    Compatible alternatives
+                  </p>
+                  <Button
+                    onClick={() => focusTypeAlternatives(activeStagedItem.typeName)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    Browse all {activeStagedItem.typeName}
+                  </Button>
+                </div>
+                {activeStagedAlternatives.length ? (
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {activeStagedAlternatives.map((item) => (
+                      <div
+                        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3"
+                        key={`alt-${item.id}`}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <strong>{item.name}</strong>
+                          <Badge>{item.typeName}</Badge>
+                        </div>
+                        <p className="text-sm text-[color:var(--muted-foreground)]">
+                          {item.category}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(item.tags ?? []).slice(0, 3).map((entry) => (
+                            <Badge key={`${item.id}-${entry}`}>{entry}</Badge>
+                          ))}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            onClick={() => stageItem(item)}
+                            type="button"
+                            variant="secondary"
+                          >
+                            Replace With This
+                          </Button>
+                          <Button
+                            onClick={() => focusTypeAlternatives(item.typeName)}
+                            type="button"
+                            variant="secondary"
+                          >
+                            View in Catalog
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[color:var(--muted-foreground)]">
+                    No same-type alternatives are visible in the current catalog
+                    slice yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
           {stagedItems.length ? (
             <div className="grid gap-3">
               {stagedItems.map((item, index) => (
                 <div
-                  className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3"
+                  className={`rounded-2xl border p-3 ${
+                    activeStagedItem?.id === item.id
+                      ? "border-[color:var(--accent)] bg-[color:var(--surface-strong)]"
+                      : "border-[color:var(--border)] bg-[color:var(--surface-soft)]"
+                  }`}
                   key={item.id}
                 >
                   <div className="mb-3 flex items-center justify-between gap-3">
@@ -1796,6 +1930,13 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                       variant="secondary"
                     >
                       Alternatives
+                    </Button>
+                    <Button
+                      onClick={() => setActiveStagedItemId(item.id)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Details
                     </Button>
                   </div>
                 </div>
