@@ -1,9 +1,10 @@
-## 0.9.0 - 2026-03-29
+## 0.10.0 - 2026-03-29
 
 ### Added
 
 - Added animated spritesheet metadata to the generic `pack` flow, including explicit animation sequences, per-frame duration, pivots, and derived frame tags.
 - Added new `pack` CLI options for animation name, frame duration, and pivot coordinates so exported metadata can be engine-ready without hand editing.
+- Added atlas layout support to the generic `pack` flow, with optional transparent trimming for tighter packed spritesheet output and atlas-aware metadata.
 
 ### Changed
 

@@ -58,7 +58,7 @@ Goal: make SpriteCraft exports production-grade for engines and asset pipelines.
 - [x] Lock the metadata schema and document it as a stable contract
 - [x] Add schema version migration handling for older saved projects and exports
 - [x] Export animated spritesheets with explicit frame sequences, timing, pivots, and per-frame tags
-- [ ] Add atlas export options beyond uniform fullsheet render output
+- [x] Add atlas export options beyond uniform fullsheet render output
 - [ ] Improve Godot export toward native `SpriteFrames`-oriented output
 - [ ] Improve Unity export toward importer-ready sprite slicing metadata
 - [ ] Add Aseprite-friendly and generic game-engine JSON formats

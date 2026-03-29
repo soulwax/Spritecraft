@@ -107,6 +107,8 @@ dart run bin/spritecraft.dart pack `
   [--frame-duration-ms <ms>] `
   [--pivot-x <pixels>] `
   [--pivot-y <pixels>] `
+  [--layout <uniform-grid|atlas>] `
+  [--trim-transparent] `
   [--power-of-two]
 ```
 
@@ -123,6 +125,8 @@ dart run bin/spritecraft.dart pack `
 - `--frame-duration-ms`: per-frame duration in milliseconds for metadata
 - `--pivot-x`: per-frame pivot X in pixels for metadata
 - `--pivot-y`: per-frame pivot Y in pixels for metadata
+- `--layout`: output layout mode, either `uniform-grid` or `atlas`
+- `--trim-transparent`: trim transparent bounds before packing, especially useful with `atlas`
 - `--power-of-two`: expand the sheet dimensions to the next power of two
 
 `plan`:
@@ -213,6 +217,17 @@ dart run bin/spritecraft.dart pack `
   --pivot-y 48 `
   --padding 2
 
+# Pack a tighter atlas with transparent trimming
+dart run bin/spritecraft.dart pack `
+  --input .\frames\slash `
+  --output .\build\slash-atlas.png `
+  --metadata .\build\slash-atlas.json `
+  --layout atlas `
+  --trim-transparent `
+  --padding 2 `
+  --animation-name slash `
+  --frame-duration-ms 80
+
 # Ask Gemini for a production-style plan
 dart run bin/spritecraft.dart plan `
   --prompt "6-frame rogue attack animation" `
@@ -236,6 +251,7 @@ The generated JSON is meant to be reconstruction-grade metadata:
 
 - image path and exact output dimensions
 - layout mode, tile size, columns, rows, and frame count
+- atlas mode for tighter packed output when requested
 - explicit animation sequences with total timing
 - per-frame source path, grid position, tile bounds, actual content bounds, offsets, timing, pivots, and tags
 

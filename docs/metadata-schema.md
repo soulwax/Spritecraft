@@ -43,6 +43,11 @@ Top-level fields:
 - `rows`
 - `frameCount`
 
+`layout.mode` can now be:
+
+- `uniform-grid`
+- `atlas`
+
 Each `animations[]` entry includes:
 
 - `name`
@@ -73,6 +78,8 @@ Each `frames[]` entry includes:
 - `pivotX`
 - `pivotY`
 - `tags`
+
+In atlas mode, `tileWidth` and `tileHeight` reflect the packed frame bounds for that frame rather than a shared uniform cell size.
 
 ## `spritecraft.render` v2
 

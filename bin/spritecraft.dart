@@ -8,7 +8,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.9.0';
+const String version = '0.10.0';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -63,6 +63,16 @@ ArgParser buildParser() {
       ..addOption(
         'pivot-y',
         help: 'Per-frame pivot Y in pixels for metadata. Defaults to tile center.',
+      )
+      ..addOption(
+        'layout',
+        help: 'Layout mode for packed output: uniform-grid or atlas.',
+        defaultsTo: 'uniform-grid',
+      )
+      ..addFlag(
+        'trim-transparent',
+        negatable: false,
+        help: 'Trim transparent bounds before packing, useful with atlas layout.',
       )
       ..addFlag(
         'power-of-two',
@@ -229,6 +239,8 @@ Future<void> _runPack(ArgResults results) async {
     frameDurationMs: _parseIntOption(results, 'frame-duration-ms') ?? 100,
     pivotX: _parseIntOption(results, 'pivot-x'),
     pivotY: _parseIntOption(results, 'pivot-y'),
+    layoutMode: results.option('layout') ?? 'uniform-grid',
+    trimTransparentBounds: results.flag('trim-transparent'),
   );
 
   final SpritesheetBuildResult result = await const SpritesheetPacker().pack(

@@ -14,6 +14,8 @@ class SpritesheetOptions {
     this.frameDurationMs = 100,
     this.pivotX,
     this.pivotY,
+    this.layoutMode = 'uniform-grid',
+    this.trimTransparentBounds = false,
   });
 
   final String inputDirectory;
@@ -28,4 +30,6 @@ class SpritesheetOptions {
   final int frameDurationMs;
   final int? pivotX;
   final int? pivotY;
+  final String layoutMode;
+  final bool trimTransparentBounds;
 }

@@ -121,6 +121,72 @@ void main() {
       expect(metadata['frames'][0]['tags'], contains('walk'));
     });
 
+    test('packs atlas layout with trimmed transparent bounds', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'spritesheet_creator_atlas_metadata',
+      );
+      addTearDown(() => sandbox.delete(recursive: true));
+
+      final Directory framesDir = Directory(path.join(sandbox.path, 'frames'));
+      await framesDir.create(recursive: true);
+
+      await _writeTransparentPaddedFrame(
+        path.join(framesDir.path, 'slash_0.png'),
+        canvasWidth: 20,
+        canvasHeight: 20,
+        rectX: 4,
+        rectY: 3,
+        rectWidth: 6,
+        rectHeight: 8,
+        color: img.ColorRgb8(255, 0, 255),
+      );
+      await _writeTransparentPaddedFrame(
+        path.join(framesDir.path, 'slash_1.png'),
+        canvasWidth: 18,
+        canvasHeight: 16,
+        rectX: 2,
+        rectY: 5,
+        rectWidth: 7,
+        rectHeight: 4,
+        color: img.ColorRgb8(0, 128, 255),
+      );
+
+      final String outputMetadata = path.join(
+        sandbox.path,
+        'build',
+        'atlas.json',
+      );
+
+      final SpritesheetBuildResult result = await const SpritesheetPacker().pack(
+        SpritesheetOptions(
+          inputDirectory: framesDir.path,
+          outputImagePath: path.join(sandbox.path, 'build', 'atlas.png'),
+          outputMetadataPath: outputMetadata,
+          layoutMode: 'atlas',
+          trimTransparentBounds: true,
+          padding: 2,
+          animationName: 'slash',
+        ),
+      );
+
+      final Map<String, dynamic> metadata =
+          jsonDecode(await File(outputMetadata).readAsString())
+              as Map<String, dynamic>;
+
+      expect(result.frames, hasLength(2));
+      expect(metadata['layout']['mode'], 'atlas');
+      expect(metadata['animations'][0]['name'], 'slash');
+      expect(metadata['frames'][0]['width'], 6);
+      expect(metadata['frames'][0]['height'], 8);
+      expect(metadata['frames'][0]['sourceWidth'], 20);
+      expect(metadata['frames'][0]['sourceHeight'], 20);
+      expect(metadata['frames'][0]['offsetX'], 0);
+      expect(metadata['frames'][0]['offsetY'], 0);
+      expect(metadata['frames'][0]['pivotX'], 6);
+      expect(metadata['frames'][0]['pivotY'], 7);
+      expect(metadata['frames'][0]['tags'], contains('slash'));
+    });
+
     test('rounds sheet dimensions to powers of two when requested', () async {
       final Directory sandbox = await Directory.systemTemp.createTemp(
         'spritesheet_creator_pow2',
@@ -186,5 +252,32 @@ Future<void> _writeFrame(
 }) async {
   final img.Image image = img.Image(width: width, height: height);
   img.fill(image, color: color);
+  await File(filePath).writeAsBytes(img.encodePng(image));
+}
+
+Future<void> _writeTransparentPaddedFrame(
+  String filePath, {
+  required int canvasWidth,
+  required int canvasHeight,
+  required int rectX,
+  required int rectY,
+  required int rectWidth,
+  required int rectHeight,
+  required img.Color color,
+}) async {
+  final img.Image image = img.Image(
+    width: canvasWidth,
+    height: canvasHeight,
+    numChannels: 4,
+  );
+  img.fill(image, color: img.ColorRgba8(0, 0, 0, 0));
+  img.fillRect(
+    image,
+    x1: rectX,
+    y1: rectY,
+    x2: rectX + rectWidth - 1,
+    y2: rectY + rectHeight - 1,
+    color: color,
+  );
   await File(filePath).writeAsBytes(img.encodePng(image));
 }

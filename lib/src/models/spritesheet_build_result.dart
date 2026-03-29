@@ -103,6 +103,7 @@ class SpritesheetBuildResult {
   const SpritesheetBuildResult({
     required this.sheetWidth,
     required this.sheetHeight,
+    required this.layoutMode,
     required this.tileWidth,
     required this.tileHeight,
     required this.columns,
@@ -115,6 +116,7 @@ class SpritesheetBuildResult {
 
   final int sheetWidth;
   final int sheetHeight;
+  final String layoutMode;
   final int tileWidth;
   final int tileHeight;
   final int columns;
@@ -136,7 +138,7 @@ class SpritesheetBuildResult {
         'height': sheetHeight,
       },
       'layout': <String, Object>{
-        'mode': 'uniform-grid',
+        'mode': layoutMode,
         'tileWidth': tileWidth,
         'tileHeight': tileHeight,
         'columns': columns,
