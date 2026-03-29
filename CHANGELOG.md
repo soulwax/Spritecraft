@@ -1,3 +1,10 @@
+## 0.4.28 - 2026-03-29
+
+### Changed
+
+- Added active-layer compatibility warnings and focused recommendations to the `spritecraft-web` selected-layer detail panel so the web builder now flags likely body-type, animation, and palette-fit concerns earlier.
+- Continued shifting smart builder guidance into the web app by making the active staged layer surface practical next-step advice instead of only metadata and alternatives.
+
 ## 0.4.27 - 2026-03-29
 
 ### Changed

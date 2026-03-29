@@ -478,6 +478,63 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       .slice(0, 6);
   }, [activeStagedItem, items]);
 
+  const activeStagedWarnings = useMemo(() => {
+    if (!activeStagedItem) {
+      return [];
+    }
+
+    const warnings: string[] = [];
+    const requiredBodyTypes = activeStagedItem.requiredBodyTypes ?? [];
+    const supportedAnimations = activeStagedItem.animations ?? [];
+
+    if (requiredBodyTypes.length && !requiredBodyTypes.includes(bodyType)) {
+      warnings.push(
+        `This layer targets ${requiredBodyTypes.join(", ")} body types, not the current ${bodyType} body type.`,
+      );
+    }
+
+    if (supportedAnimations.length && !supportedAnimations.includes(animation)) {
+      warnings.push(
+        `This layer does not explicitly list support for the current ${animation} animation.`,
+      );
+    }
+
+    if (activeStagedItem.matchBodyColor) {
+      warnings.push(
+        "This layer expects body-color matching, so palette mismatch is worth checking in the preview.",
+      );
+    }
+
+    return warnings;
+  }, [activeStagedItem, animation, bodyType]);
+
+  const activeStagedRecommendations = useMemo(() => {
+    if (!activeStagedItem) {
+      return [];
+    }
+
+    const recommendations: string[] = [];
+    if (replaceByType) {
+      recommendations.push(
+        `Staging another ${activeStagedItem.typeName} item will replace this one automatically.`,
+      );
+    }
+
+    if (activeTypeFocus !== activeStagedItem.typeName) {
+      recommendations.push(
+        `Use Alternatives to browse only ${activeStagedItem.typeName} items ranked for the current workspace.`,
+      );
+    }
+
+    if ((activeStagedItem.tags ?? []).length) {
+      recommendations.push(
+        `Look for matching tags like ${(activeStagedItem.tags ?? []).slice(0, 3).join(", ")} when refining adjacent layers.`,
+      );
+    }
+
+    return recommendations;
+  }, [activeStagedItem, activeTypeFocus, replaceByType]);
+
   useEffect(() => {
     if (!stagedItems.length) {
       if (activeStagedItemId !== null) {
@@ -1799,6 +1856,34 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                   </Badge>
                 ))}
               </div>
+              {activeStagedWarnings.length ? (
+                <div className="mt-4 rounded-2xl border border-[color:var(--destructive)]/30 bg-[color:var(--background)]/20 p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                    Compatibility warnings
+                  </p>
+                  <ul className="mt-2 space-y-2 text-sm text-[color:var(--muted-foreground)]">
+                    {activeStagedWarnings.map((entry) => (
+                      <li key={`${activeStagedItem.id}-warning-${entry}`}>
+                        {entry}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {activeStagedRecommendations.length ? (
+                <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                    Suggestions
+                  </p>
+                  <ul className="mt-2 space-y-2 text-sm text-[color:var(--muted-foreground)]">
+                    {activeStagedRecommendations.map((entry) => (
+                      <li key={`${activeStagedItem.id}-recommendation-${entry}`}>
+                        {entry}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div className="mt-4">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-[color:var(--foreground)]">
