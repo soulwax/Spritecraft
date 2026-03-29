@@ -49,19 +49,25 @@ Supported keys:
 
 ## Run SpriteCraft
 
-Start the Dart backend:
+Start the full app from Dart:
+
+```powershell
+dart run bin/spritecraft.dart app
+```
+
+Or start just the backend:
 
 ```powershell
 dart run bin/spritecraft.dart studio
 ```
 
-Then start the web UI from `spritecraft-web`:
+Combined app options:
 
 ```powershell
-pnpm dev
+dart run bin/spritecraft.dart app --host 127.0.0.1 --port 8080 --web-port 3000
 ```
 
-Backend options:
+Backend-only options:
 
 ```powershell
 dart run bin/spritecraft.dart studio --host 127.0.0.1 --port 8080 --no-open
@@ -145,11 +151,40 @@ dart run bin/spritecraft.dart studio `
 - `--open`: open the backend URL after startup
 - `--no-open`: keep the backend running without opening a browser
 
+`app`:
+
+```powershell
+dart run bin/spritecraft.dart app `
+  [--host <host>] `
+  [--port <port>] `
+  [--web-port <port>] `
+  [--web-dir <path>] `
+  [--package-manager <auto|pnpm|npm|yarn|bun>] `
+  [--open]
+  [--no-open]
+```
+
+`app` options:
+
+- `--host`: backend host interface, default `127.0.0.1`
+- `--port`: backend API port, default `8080`
+- `--web-port`: `spritecraft-web` dev port, default `3000`
+- `--web-dir`: path to the web app, default `spritecraft-web`
+- `--package-manager`: package manager to use for the web app, default `auto`
+- `--open`: open the web app after both services are ready
+- `--no-open`: keep both services running without opening a browser
+
 Useful examples:
 
 ```powershell
 # Show CLI version
 dart run bin/spritecraft.dart --version
+
+# Start the full app with backend + web together
+dart run bin/spritecraft.dart app
+
+# Start the full app on custom ports without opening the browser
+dart run bin/spritecraft.dart app --port 9090 --web-port 3100 --no-open
 
 # Start the backend without opening a browser tab
 dart run bin/spritecraft.dart studio --no-open

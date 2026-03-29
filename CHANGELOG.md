@@ -1,3 +1,14 @@
+## 0.7.0 - 2026-03-29
+
+### Added
+
+- Added a new `dart run bin/spritecraft.dart app` command that starts the Dart backend API and `spritecraft-web` together from one CLI entrypoint.
+- Added web package-manager detection and startup helpers so the combined launcher can use `pnpm`, `npm`, `yarn`, or `bun` and wire `NEXT_PUBLIC_SPRITECRAFT_API_BASE` automatically.
+
+### Changed
+
+- Updated the CLI and docs so `studio` remains backend-only while `app` is now the recommended way to boot the full local SpriteCraft experience.
+
 ## 0.6.0 - 2026-03-29
 
 ### Changed

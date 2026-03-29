@@ -19,10 +19,8 @@ Use this file as the primary AI navigation guide for the repo.
    `dart pub get`
 3. Optional local env:
    `Copy-Item .env.example .env`
-4. Run the backend:
-   `dart run bin/spritecraft.dart studio`
-5. Run the web app from `spritecraft-web`:
-   `pnpm dev`
+4. Run the full app:
+   `dart run bin/spritecraft.dart app`
 6. Run tests:
    `dart test`
 
@@ -36,7 +34,7 @@ The app also reads a local `.env` file via `RuntimeConfig.load()`.
 ## Repo Map
 
 - `bin/spritecraft.dart`
-  CLI entrypoint. Commands: `pack`, `plan`, `studio`.
+  CLI entrypoint. Commands: `pack`, `plan`, `studio`, `app`.
 - `lib/spritesheet_creator.dart`
   Public library exports.
 - `lib/src/spritesheet_packer.dart`
@@ -179,7 +177,7 @@ Preferred validation after changes:
 
 1. `dart test`
 2. If Dart files changed: `dart analyze`
-3. If web/backend behavior changed: run `dart run bin/spritecraft.dart studio` and verify the relevant API flow manually
+3. If web/backend behavior changed: run `dart run bin/spritecraft.dart app` and verify the relevant flow manually
 
 ## Production Build and PM2
 

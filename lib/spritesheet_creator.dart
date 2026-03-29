@@ -2,6 +2,7 @@
 
 export 'src/ai/gemini_sprite_planner.dart';
 export 'src/config/runtime_config.dart';
+export 'src/dev/web_app_launcher.dart';
 export 'src/lpc/lpc_catalog.dart';
 export 'src/lpc/lpc_renderer.dart';
 export 'src/models/lpc_models.dart';

@@ -1,13 +1,14 @@
 // File: bin/spritecraft.dart
 
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.6.0';
+const String version = '0.7.0';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -71,21 +72,56 @@ ArgParser buildParser() {
 
   parser.addCommand(
     'studio',
-      ArgParser()
-        ..addOption(
-          'host',
-          help: 'Host interface to bind.',
-          defaultsTo: '127.0.0.1',
-        )
-        ..addOption(
-          'port',
-          help: 'Port to serve the SpriteCraft backend API on.',
-          defaultsTo: '8080',
-        )
+    ArgParser()
+      ..addOption(
+        'host',
+        help: 'Host interface to bind.',
+        defaultsTo: '127.0.0.1',
+      )
+      ..addOption(
+        'port',
+        help: 'Port to serve the SpriteCraft backend API on.',
+        defaultsTo: '8080',
+      )
       ..addFlag(
         'open',
         help: 'Open the backend URL in the default browser after startup.',
         defaultsTo: false,
+      ),
+  );
+
+  parser.addCommand(
+    'app',
+    ArgParser()
+      ..addOption(
+        'host',
+        help: 'Host interface for the Dart backend API.',
+        defaultsTo: '127.0.0.1',
+      )
+      ..addOption(
+        'port',
+        help: 'Port for the Dart backend API.',
+        defaultsTo: '8080',
+      )
+      ..addOption(
+        'web-port',
+        help: 'Port for spritecraft-web dev server.',
+        defaultsTo: '3000',
+      )
+      ..addOption(
+        'web-dir',
+        help: 'Path to the spritecraft-web app directory.',
+        defaultsTo: 'spritecraft-web',
+      )
+      ..addOption(
+        'package-manager',
+        help: 'Web package manager to use: auto, pnpm, npm, yarn, or bun.',
+        defaultsTo: 'auto',
+      )
+      ..addFlag(
+        'open',
+        help: 'Open the web app in the default browser after startup.',
+        defaultsTo: true,
       ),
   );
 
@@ -103,6 +139,7 @@ void printUsage(ArgParser parser) {
   print(
     '  studio  Run the SpriteCraft Dart backend API used by spritecraft-web.',
   );
+  print('  app     Run the backend API and spritecraft-web together.');
   print('');
   print(parser.usage);
 }
@@ -130,6 +167,8 @@ Future<void> main(List<String> arguments) async {
         await _runPlan(results.command!);
       case 'studio':
         await _runStudio(results.command!);
+      case 'app':
+        await _runApp(results.command!);
       default:
         printUsage(parser);
     }
@@ -206,29 +245,16 @@ Future<void> _runPlan(ArgResults results) async {
 }
 
 Future<void> _runStudio(ArgResults results) async {
-  final RuntimeConfig config = await RuntimeConfig.load().timeout(
-    _studioStartupTimeout,
-    onTimeout: () => throw StateError(
-      'Backend startup timed out while loading configuration. Check your .env and project paths.',
-    ),
-  );
-  final StudioServer studioServer = await StudioServer.create(config).timeout(
-    _studioStartupTimeout,
-    onTimeout: () => throw StateError(
-      'Backend startup timed out while preparing LPC assets or database connections.',
-    ),
-  );
+  final RuntimeConfig config = await _loadRuntimeConfig();
+  final StudioServer studioServer = await _createStudioServer(config);
 
   final String host = results.option('host')!;
   final int port = _parseIntOption(results, 'port') ?? 8080;
-  final HttpServer server = await studioServer
-      .serve(host: host, port: port)
-      .timeout(
-        _studioStartupTimeout,
-        onTimeout: () => throw StateError(
-          'Backend startup timed out while binding the local API server. Check whether the port is already in use.',
-        ),
-      );
+  final HttpServer server = await _serveStudioServer(
+    studioServer,
+    host: host,
+    port: port,
+  );
   final Uri studioUri = Uri.parse(
     'http://${server.address.host}:${server.port}',
   );
@@ -244,6 +270,224 @@ Future<void> _runStudio(ArgResults results) async {
   }
   if (results.flag('open')) {
     await _openBrowser(studioUri);
+  }
+}
+
+Future<void> _runApp(ArgResults results) async {
+  final RuntimeConfig config = await _loadRuntimeConfig();
+  final StudioServer studioServer = await _createStudioServer(config);
+
+  final String host = results.option('host')!;
+  final int port = _parseIntOption(results, 'port') ?? 8080;
+  final int webPort = _parseIntOption(results, 'web-port') ?? 3000;
+  final Directory webDirectory = Directory(
+    path.normalize(
+      path.isAbsolute(results.option('web-dir')!)
+          ? results.option('web-dir')!
+          : path.join(config.projectRoot.path, results.option('web-dir')!),
+    ),
+  );
+
+  if (!webDirectory.existsSync()) {
+    throw StateError(
+      'spritecraft-web directory was not found at ${webDirectory.path}.',
+    );
+  }
+  if (!File(path.join(webDirectory.path, 'package.json')).existsSync()) {
+    throw StateError(
+      'No package.json was found in ${webDirectory.path}. Expected a spritecraft-web app there.',
+    );
+  }
+
+  final WebPackageManager packageManager = detectWebPackageManager(
+    webDirectory,
+    preferred: results.option('package-manager') ?? 'auto',
+  );
+  final String packageManagerCommand = webPackageManagerCommand(packageManager);
+  final List<String> webArguments = buildWebDevArguments(
+    packageManager,
+    port: webPort,
+  );
+
+  final HttpServer server = await _serveStudioServer(
+    studioServer,
+    host: host,
+    port: port,
+  );
+  final Uri backendUri = Uri.parse(
+    'http://${server.address.host}:${server.port}',
+  );
+  final Uri webUri = Uri.parse('http://127.0.0.1:$webPort');
+
+  stdout.writeln('SpriteCraft backend running at $backendUri');
+  stdout.writeln(
+    'Starting spritecraft-web from ${webDirectory.path} with $packageManagerCommand ${webArguments.join(' ')}',
+  );
+  if (!config.hasLpcProject) {
+    stdout.writeln(
+      'Warning: LPC source assets were not found in ./lpc-spritesheet-creator.',
+    );
+  }
+
+  final Process webProcess;
+  try {
+    webProcess = await Process.start(
+      packageManagerCommand,
+      webArguments,
+      workingDirectory: webDirectory.path,
+      runInShell: true,
+      environment: <String, String>{
+        ...Platform.environment,
+        'NEXT_PUBLIC_SPRITECRAFT_API_BASE': backendUri.toString(),
+        'PORT': '$webPort',
+      },
+    );
+  } on ProcessException catch (error) {
+    await server.close(force: true);
+    throw StateError(
+      'Could not start spritecraft-web with $packageManagerCommand. ${error.message}',
+    );
+  }
+
+  _pipePrefixedOutput(webProcess.stdout, prefix: '[web]');
+  _pipePrefixedOutput(webProcess.stderr, prefix: '[web]');
+
+  final Completer<void> shutdownCompleter = Completer<void>();
+  final List<StreamSubscription<ProcessSignal>> signalSubscriptions =
+      <StreamSubscription<ProcessSignal>>[];
+
+  Future<void> requestShutdown(String reason) async {
+    if (shutdownCompleter.isCompleted) {
+      return;
+    }
+    stdout.writeln(reason);
+    shutdownCompleter.complete();
+  }
+
+  signalSubscriptions.add(
+    ProcessSignal.sigint.watch().listen((_) {
+      unawaited(requestShutdown('Stopping SpriteCraft app...'));
+    }),
+  );
+
+  if (!Platform.isWindows) {
+    signalSubscriptions.add(
+      ProcessSignal.sigterm.watch().listen((_) {
+        unawaited(requestShutdown('Stopping SpriteCraft app...'));
+      }),
+    );
+  }
+
+  bool webExited = false;
+  final Future<int> webExit = webProcess.exitCode.then((int code) async {
+    webExited = true;
+    if (!shutdownCompleter.isCompleted) {
+      final String message =
+          code == 0
+              ? 'spritecraft-web exited cleanly. Stopping backend...'
+              : 'spritecraft-web exited with code $code. Stopping backend...';
+      await requestShutdown(message);
+    }
+    return code;
+  });
+
+  try {
+    await Future.any(<Future<void>>[
+      _waitForHttpReady(webUri, timeout: const Duration(seconds: 45)),
+      webExit.then((int code) {
+        throw StateError(
+          'spritecraft-web exited with code $code before it became reachable at $webUri.',
+        );
+      }),
+    ]);
+    stdout.writeln('SpriteCraft web app running at $webUri');
+    stdout.writeln(
+      'spritecraft-web is wired to backend API ${backendUri.toString()}.',
+    );
+    if (results.flag('open')) {
+      await _openBrowser(webUri);
+    }
+  } on StateError catch (error) {
+    await requestShutdown(error.message);
+  }
+
+  await shutdownCompleter.future;
+  if (webProcess.kill()) {
+    await webExit;
+  } else if (!webExited) {
+    await webExit;
+  }
+  for (final StreamSubscription<ProcessSignal> subscription
+      in signalSubscriptions) {
+    await subscription.cancel();
+  }
+  await server.close(force: true);
+}
+
+Future<RuntimeConfig> _loadRuntimeConfig() {
+  return RuntimeConfig.load().timeout(
+    _studioStartupTimeout,
+    onTimeout: () => throw StateError(
+      'Backend startup timed out while loading configuration. Check your .env and project paths.',
+    ),
+  );
+}
+
+Future<StudioServer> _createStudioServer(RuntimeConfig config) {
+  return StudioServer.create(config).timeout(
+    _studioStartupTimeout,
+    onTimeout: () => throw StateError(
+      'Backend startup timed out while preparing LPC assets or database connections.',
+    ),
+  );
+}
+
+Future<HttpServer> _serveStudioServer(
+  StudioServer studioServer, {
+  required String host,
+  required int port,
+}) {
+  return studioServer.serve(host: host, port: port).timeout(
+    _studioStartupTimeout,
+    onTimeout: () => throw StateError(
+      'Backend startup timed out while binding the local API server. Check whether the port is already in use.',
+    ),
+  );
+}
+
+void _pipePrefixedOutput(Stream<List<int>> stream, {required String prefix}) {
+  stream
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .listen((String line) {
+        stdout.writeln('$prefix $line');
+      });
+}
+
+Future<void> _waitForHttpReady(Uri uri, {required Duration timeout}) async {
+  final HttpClient client = HttpClient();
+  final Stopwatch stopwatch = Stopwatch()..start();
+  try {
+    while (stopwatch.elapsed < timeout) {
+      try {
+        final HttpClientRequest request = await client.getUrl(uri);
+        final HttpClientResponse response = await request.close();
+        unawaited(response.drain<void>());
+        if (response.statusCode >= 200 && response.statusCode < 500) {
+          return;
+        }
+      } catch (_) {
+        // Keep polling until timeout.
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+
+    throw StateError(
+      'spritecraft-web did not become reachable at $uri within ${timeout.inSeconds} seconds.',
+    );
+  } finally {
+    client.close(force: true);
   }
 }
 
