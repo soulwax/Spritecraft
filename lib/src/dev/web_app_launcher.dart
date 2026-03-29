@@ -91,7 +91,7 @@ List<String> buildWebDevArguments(WebPackageManager manager, {int? port}) {
     case WebPackageManager.pnpm:
       return <String>[
         'dev',
-        if (port != null) ...<String>['--', '--port', '$port'],
+        if (port != null) ...<String>['--port', '$port'],
       ];
     case WebPackageManager.npm:
       return <String>[

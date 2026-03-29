@@ -67,7 +67,7 @@ void main() {
     test('builds package-manager-specific dev arguments', () {
       expect(
         buildWebDevArguments(WebPackageManager.pnpm, port: 3210),
-        <String>['dev', '--', '--port', '3210'],
+        <String>['dev', '--port', '3210'],
       );
       expect(
         buildWebDevArguments(WebPackageManager.npm, port: 3210),

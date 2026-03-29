@@ -1,3 +1,9 @@
+## 0.8.1 - 2026-03-29
+
+### Fixed
+
+- Fixed the `app` launcher for `pnpm` so `dart run bin/spritecraft.dart app` now passes `--port` correctly to `next dev` instead of forwarding a stray `--` that made Next treat `--port` as a directory.
+
 ## 0.8.0 - 2026-03-29
 
 ### Added
