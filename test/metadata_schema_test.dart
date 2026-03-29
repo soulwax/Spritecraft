@@ -9,7 +9,7 @@ void main() {
     expect(kSpriteCraftSpritesheetSchemaVersion, 1);
 
     expect(kSpriteCraftRenderSchemaName, 'spritecraft.render');
-    expect(kSpriteCraftRenderSchemaVersion, 2);
+    expect(kSpriteCraftRenderSchemaVersion, 3);
 
     expect(kSpriteCraftProjectSchemaName, 'spritecraft.project');
     expect(kSpriteCraftProjectSchemaVersion, 2);

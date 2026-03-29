@@ -59,18 +59,18 @@ Goal: make SpriteCraft exports production-grade for engines and asset pipelines.
 - [x] Add schema version migration handling for older saved projects and exports
 - [x] Export animated spritesheets with explicit frame sequences, timing, pivots, and per-frame tags
 - [x] Add atlas export options beyond uniform fullsheet render output
-- [ ] Improve Godot export toward native `SpriteFrames`-oriented output
-- [ ] Improve Unity export toward importer-ready sprite slicing metadata
-- [ ] Add Aseprite-friendly and generic game-engine JSON formats
-- [ ] Add optional trim/crop, pivot editing, margins, spacing, and naming conventions per export
-- [ ] Add batch export for multiple animations and variants in one job
-- [ ] Add credits/license export formats suitable for shipping games and internal asset tracking
+- [x] Improve Godot export toward native `SpriteFrames`-oriented output
+- [x] Improve Unity export toward importer-ready sprite slicing metadata
+- [x] Add Aseprite-friendly and generic game-engine JSON formats
+- [x] Add optional trim/crop, pivot editing, margins, spacing, and naming conventions per export
+- [x] Add batch export for multiple animations and variants in one job
+- [x] Add credits/license export formats suitable for shipping games and internal asset tracking
 
 ## Phase 5 — Smart Features and AI Assistance
 
 Goal: make AI genuinely helpful instead of decorative.
 
-- [ ] Improve the Gemini brief flow so it suggests coherent build paths, not just free-text prompts
+- [x] Improve the Gemini brief flow so it suggests coherent build paths, not just free-text prompts
 - [ ] Add AI-powered category suggestions like "pick a ranger hood, leather torso, quiver, and short bow"
 - [ ] Add prompt-to-build recommendations that can prefill a candidate character setup
 - [ ] Add prompt memory so repeated art direction stays visually consistent across projects

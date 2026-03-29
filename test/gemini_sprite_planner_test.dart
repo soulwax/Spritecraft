@@ -22,7 +22,15 @@ void main() {
   "frameWidth": 64,
   "frameHeight": 64,
   "styleTags": ["pixel art", "forest"],
-  "framePrompts": ["idle 1", "idle 2"]
+  "framePrompts": ["idle 1", "idle 2"],
+  "buildPath": [
+    {
+      "slot": "base",
+      "label": "Lock the silhouette",
+      "query": "forest base body head",
+      "rationale": "Start with the body before outfit details."
+    }
+  ]
 }
 ```
 ''',
@@ -36,6 +44,8 @@ void main() {
       expect(plan.concept, 'Forest slime');
       expect(plan.frameCount, 6);
       expect(plan.styleTags, contains('pixel art'));
+      expect(plan.buildPath, hasLength(1));
+      expect(plan.buildPath.first.query, contains('forest'));
     });
   });
 }

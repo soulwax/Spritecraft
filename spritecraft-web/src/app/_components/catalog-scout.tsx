@@ -57,6 +57,17 @@ type WorkspaceFeedback = {
   message: string;
 };
 
+const defaultExportSettings = {
+  namingStyle: "kebab",
+  customStem: "",
+  frameNamePrefix: "",
+  marginPixels: 0,
+  spacingPixels: 0,
+  cropMode: "none",
+  pivotX: null as number | null,
+  pivotY: null as number | null,
+};
+
 export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const didHydrateFromUrl = useRef(false);
   const [workspaceName, setWorkspaceName] = useState("Web Builder Workspace");
@@ -77,6 +88,13 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     null,
   );
   const [workspaceEnginePreset, setWorkspaceEnginePreset] = useState("none");
+  const [workspaceExportSettings, setWorkspaceExportSettings] = useState(
+    defaultExportSettings,
+  );
+  const [batchAnimationsText, setBatchAnimationsText] = useState("");
+  const [batchVariantPresetNames, setBatchVariantPresetNames] = useState<
+    string[]
+  >([]);
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
@@ -147,6 +165,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       Object.keys(draft.stagedSelections)[0] ?? draft.activeStagedItemId ?? null,
     );
     setWorkspaceEnginePreset(draft.enginePreset);
+    setWorkspaceExportSettings(draft.exportSettings);
+    setBatchAnimationsText(draft.batchAnimations.join(", "));
+    setBatchVariantPresetNames(draft.batchVariantPresetNames);
     setBodyType(
       bodyTypes.includes(draft.bodyType)
         ? draft.bodyType
@@ -190,6 +211,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       bodyType: params.get("bodyType") ?? bodyTypes[0] ?? "male",
       animation: params.get("animation") ?? animations[0] ?? "idle",
       enginePreset: params.get("enginePreset") ?? "none",
+      exportSettings: { ...defaultExportSettings },
+      batchAnimations: [],
+      batchVariantPresetNames: [],
       category: params.get("category") ?? "all",
       tag: params.get("tagFilter") ?? "all",
       stagedSelections: parsedSelections,
@@ -372,6 +396,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         activeTypeFocus,
         activeStagedItemId,
         enginePreset: workspaceEnginePreset,
+        exportSettings: workspaceExportSettings,
+        batchAnimations: batchAnimationsText
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+        batchVariantPresetNames,
         bodyType,
         animation,
         category,
@@ -391,6 +421,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     category,
     activeStagedItemId,
     workspaceEnginePreset,
+    workspaceExportSettings,
+    batchAnimationsText,
+    batchVariantPresetNames,
     promptHistory,
     query,
     relatedProjects,
@@ -870,6 +903,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setActiveTypeFocus(null);
     setActiveStagedItemId(null);
     setWorkspaceEnginePreset("none");
+    setWorkspaceExportSettings(defaultExportSettings);
+    setBatchAnimationsText("");
+    setBatchVariantPresetNames([]);
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
@@ -896,6 +932,14 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       relatedProjects,
       replaceByType,
       activeTypeFocus,
+      activeStagedItemId,
+      enginePreset: workspaceEnginePreset,
+      exportSettings: workspaceExportSettings,
+      batchAnimations: batchAnimationsText
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+      batchVariantPresetNames,
       bodyType,
       animation,
       category,
@@ -946,6 +990,17 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     );
   }
 
+  function applyBriefStepQuery(nextQuery: string) {
+    setQuery(nextQuery);
+    setCategory("all");
+    setTag("all");
+    setActiveTypeFocus(null);
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Focused the catalog on "${nextQuery}" from the AI build path.`,
+    });
+  }
+
   async function runAiBrief() {
     const prompt = query.trim();
     if (!prompt) {
@@ -969,6 +1024,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         body: JSON.stringify({
           prompt,
           bodyType,
+          animation,
         }),
       });
       const payload = (await response.json()) as SpriteCraftBriefResponse & {
@@ -1007,6 +1063,13 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setExportResult(null);
 
     try {
+      const batchAnimations = batchAnimationsText
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      const selectedVariantPresets = workspacePresets.filter((preset) =>
+        batchVariantPresetNames.includes(preset.name),
+      );
       const response = await fetch("/api/spritecraft/export", {
         method: "POST",
         headers: {
@@ -1015,6 +1078,22 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         body: JSON.stringify({
           projectName: workspaceName.trim(),
           enginePreset: workspaceEnginePreset,
+          exportSettings: workspaceExportSettings,
+          batchAnimations,
+          variants: [
+            {
+              name: workspaceName.trim() || "Current Workspace",
+              bodyType,
+              prompt: query.trim(),
+              selections: stagedSelections,
+            },
+            ...selectedVariantPresets.map((preset) => ({
+              name: preset.name,
+              bodyType: preset.bodyType,
+              prompt: preset.query,
+              selections: preset.stagedSelections,
+            })),
+          ],
           bodyType,
           animation,
           prompt: query.trim(),
@@ -1034,7 +1113,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       setExportStatus("idle");
       setWorkspaceFeedback({
         tone: "success",
-        message: `Exported ${payload.baseName} with ${payload.enginePreset} preset output.`,
+        message: payload.batch
+          ? `Exported ${payload.jobs.length} batch jobs with ${payload.enginePreset} preset output.`
+          : `Exported ${payload.baseName} with ${payload.enginePreset} preset output.`,
       });
     } catch (error) {
       setExportStatus("error");
@@ -1107,6 +1188,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           },
           exportSettings: {
             enginePreset: workspaceEnginePreset,
+            ...workspaceExportSettings,
+            batchAnimations: batchAnimationsText
+              .split(",")
+              .map((entry) => entry.trim())
+              .filter(Boolean),
+            batchVariantPresetNames,
           },
           promptHistory: mergedPromptHistory,
           exportHistory: [],
@@ -1530,7 +1617,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             ))}
           </Select>
             <Button asChild>
-              <a href={workspaceLaunchUrl} rel="noreferrer" target="_blank">
+              <a href={workspaceLaunchUrl}>
                 <ExternalLink className="mr-2 size-4" />
                 Open In Builder
               </a>
@@ -1563,6 +1650,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 <option value="godot">Godot</option>
                 <option value="unity">Unity</option>
                 <option value="both">Godot + Unity</option>
+                <option value="aseprite">Aseprite JSON</option>
+                <option value="generic">Generic JSON</option>
+                <option value="all">All presets</option>
               </Select>
               <Input
                 onChange={(event) =>
@@ -2406,6 +2496,67 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                     ))}
                   </ul>
                 ) : null}
+                {briefResult.buildPath?.length ? (
+                  <div className="mt-4 space-y-3">
+                    {briefResult.buildPath.map((step, index) => (
+                      <div
+                        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-3"
+                        key={`${step.slot}-${step.query}-${index + 1}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted-foreground)]">
+                              Step {index + 1}
+                            </p>
+                            <p className="mt-1 text-sm font-medium text-[color:var(--foreground)]">
+                              {step.label}
+                            </p>
+                          </div>
+                          <Badge>{step.slot}</Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
+                          {step.rationale}
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <Badge>{step.query}</Badge>
+                          <Button
+                            onClick={() => applyBriefStepQuery(step.query)}
+                            type="button"
+                            variant="secondary"
+                          >
+                            Focus Catalog
+                          </Button>
+                        </div>
+                        {step.recommendations.length ? (
+                          <div className="mt-3 grid gap-2">
+                            {step.recommendations.slice(0, 3).map((item) => (
+                              <div
+                                className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 px-3 py-2"
+                                key={`brief-step-${step.slot}-${item.id}`}
+                              >
+                                <div>
+                                  <p className="text-sm font-medium text-[color:var(--foreground)]">
+                                    {item.name}
+                                  </p>
+                                  <p className="text-xs text-[color:var(--muted-foreground)]">
+                                    {item.category} · {item.typeName}
+                                  </p>
+                                </div>
+                                <Button
+                                  onClick={() => stageItem(item)}
+                                  type="button"
+                                  variant="secondary"
+                                >
+                                  Stage
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <p className="text-sm text-[color:var(--muted-foreground)]">
@@ -2462,6 +2613,144 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 {exportStatus === "loading" ? "Exporting..." : "Export"}
               </Button>
             </div>
+            <div className="mb-4 grid gap-3 md:grid-cols-2">
+              <Select
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    namingStyle: event.target.value,
+                  }))
+                }
+                value={workspaceExportSettings.namingStyle}
+              >
+                <option value="kebab">kebab-case filenames</option>
+                <option value="snake">snake_case filenames</option>
+                <option value="camel">camelCase filenames</option>
+                <option value="pascal">PascalCase filenames</option>
+              </Select>
+              <Select
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    cropMode: event.target.value,
+                  }))
+                }
+                value={workspaceExportSettings.cropMode}
+              >
+                <option value="none">No crop</option>
+                <option value="trim-transparent">Trim transparent bounds</option>
+              </Select>
+              <Input
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    customStem: event.target.value,
+                  }))
+                }
+                placeholder="Optional custom export stem"
+                value={workspaceExportSettings.customStem}
+              />
+              <Input
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    frameNamePrefix: event.target.value,
+                  }))
+                }
+                placeholder="Frame name prefix"
+                value={workspaceExportSettings.frameNamePrefix}
+              />
+              <Input
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    marginPixels: Number.parseInt(event.target.value || "0", 10) || 0,
+                  }))
+                }
+                placeholder="Margin pixels"
+                type="number"
+                value={String(workspaceExportSettings.marginPixels)}
+              />
+              <Input
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    spacingPixels: Number.parseInt(event.target.value || "0", 10) || 0,
+                  }))
+                }
+                placeholder="Spacing pixels"
+                type="number"
+                value={String(workspaceExportSettings.spacingPixels)}
+              />
+              <Input
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    pivotX:
+                      event.target.value.trim() === ""
+                        ? null
+                        : (Number.parseInt(event.target.value, 10) ?? null),
+                  }))
+                }
+                placeholder="Pivot X override"
+                type="number"
+                value={workspaceExportSettings.pivotX?.toString() ?? ""}
+              />
+              <Input
+                onChange={(event) =>
+                  setWorkspaceExportSettings((current) => ({
+                    ...current,
+                    pivotY:
+                      event.target.value.trim() === ""
+                        ? null
+                        : (Number.parseInt(event.target.value, 10) ?? null),
+                  }))
+                }
+                placeholder="Pivot Y override"
+                type="number"
+                value={workspaceExportSettings.pivotY?.toString() ?? ""}
+              />
+            </div>
+            <div className="mb-4 grid gap-3">
+              <Input
+                onChange={(event) => setBatchAnimationsText(event.target.value)}
+                placeholder="Batch animations, comma separated"
+                value={batchAnimationsText}
+              />
+              {workspacePresets.length ? (
+                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+                  <p className="mb-2 text-sm font-medium text-[color:var(--foreground)]">
+                    Include workspace presets as batch variants
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {workspacePresets.map((preset) => {
+                      const selected = batchVariantPresetNames.includes(preset.name);
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className={`rounded-full border px-3 py-2 text-sm transition ${
+                            selected
+                              ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--background)]"
+                              : "border-[color:var(--border)] bg-[color:var(--surface-soft)] text-[color:var(--muted-foreground)]"
+                          }`}
+                          key={`batch-preset-${preset.name}`}
+                          onClick={() =>
+                            setBatchVariantPresetNames((current) =>
+                              current.includes(preset.name)
+                                ? current.filter((entry) => entry !== preset.name)
+                                : [...current, preset.name],
+                            )
+                          }
+                          type="button"
+                        >
+                          {preset.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             {exportResult ? (
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4 text-sm text-[color:var(--muted-foreground)]">
                 <p className="font-medium text-[color:var(--foreground)]">
@@ -2470,10 +2759,24 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 <p className="mt-2">PNG: {exportResult.imagePath}</p>
                 <p>JSON: {exportResult.metadataPath}</p>
                 <p>ZIP: {exportResult.bundlePath}</p>
+                {exportResult.batch ? (
+                  <p className="mt-2">
+                    Batch jobs: {exportResult.jobs.length}
+                  </p>
+                ) : null}
                 {exportResult.extraPaths.length ? (
                   <div className="mt-3 space-y-1">
                     {exportResult.extraPaths.map((entry) => (
                       <p key={`export-extra-${entry}`}>Preset: {entry}</p>
+                    ))}
+                  </div>
+                ) : null}
+                {exportResult.jobs.length ? (
+                  <div className="mt-3 space-y-1">
+                    {exportResult.jobs.map((job) => (
+                      <p key={`export-job-${job.baseName}`}>
+                        Job: {job.variant} · {job.animation} · {job.baseName}
+                      </p>
                     ))}
                   </div>
                 ) : null}

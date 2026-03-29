@@ -38,10 +38,19 @@ Return JSON only with this shape:
   "frameWidth": 64,
   "frameHeight": 64,
   "styleTags": ["pixel art", "top down"],
-  "framePrompts": ["frame 1 prompt", "frame 2 prompt"]
+  "framePrompts": ["frame 1 prompt", "frame 2 prompt"],
+  "buildPath": [
+    {
+      "slot": "base",
+      "label": "Lock the silhouette",
+      "query": "human base body face",
+      "rationale": "Start with the overall silhouette before outfit details."
+    }
+  ]
 }
 The plan should be practical for spritesheet generation.
 Frame prompts should describe adjacent animation frames consistently.
+Build path steps should be short, ordered, and useful for finding modular sprite layers.
 ${frameCountHint == null ? '' : 'Target roughly $frameCountHint frames.'}
 ${styleHint == null ? '' : 'Preferred style: $styleHint.'}
 User request: $prompt

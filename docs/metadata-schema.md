@@ -5,7 +5,7 @@ SpriteCraft treats its emitted metadata as a stable contract.
 Current stable schema identifiers:
 
 - `spritecraft.spritesheet` version `1`
-- `spritecraft.render` version `2`
+- `spritecraft.render` version `3`
 - `spritecraft.project` version `2`
 
 These identifiers and versions are defined in [metadata_schema.dart](/d:/Workspace/Dart/Spritesheet-Creator/lib/src/models/metadata_schema.dart). Version bumps should happen only when the emitted JSON contract changes in a way that consumers must understand explicitly.
@@ -81,7 +81,15 @@ Each `frames[]` entry includes:
 
 In atlas mode, `tileWidth` and `tileHeight` reflect the packed frame bounds for that frame rather than a shared uniform cell size.
 
-## `spritecraft.render` v2
+When exported with the Godot preset, this metadata can now also be converted into a native `SpriteFrames` `.tres` companion resource, while the compatibility `.godot.json` preset remains available for tooling that still expects JSON.
+
+When exported with the Unity preset, this metadata is also converted into importer-oriented slicing metadata in `.unity.json`, including sprite rects, normalized pivots, and animation clip frame ordering.
+
+When exported with the Aseprite or generic preset options, this metadata is also converted into `.aseprite.json` and `.generic.json` companion payloads for broader toolchain compatibility.
+
+SpriteCraft export bundles can also include companion credit files derived from `credits[]`, including structured `.credits.json`, human-readable `CREDITS.md`, and a condensed `LICENSES.txt` summary for shipping and internal asset tracking.
+
+## `spritecraft.render` v3
 
 Used by layered LPC render preview/export payloads.
 
@@ -91,6 +99,7 @@ Top-level fields:
 - `image`
 - `layout`
 - `content`
+- `export`
 - `layers`
 - `credits`
 
@@ -121,6 +130,17 @@ Top-level fields:
 - `animation`
 - `prompt`
 - `selections`
+
+`export` is present on exported render payloads when export options were applied:
+
+- `namingStyle`
+- `customStem`
+- `frameNamePrefix`
+- `marginPixels`
+- `spacingPixels`
+- `cropMode`
+- `pivotX`
+- `pivotY`
 
 `layers[]` are the resolved used layers for the render result.
 

@@ -2,12 +2,15 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import '../ai/sprite_brief_composer.dart';
 import '../ai/gemini_sprite_planner.dart';
 import '../config/runtime_config.dart';
 import '../lpc/lpc_catalog.dart';
@@ -189,9 +192,7 @@ class StudioServer {
     );
 
     return _json(200, <String, Object>{
-      'status': hasErrors
-          ? 'error'
-          : (hasWarnings ? 'warning' : 'ok'),
+      'status': hasErrors ? 'error' : (hasWarnings ? 'warning' : 'ok'),
       'timestamp': DateTime.now().toUtc().toIso8601String(),
       'checks': checks,
     });
@@ -246,11 +247,10 @@ class StudioServer {
 
   String _buildRenderCacheKey(LpcRenderRequest request) {
     final List<MapEntry<String, String>> orderedSelections =
-        request.selections.entries.toList()
-          ..sort(
-            (MapEntry<String, String> left, MapEntry<String, String> right) =>
-                left.key.compareTo(right.key),
-          );
+        request.selections.entries.toList()..sort(
+          (MapEntry<String, String> left, MapEntry<String, String> right) =>
+              left.key.compareTo(right.key),
+        );
 
     return jsonEncode(<String, Object?>{
       'bodyType': request.bodyType,
@@ -279,58 +279,113 @@ class StudioServer {
   Future<Response> _export(Request request) async {
     try {
       final Map<String, dynamic> payload = await request.readAsJson();
-      final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(payload);
-      final LpcRenderResult result = await _renderWithCache(renderRequest);
       final String projectName = payload['projectName']?.toString() ?? '';
       final String enginePreset =
           payload['enginePreset']?.toString().toLowerCase() ?? 'none';
+      final Map<String, Object?> exportSettings =
+          payload['exportSettings'] is Map
+          ? Map<String, Object?>.from(
+              payload['exportSettings'] as Map<dynamic, dynamic>,
+            )
+          : <String, Object?>{};
 
-      final String baseName = ExportSupport.buildBaseName(
-        prompt: renderRequest.prompt ?? '',
+      final LpcRenderRequest baseRequest = LpcRenderRequest.fromJson(payload);
+      final String rootBaseName = ExportSupport.buildBaseName(
+        prompt: baseRequest.prompt ?? '',
         projectName: projectName,
         timestamp: DateTime.now(),
+        customStem: exportSettings['customStem']?.toString() ?? '',
+        namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab',
       );
-      final Map<String, Object?> metadata = result.toMetadataJson(
-        request: renderRequest,
-        imageName: '$baseName.png',
+      final List<String> batchAnimations = _parseStringList(
+        payload['batchAnimations'],
       );
-
       await config.exportDirectory.create(recursive: true);
-      final File imageFile = File(
-        path.join(config.exportDirectory.path, '$baseName.png'),
+      final List<Map<String, Object?>> variants = _parseBatchVariants(
+        payload['variants'],
+        fallbackRequest: baseRequest,
+        fallbackName: projectName,
       );
-      final File metadataFile = File(
-        path.join(config.exportDirectory.path, '$baseName.json'),
-      );
+      final List<String> animations = batchAnimations.isEmpty
+          ? <String>[baseRequest.animation]
+          : batchAnimations;
 
-      await imageFile.writeAsBytes(result.pngBytes);
-      await metadataFile.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(
-          metadata,
-        ),
-      );
+      final List<File> allFiles = <File>[];
+      final List<Map<String, Object?>> jobs = <Map<String, Object?>>[];
+      final bool isBatch = variants.length > 1 || animations.length > 1;
 
-      final List<File> extraFiles = await ExportSupport.writeEnginePresetFiles(
-        exportDirectory: config.exportDirectory,
-        enginePreset: enginePreset,
-        baseName: baseName,
-        metadata: metadata,
-      );
+      for (
+        int variantIndex = 0;
+        variantIndex < variants.length;
+        variantIndex++
+      ) {
+        final Map<String, Object?> variant = variants[variantIndex];
+        final String variantName =
+            variant['name']?.toString().trim().isNotEmpty == true
+            ? variant['name']!.toString().trim()
+            : 'variant-${variantIndex + 1}';
+        final String variantStem = ExportSupport.sanitizeFileStem(
+          variantName,
+          namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab',
+        );
+
+        for (final String animationName in animations) {
+          final LpcRenderRequest renderRequest = LpcRenderRequest(
+            bodyType: variant['bodyType']?.toString() ?? baseRequest.bodyType,
+            animation: animationName,
+            prompt: variant['prompt']?.toString() ?? baseRequest.prompt,
+            selections:
+                (variant['selections'] as Map<String, String>? ??
+                baseRequest.selections),
+          );
+          final LpcRenderResult result = await _renderWithCache(renderRequest);
+          final String baseName = isBatch
+              ? '$rootBaseName-$variantStem-${ExportSupport.sanitizeFileStem(animationName, namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab')}'
+              : rootBaseName;
+
+          final _ExportArtifact artifact = await _writeExportArtifact(
+            result: result,
+            renderRequest: renderRequest,
+            baseName: baseName,
+            enginePreset: enginePreset,
+            exportSettings: exportSettings,
+          );
+          allFiles.addAll(<File>[
+            artifact.imageFile,
+            artifact.metadataFile,
+            ...artifact.extraFiles,
+          ]);
+          jobs.add(<String, Object?>{
+            'variant': variantName,
+            'animation': animationName,
+            'baseName': baseName,
+            'imagePath': path.normalize(artifact.imageFile.path),
+            'metadataPath': path.normalize(artifact.metadataFile.path),
+            'extraPaths': artifact.extraFiles
+                .map((File file) => path.normalize(file.path))
+                .toList(),
+          });
+        }
+      }
+
       final File zipFile = await ExportSupport.writeExportBundle(
         exportDirectory: config.exportDirectory,
-        baseName: baseName,
-        files: <File>[imageFile, metadataFile, ...extraFiles],
+        baseName: isBatch ? '$rootBaseName-batch' : rootBaseName,
+        files: allFiles,
       );
+      final Map<String, Object?> firstJob = jobs.isNotEmpty
+          ? jobs.first
+          : <String, Object?>{};
 
       return _json(200, <String, Object?>{
-        'imagePath': path.normalize(imageFile.path),
-        'metadataPath': path.normalize(metadataFile.path),
+        'imagePath': firstJob['imagePath'],
+        'metadataPath': firstJob['metadataPath'],
         'bundlePath': path.normalize(zipFile.path),
         'enginePreset': enginePreset,
-        'extraPaths': extraFiles
-            .map((File file) => path.normalize(file.path))
-            .toList(),
-        'baseName': baseName,
+        'extraPaths': firstJob['extraPaths'] ?? <String>[],
+        'baseName': firstJob['baseName'] ?? rootBaseName,
+        'jobs': jobs,
+        'batch': isBatch,
       });
     } on StateError catch (error) {
       return _json(400, <String, Object>{'error': error.message});
@@ -341,16 +396,21 @@ class StudioServer {
     final Map<String, dynamic> payload = await request.readAsJson();
     final String prompt = payload['prompt']?.toString().trim() ?? '';
     final String bodyType = payload['bodyType']?.toString() ?? 'male';
+    final String animation = payload['animation']?.toString() ?? 'idle';
     if (prompt.isEmpty) {
       return _json(400, <String, Object>{'error': 'Prompt is required.'});
     }
 
+    final SpriteBriefComposer briefComposer = SpriteBriefComposer(
+      catalog: catalog,
+    );
     SpritePlan? plan;
     if (config.hasGemini) {
       try {
         plan = await GeminiSpritePlanner(apiKey: config.geminiApiKey)
             .suggestPlan(
               prompt: prompt,
+              frameCountHint: animation == 'idle' ? 4 : 8,
               styleHint: 'LPC-inspired pixel art with modular layers',
             );
       } on Exception {
@@ -358,21 +418,27 @@ class StudioServer {
       }
     }
 
-    final String effectiveQuery = <String>[
-      prompt,
-      if (plan != null) ...plan.styleTags,
-      if (plan != null) plan.concept,
-    ].join(' ');
-
-    final List<LpcItemDefinition> recommendations = catalog.search(
-      query: effectiveQuery,
+    final SpritePlan normalizedPlan = briefComposer.normalizePlan(
+      plan: plan,
+      prompt: prompt,
       bodyType: bodyType,
-      animation: 'idle',
-      limit: 18,
+      animation: animation,
+    );
+    final List<SpriteBriefGuideStep> buildPath = briefComposer.buildGuideSteps(
+      plan: normalizedPlan,
+      prompt: prompt,
+      bodyType: bodyType,
+      animation: animation,
     );
 
+    final List<LpcItemDefinition> recommendations = briefComposer
+        .collectTopRecommendations(buildPath);
+
     return _json(200, <String, Object?>{
-      'plan': plan?.toJson(),
+      'plan': normalizedPlan.toJson(),
+      'buildPath': buildPath
+          .map((SpriteBriefGuideStep step) => step.toJson())
+          .toList(),
       'recommendations': recommendations
           .map((LpcItemDefinition item) => item.toJson())
           .toList(),
@@ -453,6 +519,201 @@ class StudioServer {
     return _json(200, entry.toJson());
   }
 
+  List<int> _buildExportImageBytes(
+    List<int> sourcePngBytes, {
+    required Map<String, Object?> exportSettings,
+  }) {
+    img.Image image =
+        img.decodePng(Uint8List.fromList(sourcePngBytes)) ??
+        (throw StateError('Could not decode rendered image for export.'));
+    final String cropMode =
+        exportSettings['cropMode']?.toString().toLowerCase() ?? 'none';
+    final int marginPixels = (_asInt(exportSettings['marginPixels']) ?? 0)
+        .clamp(0, 4096);
+
+    if (cropMode == 'trim-transparent') {
+      image = _trimTransparentBounds(image);
+    }
+    if (marginPixels > 0) {
+      final img.Image expanded = img.Image(
+        width: image.width + (marginPixels * 2),
+        height: image.height + (marginPixels * 2),
+        numChannels: 4,
+      );
+      img.compositeImage(
+        expanded,
+        image,
+        dstX: marginPixels,
+        dstY: marginPixels,
+      );
+      image = expanded;
+    }
+
+    return img.encodePng(image);
+  }
+
+  Future<_ExportArtifact> _writeExportArtifact({
+    required LpcRenderResult result,
+    required LpcRenderRequest renderRequest,
+    required String baseName,
+    required String enginePreset,
+    required Map<String, Object?> exportSettings,
+  }) async {
+    final List<int> exportImageBytes = _buildExportImageBytes(
+      result.pngBytes,
+      exportSettings: exportSettings,
+    );
+    final img.Image exportImage =
+        img.decodePng(Uint8List.fromList(exportImageBytes)) ??
+        (throw StateError('Could not decode export image bytes.'));
+
+    final Map<String, Object?> metadata = result.toMetadataJson(
+      request: renderRequest,
+      imageName: '$baseName.png',
+    );
+    (metadata['image'] as Map<String, Object?>)['width'] = exportImage.width;
+    (metadata['image'] as Map<String, Object?>)['height'] = exportImage.height;
+    (metadata['layout'] as Map<String, Object?>)['tileWidth'] =
+        exportImage.width;
+    (metadata['layout'] as Map<String, Object?>)['tileHeight'] =
+        exportImage.height;
+    metadata['export'] = <String, Object?>{
+      'namingStyle': exportSettings['namingStyle']?.toString() ?? 'kebab',
+      'customStem': exportSettings['customStem']?.toString() ?? '',
+      'frameNamePrefix': exportSettings['frameNamePrefix']?.toString() ?? '',
+      'marginPixels': _asInt(exportSettings['marginPixels']) ?? 0,
+      'spacingPixels': _asInt(exportSettings['spacingPixels']) ?? 0,
+      'cropMode': exportSettings['cropMode']?.toString() ?? 'none',
+      'pivotX': _asInt(exportSettings['pivotX']),
+      'pivotY': _asInt(exportSettings['pivotY']),
+    };
+
+    final File imageFile = File(
+      path.join(config.exportDirectory.path, '$baseName.png'),
+    );
+    final File metadataFile = File(
+      path.join(config.exportDirectory.path, '$baseName.json'),
+    );
+    await imageFile.writeAsBytes(exportImageBytes);
+    await metadataFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(metadata),
+    );
+
+    final List<File> extraFiles = await ExportSupport.writeEnginePresetFiles(
+      exportDirectory: config.exportDirectory,
+      enginePreset: enginePreset,
+      baseName: baseName,
+      metadata: metadata,
+      settings: exportSettings,
+    );
+    final List<File> creditFiles = await ExportSupport.writeCreditsArtifacts(
+      exportDirectory: config.exportDirectory,
+      baseName: baseName,
+      metadata: metadata,
+    );
+    return _ExportArtifact(
+      imageFile: imageFile,
+      metadataFile: metadataFile,
+      extraFiles: <File>[...extraFiles, ...creditFiles],
+    );
+  }
+
+  List<String> _parseStringList(Object? value) {
+    if (value is List) {
+      return value
+          .map((Object? entry) => entry?.toString().trim() ?? '')
+          .where((String entry) => entry.isNotEmpty)
+          .toList();
+    }
+    if (value is String) {
+      return value
+          .split(',')
+          .map((String entry) => entry.trim())
+          .where((String entry) => entry.isNotEmpty)
+          .toList();
+    }
+    return <String>[];
+  }
+
+  List<Map<String, Object?>> _parseBatchVariants(
+    Object? value, {
+    required LpcRenderRequest fallbackRequest,
+    required String fallbackName,
+  }) {
+    final List<Map<String, Object?>> variants = <Map<String, Object?>>[];
+    if (value is List) {
+      for (final Object? entry in value) {
+        if (entry is! Map) {
+          continue;
+        }
+        final Map<String, Object?> variant = Map<String, Object?>.from(entry);
+        final Map<String, String> selections = variant['selections'] is Map
+            ? Map<String, String>.from(
+                (variant['selections'] as Map<dynamic, dynamic>).map(
+                  (dynamic key, dynamic val) =>
+                      MapEntry(key.toString(), val.toString()),
+                ),
+              )
+            : fallbackRequest.selections;
+        variants.add(<String, Object?>{
+          'name': variant['name']?.toString() ?? fallbackName,
+          'bodyType':
+              variant['bodyType']?.toString() ?? fallbackRequest.bodyType,
+          'prompt': variant['prompt']?.toString() ?? fallbackRequest.prompt,
+          'selections': selections,
+        });
+      }
+    }
+
+    if (variants.isEmpty) {
+      variants.add(<String, Object?>{
+        'name': fallbackName.isEmpty ? 'default' : fallbackName,
+        'bodyType': fallbackRequest.bodyType,
+        'prompt': fallbackRequest.prompt,
+        'selections': fallbackRequest.selections,
+      });
+    }
+
+    return variants;
+  }
+
+  img.Image _trimTransparentBounds(img.Image image) {
+    int minX = image.width;
+    int minY = image.height;
+    int maxX = -1;
+    int maxY = -1;
+
+    for (int y = 0; y < image.height; y++) {
+      for (int x = 0; x < image.width; x++) {
+        if (image.getPixel(x, y).a > 0) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) {
+      return img.Image(width: 1, height: 1, numChannels: 4);
+    }
+
+    return img.copyCrop(
+      image,
+      x: minX,
+      y: minY,
+      width: (maxX - minX) + 1,
+      height: (maxY - minY) + 1,
+    );
+  }
+
+  int? _asInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    return int.tryParse(value?.toString() ?? '');
+  }
+
   Future<Response> _duplicateHistory(Request request, String id) async {
     if (historyRepository == null) {
       return _json(503, <String, Object>{
@@ -460,7 +721,9 @@ class StudioServer {
       });
     }
 
-    final StudioHistoryEntry? duplicated = await historyRepository!.duplicate(id);
+    final StudioHistoryEntry? duplicated = await historyRepository!.duplicate(
+      id,
+    );
     if (duplicated == null) {
       return _json(404, <String, Object>{'error': 'History entry not found.'});
     }
@@ -487,7 +750,10 @@ class StudioServer {
       timestamp: DateTime.now(),
     );
     final File packageFile = File(
-      path.join(config.projectPackageDirectory.path, '$baseName.spritecraft-project.json'),
+      path.join(
+        config.projectPackageDirectory.path,
+        '$baseName.spritecraft-project.json',
+      ),
     );
     await packageFile.writeAsString(
       const JsonEncoder.withIndent('  ').convert(entry.toJson()),
@@ -515,7 +781,9 @@ class StudioServer {
 
     final File packageFile = File(packagePath);
     if (!await packageFile.exists()) {
-      return _json(404, <String, Object>{'error': 'Project package not found.'});
+      return _json(404, <String, Object>{
+        'error': 'Project package not found.',
+      });
     }
 
     final Map<String, dynamic> packageJson =
@@ -630,7 +898,6 @@ class StudioServer {
         .replaceAll(RegExp(r'^-|-$'), '');
     return sanitized.isEmpty ? 'spritecraft-export' : sanitized;
   }
-
 }
 
 extension on Request {
@@ -641,4 +908,16 @@ extension on Request {
     }
     return jsonDecode(raw) as Map<String, dynamic>;
   }
+}
+
+class _ExportArtifact {
+  const _ExportArtifact({
+    required this.imageFile,
+    required this.metadataFile,
+    required this.extraFiles,
+  });
+
+  final File imageFile;
+  final File metadataFile;
+  final List<File> extraFiles;
 }

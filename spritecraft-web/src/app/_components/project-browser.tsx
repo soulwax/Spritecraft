@@ -681,11 +681,7 @@ export function ProjectBrowser({
                         Create Snapshot
                       </Button>
                       <Button asChild>
-                        <a
-                          href={buildWorkspaceRestoreUrl(selectedProject.id)}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
+                        <a href={buildWorkspaceRestoreUrl(selectedProject.id)}>
                           <ExternalLink className="mr-2 size-4" />
                           Open In Builder
                         </a>

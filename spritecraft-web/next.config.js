@@ -7,6 +7,8 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+     allowedDevOrigins: ['localhost.isobelnet.de'],
+};
 
 export default config;

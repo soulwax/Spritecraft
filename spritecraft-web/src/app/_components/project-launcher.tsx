@@ -140,8 +140,6 @@ export function ProjectLauncher({
 								<Button asChild type="button">
 									<a
 										href={buildWorkspaceLaunchUrl(template)}
-										rel="noreferrer"
-										target="_blank"
 									>
 										<ExternalLink className="mr-2 size-4" />
 										Launch
@@ -221,6 +219,9 @@ export function ProjectLauncher({
 							<option value="godot">Godot</option>
 							<option value="unity">Unity</option>
 							<option value="both">Godot + Unity</option>
+							<option value="aseprite">Aseprite JSON</option>
+							<option value="generic">Generic JSON</option>
+							<option value="all">All presets</option>
 						</Select>
 						<Select
 							onChange={(event) => setPreviewMode(event.target.value)}
@@ -247,8 +248,6 @@ export function ProjectLauncher({
 					<Button asChild className="w-full">
 						<a
 							href={buildWorkspaceLaunchUrl(launchConfig)}
-							rel="noreferrer"
-							target="_blank"
 						>
 							<ExternalLink className="mr-2 size-4" />
 							Open In Builder

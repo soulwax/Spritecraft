@@ -8,6 +8,7 @@ class SpritePlan {
     required this.frameHeight,
     required this.styleTags,
     required this.framePrompts,
+    required this.buildPath,
   });
 
   final String concept;
@@ -16,6 +17,7 @@ class SpritePlan {
   final int frameHeight;
   final List<String> styleTags;
   final List<String> framePrompts;
+  final List<SpriteBuildPathStep> buildPath;
 
   factory SpritePlan.fromJson(Map<String, dynamic> json) {
     return SpritePlan(
@@ -29,6 +31,10 @@ class SpritePlan {
       framePrompts: (json['framePrompts'] as List<dynamic>? ?? <dynamic>[])
           .map((dynamic value) => value.toString())
           .toList(),
+      buildPath: (json['buildPath'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(SpriteBuildPathStep.fromJson)
+          .toList(),
     );
   }
 
@@ -40,6 +46,41 @@ class SpritePlan {
       'frameHeight': frameHeight,
       'styleTags': styleTags,
       'framePrompts': framePrompts,
+      'buildPath': buildPath
+          .map((SpriteBuildPathStep step) => step.toJson())
+          .toList(),
+    };
+  }
+}
+
+class SpriteBuildPathStep {
+  const SpriteBuildPathStep({
+    required this.slot,
+    required this.label,
+    required this.query,
+    required this.rationale,
+  });
+
+  final String slot;
+  final String label;
+  final String query;
+  final String rationale;
+
+  factory SpriteBuildPathStep.fromJson(Map<String, dynamic> json) {
+    return SpriteBuildPathStep(
+      slot: json['slot']?.toString() ?? 'build-step',
+      label: json['label']?.toString() ?? 'Build step',
+      query: json['query']?.toString() ?? '',
+      rationale: json['rationale']?.toString() ?? '',
+    );
+  }
+
+  Map<String, Object> toJson() {
+    return <String, Object>{
+      'slot': slot,
+      'label': label,
+      'query': query,
+      'rationale': rationale,
     };
   }
 }

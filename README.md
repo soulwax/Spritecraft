@@ -8,7 +8,7 @@ Pure Dart tooling for building spritesheets, now with a Next.js-based SpriteCraf
 - A Dart backend API used by `spritecraft-web`
 - A modern TypeScript web frontend in `spritecraft-web`
 - LPC catalog loading and layered sprite composition from `./lpc-spritesheet-creator`
-- Gemini-assisted sprite briefs and local recommendation search
+- Gemini-assisted sprite briefs with coherent build paths and local recommendation search
 - Neon/Postgres-backed history for saved sprite projects
 - Structured metadata JSON for every spritesheet export and web-rendered preview/export
 
@@ -77,10 +77,10 @@ What the backend + web app do together:
 
 - searches LPC layer definitions from the submodule
 - composes layered sprite previews from LPC spritesheet assets
-- asks Gemini for a structured sprite brief
+- asks Gemini for a structured sprite brief with ordered build steps and matched layer recommendations
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
-- exports matched PNG, JSON, zip bundles, and engine preset companion files
+- exports matched PNG, JSON, zip bundles, and engine companion files such as native Godot `SpriteFrames` `.tres` resources, Unity importer-ready slicing metadata, and Aseprite/generic JSON companions
 - powers the full `spritecraft-web` builder workflow
 
 ## Command reference
@@ -261,6 +261,15 @@ Export naming is now project-friendly by default:
 - otherwise falls back to the prompt
 - appends a timestamp so exports stay unique
 
+SpriteCraft Web exports also support:
+
+- filename styles like `kebab-case`, `snake_case`, `camelCase`, and `PascalCase`
+- optional custom export stems and frame-name prefixes
+- transparent-bound trimming and margin padding
+- spacing and pivot overrides for engine companion metadata
+- batch export across multiple animations and saved workspace variants in one bundle
+- automatic `credits.json`, `CREDITS.md`, and `LICENSES.txt` companions for shipping and internal tracking
+
 ## Ask Gemini for a sprite plan
 
 ```powershell
@@ -287,7 +296,7 @@ SpriteCraft now treats its emitted metadata schemas as stable, documented contra
 See [metadata-schema.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/metadata-schema.md) for:
 
 - `spritecraft.spritesheet` v1
-- `spritecraft.render` v2
+- `spritecraft.render` v3
 - `spritecraft.project` v2
 
 If a consumer depends on SpriteCraft JSON output, it should branch on `schema.name` and `schema.version` rather than assuming an undocumented payload shape.

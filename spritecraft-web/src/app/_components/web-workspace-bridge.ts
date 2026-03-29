@@ -30,6 +30,18 @@ export type CatalogWorkspaceDraft = {
 	activeTypeFocus: string | null;
 	activeStagedItemId: string | null;
 	enginePreset: string;
+	exportSettings: {
+		namingStyle: string;
+		customStem: string;
+		frameNamePrefix: string;
+		marginPixels: number;
+		spacingPixels: number;
+		cropMode: string;
+		pivotX: number | null;
+		pivotY: number | null;
+	};
+	batchAnimations: string[];
+	batchVariantPresetNames: string[];
 	bodyType: string;
 	animation: string;
 	category: string;
@@ -126,6 +138,64 @@ export function normalizeWorkspaceDraft(
 			typeof draft.enginePreset === "string" && draft.enginePreset
 				? draft.enginePreset
 				: "none",
+		exportSettings:
+			draft.exportSettings && typeof draft.exportSettings === "object"
+				? {
+						namingStyle:
+							typeof draft.exportSettings.namingStyle === "string" &&
+							draft.exportSettings.namingStyle
+								? draft.exportSettings.namingStyle
+								: "kebab",
+						customStem:
+							typeof draft.exportSettings.customStem === "string"
+								? draft.exportSettings.customStem
+								: "",
+						frameNamePrefix:
+							typeof draft.exportSettings.frameNamePrefix === "string"
+								? draft.exportSettings.frameNamePrefix
+								: "",
+						marginPixels:
+							typeof draft.exportSettings.marginPixels === "number"
+								? draft.exportSettings.marginPixels
+								: 0,
+						spacingPixels:
+							typeof draft.exportSettings.spacingPixels === "number"
+								? draft.exportSettings.spacingPixels
+								: 0,
+						cropMode:
+							typeof draft.exportSettings.cropMode === "string" &&
+							draft.exportSettings.cropMode
+								? draft.exportSettings.cropMode
+								: "none",
+						pivotX:
+							typeof draft.exportSettings.pivotX === "number"
+								? draft.exportSettings.pivotX
+								: null,
+						pivotY:
+							typeof draft.exportSettings.pivotY === "number"
+								? draft.exportSettings.pivotY
+								: null,
+					}
+				: {
+						namingStyle: "kebab",
+						customStem: "",
+						frameNamePrefix: "",
+						marginPixels: 0,
+						spacingPixels: 0,
+						cropMode: "none",
+						pivotX: null,
+						pivotY: null,
+					},
+		batchAnimations: Array.isArray(draft.batchAnimations)
+			? draft.batchAnimations.filter(
+					(entry): entry is string => typeof entry === "string" && Boolean(entry.trim()),
+				)
+			: [],
+		batchVariantPresetNames: Array.isArray(draft.batchVariantPresetNames)
+			? draft.batchVariantPresetNames.filter(
+					(entry): entry is string => typeof entry === "string" && Boolean(entry.trim()),
+				)
+			: [],
 		bodyType: typeof draft.bodyType === "string" ? draft.bodyType : "male",
 		animation: typeof draft.animation === "string" ? draft.animation : "idle",
 		category: typeof draft.category === "string" ? draft.category : "all",
@@ -191,6 +261,50 @@ export function projectToWorkspaceDraft(
 			typeof project.enginePreset === "string" && project.enginePreset
 				? project.enginePreset
 				: "none",
+		exportSettings: {
+			namingStyle:
+				typeof project.exportSettings?.namingStyle === "string"
+					? project.exportSettings.namingStyle
+					: "kebab",
+			customStem:
+				typeof project.exportSettings?.customStem === "string"
+					? project.exportSettings.customStem
+					: "",
+			frameNamePrefix:
+				typeof project.exportSettings?.frameNamePrefix === "string"
+					? project.exportSettings.frameNamePrefix
+					: "",
+			marginPixels:
+				typeof project.exportSettings?.marginPixels === "number"
+					? project.exportSettings.marginPixels
+					: 0,
+			spacingPixels:
+				typeof project.exportSettings?.spacingPixels === "number"
+					? project.exportSettings.spacingPixels
+					: 0,
+			cropMode:
+				typeof project.exportSettings?.cropMode === "string"
+					? project.exportSettings.cropMode
+					: "none",
+			pivotX:
+				typeof project.exportSettings?.pivotX === "number"
+					? project.exportSettings.pivotX
+					: null,
+			pivotY:
+				typeof project.exportSettings?.pivotY === "number"
+					? project.exportSettings.pivotY
+					: null,
+		},
+		batchAnimations: Array.isArray(project.exportSettings?.batchAnimations)
+			? project.exportSettings.batchAnimations.filter(
+					(entry): entry is string => typeof entry === "string",
+				)
+			: [],
+		batchVariantPresetNames: Array.isArray(project.exportSettings?.batchVariantPresetNames)
+			? project.exportSettings.batchVariantPresetNames.filter(
+					(entry): entry is string => typeof entry === "string",
+				)
+			: [],
 		bodyType: project.bodyType,
 		animation: project.animation,
 		category,

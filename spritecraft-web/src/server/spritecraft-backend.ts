@@ -82,10 +82,29 @@ const briefPlanSchema = z.object({
 	concept: z.string().default(""),
 	styleTags: z.array(z.string()).default([]),
 	framePrompts: z.array(z.string()).default([]),
+	buildPath: z
+		.array(
+			z.object({
+				slot: z.string().default("build-step"),
+				label: z.string().default("Build step"),
+				query: z.string().default(""),
+				rationale: z.string().default(""),
+			}),
+		)
+		.default([]),
 }).passthrough();
+
+const briefGuideStepSchema = z.object({
+	slot: z.string().default("build-step"),
+	label: z.string().default("Build step"),
+	query: z.string().default(""),
+	rationale: z.string().default(""),
+	recommendations: z.array(catalogItemSchema).default([]),
+});
 
 const briefResponseSchema = z.object({
 	plan: briefPlanSchema.nullable().optional(),
+	buildPath: z.array(briefGuideStepSchema).default([]),
 	recommendations: z.array(catalogItemSchema).default([]),
 });
 
@@ -98,6 +117,19 @@ const exportResponseSchema = z.object({
 	enginePreset: z.string().default("none"),
 	extraPaths: z.array(z.string()).default([]),
 	baseName: z.string(),
+	batch: z.boolean().default(false),
+	jobs: z
+		.array(
+			z.object({
+				variant: z.string(),
+				animation: z.string(),
+				baseName: z.string(),
+				imagePath: z.string(),
+				metadataPath: z.string(),
+				extraPaths: z.array(z.string()).default([]),
+			}),
+		)
+		.default([]),
 });
 
 export type SpriteCraftExportResponse = z.infer<typeof exportResponseSchema>;
@@ -233,12 +265,14 @@ export async function renderSpriteCraftPreview(input: {
 export async function briefSpriteCraftWorkspace(input: {
 	prompt: string;
 	bodyType: string;
+	animation?: string;
 }) {
 	return fetchJson("/api/ai/brief", briefResponseSchema, {
 		method: "POST",
 		body: JSON.stringify({
 			prompt: input.prompt,
 			bodyType: input.bodyType,
+			animation: input.animation ?? "idle",
 		}),
 	});
 }
@@ -246,6 +280,14 @@ export async function briefSpriteCraftWorkspace(input: {
 export async function exportSpriteCraftWorkspace(input: {
 	projectName?: string;
 	enginePreset?: string;
+	exportSettings?: Record<string, unknown>;
+	batchAnimations?: string[];
+	variants?: Array<{
+		name: string;
+		bodyType?: string;
+		prompt?: string;
+		selections: Record<string, string>;
+	}>;
 	bodyType: string;
 	animation: string;
 	prompt?: string;
@@ -256,6 +298,9 @@ export async function exportSpriteCraftWorkspace(input: {
 		body: JSON.stringify({
 			projectName: input.projectName ?? "",
 			enginePreset: input.enginePreset ?? "none",
+			exportSettings: input.exportSettings ?? {},
+			batchAnimations: input.batchAnimations ?? [],
+			variants: input.variants ?? [],
 			bodyType: input.bodyType,
 			animation: input.animation,
 			prompt: input.prompt ?? "",

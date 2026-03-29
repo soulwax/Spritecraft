@@ -8,7 +8,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.10.0';
+const String version = '0.17.0';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -58,11 +58,13 @@ ArgParser buildParser() {
       )
       ..addOption(
         'pivot-x',
-        help: 'Per-frame pivot X in pixels for metadata. Defaults to tile center.',
+        help:
+            'Per-frame pivot X in pixels for metadata. Defaults to tile center.',
       )
       ..addOption(
         'pivot-y',
-        help: 'Per-frame pivot Y in pixels for metadata. Defaults to tile center.',
+        help:
+            'Per-frame pivot Y in pixels for metadata. Defaults to tile center.',
       )
       ..addOption(
         'layout',
@@ -72,7 +74,8 @@ ArgParser buildParser() {
       ..addFlag(
         'trim-transparent',
         negatable: false,
-        help: 'Trim transparent bounds before packing, useful with atlas layout.',
+        help:
+            'Trim transparent bounds before packing, useful with atlas layout.',
       )
       ..addFlag(
         'power-of-two',
@@ -423,10 +426,9 @@ Future<void> _runApp(ArgResults results) async {
   final Future<int> webExit = webProcess.exitCode.then((int code) async {
     webExited = true;
     if (!shutdownCompleter.isCompleted) {
-      final String message =
-          code == 0
-              ? 'spritecraft-web exited cleanly. Stopping backend...'
-              : 'spritecraft-web exited with code $code. Stopping backend...';
+      final String message = code == 0
+          ? 'spritecraft-web exited cleanly. Stopping backend...'
+          : 'spritecraft-web exited with code $code. Stopping backend...';
       await requestShutdown(message);
     }
     return code;
@@ -488,21 +490,22 @@ Future<HttpServer> _serveStudioServer(
   required String host,
   required int port,
 }) {
-  return studioServer.serve(host: host, port: port).timeout(
-    _studioStartupTimeout,
-    onTimeout: () => throw StateError(
-      'Backend startup timed out while binding the local API server. Check whether the port is already in use.',
-    ),
-  );
+  return studioServer
+      .serve(host: host, port: port)
+      .timeout(
+        _studioStartupTimeout,
+        onTimeout: () => throw StateError(
+          'Backend startup timed out while binding the local API server. Check whether the port is already in use.',
+        ),
+      );
 }
 
 void _pipePrefixedOutput(Stream<List<int>> stream, {required String prefix}) {
-  stream
-      .transform(utf8.decoder)
-      .transform(const LineSplitter())
-      .listen((String line) {
-        stdout.writeln('$prefix $line');
-      });
+  stream.transform(utf8.decoder).transform(const LineSplitter()).listen((
+    String line,
+  ) {
+    stdout.writeln('$prefix $line');
+  });
 }
 
 Future<void> _waitForHttpReady(Uri uri, {required Duration timeout}) async {
@@ -513,7 +516,12 @@ Future<void> _waitForHttpReady(Uri uri, {required Duration timeout}) async {
       try {
         final HttpClientRequest request = await client.getUrl(uri);
         final HttpClientResponse response = await request.close();
-        unawaited(response.drain<void>());
+        try {
+          await response.drain<void>();
+        } on HttpException {
+          // Dev servers can drop the connection mid-response while booting.
+          // Treat that the same way as a refused connection and retry.
+        }
         if (response.statusCode >= 200 && response.statusCode < 500) {
           return;
         }

@@ -1,6 +1,7 @@
 // File: lib/spritesheet_creator.dart
 
 export 'src/ai/gemini_sprite_planner.dart';
+export 'src/ai/sprite_brief_composer.dart';
 export 'src/config/runtime_config.dart';
 export 'src/dev/web_app_launcher.dart';
 export 'src/lpc/lpc_catalog.dart';

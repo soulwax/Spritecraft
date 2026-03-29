@@ -7,10 +7,12 @@ export async function POST(request: Request) {
 		const payload = (await request.json()) as {
 			prompt?: string;
 			bodyType?: string;
+			animation?: string;
 		};
 		const brief = await briefSpriteCraftWorkspace({
 			prompt: payload.prompt ?? "",
 			bodyType: payload.bodyType ?? "male",
+			animation: payload.animation ?? "idle",
 		});
 		return NextResponse.json(brief);
 	} catch (error) {

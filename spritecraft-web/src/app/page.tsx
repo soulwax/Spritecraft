@@ -1,8 +1,7 @@
 // File: spritecraft-web/src/app/page.tsx
 
-import Link from "next/link";
 import {
-	AlertTriangle,
+  AlertTriangle,
   Boxes,
   Compass,
   FolderKanban,
@@ -12,10 +11,11 @@ import {
   Sparkles,
   SwatchBook,
 } from "lucide-react";
+import Link from "next/link";
 
 import { CatalogScout } from "~/app/_components/catalog-scout";
-import { ProjectLauncher } from "~/app/_components/project-launcher";
 import { ProjectBrowser } from "~/app/_components/project-browser";
+import { ProjectLauncher } from "~/app/_components/project-launcher";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -57,21 +57,19 @@ export default async function Home() {
               <Badge>Kanagawa Wave</Badge>
             </div>
             <CardTitle className="max-w-3xl text-4xl leading-tight sm:text-5xl">
-              SpriteCraft Web is now the primary SpriteCraft creator surface.
+              SpriteCraft Web
             </CardTitle>
             <CardDescription className="max-w-2xl text-base">
-              The legacy `/studio` frontend has been retired. The Dart app now
-              serves backend APIs, and this web app is where project workflow,
-              builder iteration, AI guidance, and export happen.
+              Create your sprites in a smart way and export them for Unity, Godot Aseprite etc. Metadata comes with your sprites to power in-editor workflows and future AI-assisted features (ofc).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-(--border) bg-(--surface-soft) p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-(--muted-foreground)">
-                  Phase 3.5
+                  Phase 4
                 </p>
-                <p className="mt-2 text-lg font-semibold">Parallel migration</p>
+                <p className="mt-2 text-lg font-semibold">Building export functionalities for various engines</p>
               </div>
               <div className="rounded-2xl border border-(--border) bg-(--surface-soft) p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-(--muted-foreground)">

@@ -1,3 +1,88 @@
+## 0.17.0 - 2026-03-30
+
+### Added
+
+- Added structured AI brief build paths with ordered steps, focused search queries, and per-step layer recommendations in SpriteCraft Web.
+- Added a reusable `SpriteBriefComposer` so Gemini output and local fallback guidance now produce the same actionable brief shape.
+
+### Changed
+
+- Improved the Gemini brief flow so it returns coherent builder guidance instead of only free-text prompt support.
+- Marked the first Phase 5 roadmap item complete.
+
+## 0.16.0 - 2026-03-30
+
+### Added
+
+- Added automatic credits and licensing companions for exports: `.credits.json`, `CREDITS.md`, and `LICENSES.txt`.
+
+### Changed
+
+- Export bundles now include shipping-friendly credit and license artifacts derived from SpriteCraft metadata.
+- Marked the credits/license export roadmap item complete.
+
+## 0.15.0 - 2026-03-30
+
+### Added
+
+- Added batch export support for multiple animations and workspace variants in a single job and bundle.
+
+### Changed
+
+- Exposed batch animation and preset-variant export controls in SpriteCraft Web.
+- Marked the batch export roadmap item complete.
+
+## 0.14.0 - 2026-03-30
+
+### Added
+
+- Added export-control options for SpriteCraft Web and the Dart backend, including filename style selection, custom stems, frame-name prefixes, transparent trimming, margin padding, spacing metadata, and pivot overrides.
+
+### Changed
+
+- Upgraded `spritecraft.render` to schema version `3` to document the new export-options block in render/export metadata.
+- Marked the export-controls roadmap item complete.
+- Exposed the new export controls in `spritecraft-web`.
+
+## 0.13.0 - 2026-03-30
+
+### Added
+
+- Added Aseprite-friendly `.aseprite.json` export companions with frame timing, trim data, and frame tags.
+- Added generic engine `.generic.json` companions that preserve SpriteCraft frames and animations in a simpler portable JSON shape.
+
+### Changed
+
+- Exposed the new Aseprite, generic, and all-presets export choices in SpriteCraft Web.
+- Marked the Aseprite/generic export roadmap item complete.
+
+## 0.12.0 - 2026-03-30
+
+### Added
+
+- Added importer-ready Unity companion export metadata with sprite rects, normalized pivots, and animation clip frame ordering in `.unity.json`.
+
+### Changed
+
+- Marked the Unity export roadmap item complete and documented the richer engine companion output.
+
+## 0.11.1 - 2026-03-30
+
+### Fixed
+
+- Fixed the `app` launcher readiness probe so early dropped HTTP connections from `spritecraft-web` are retried instead of crashing the Dart process during startup.
+
+## 0.11.0 - 2026-03-30
+
+### Added
+
+- Added native Godot `SpriteFrames` `.tres` companion export generation for engine preset bundles, derived directly from SpriteCraft frame metadata.
+
+### Changed
+
+- Kept the existing `.godot.json` preset as a compatibility artifact while promoting the Godot export path toward engine-native resources.
+- Marked the Godot `SpriteFrames` export roadmap item complete.
+
 ## 0.10.0 - 2026-03-29
 
 ### Added
