@@ -446,27 +446,89 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     [items],
   );
 
-  const visibleItems = useMemo(
-    () =>
-      items.filter((item) => {
-        if (category !== "all" && item.category !== category) {
-          return false;
-        }
-        if (tag !== "all" && !(item.tags ?? []).includes(tag)) {
-          return false;
-        }
-        if (activeTypeFocus && item.typeName !== activeTypeFocus) {
-          return false;
-        }
-        return true;
-      }),
-    [activeTypeFocus, category, items, tag],
-  );
-
   const stagedItems = useMemo(
     () => items.filter((item) => Object.hasOwn(stagedSelections, item.id)),
     [items, stagedSelections],
   );
+
+  const visibleItems = useMemo(() => {
+    const filtered = items.filter((item) => {
+      if (category !== "all" && item.category !== category) {
+        return false;
+      }
+      if (tag !== "all" && !(item.tags ?? []).includes(tag)) {
+        return false;
+      }
+      if (activeTypeFocus && item.typeName !== activeTypeFocus) {
+        return false;
+      }
+      return true;
+    });
+
+    const currentTags = new Set(workspaceTags);
+    const currentPromptTerms = new Set(
+      query
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean),
+    );
+
+    return filtered.sort((left, right) => {
+      const score = (item: SpriteCraftCatalogItem) => {
+        let value = 0;
+
+        if (activeTypeFocus && item.typeName === activeTypeFocus) {
+          value += 40;
+        }
+        if (Object.hasOwn(stagedSelections, item.id)) {
+          value += 18;
+        }
+        if (
+          replaceByType &&
+          stagedItems.some(
+            (stagedItem) =>
+              stagedItem.id !== item.id && stagedItem.typeName === item.typeName,
+          )
+        ) {
+          value += 12;
+        }
+        if ((item.tags ?? []).some((entry) => currentTags.has(entry))) {
+          value += 8;
+        }
+        if (
+          currentPromptTerms.size &&
+          [item.name, item.category, item.typeName, ...(item.tags ?? [])]
+            .join(" ")
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .some((entry) => currentPromptTerms.has(entry))
+        ) {
+          value += 6;
+        }
+        if (item.requiredBodyTypes.includes(bodyType)) {
+          value += 4;
+        }
+        if (item.animations.includes(animation)) {
+          value += 4;
+        }
+        return value;
+      };
+
+      return score(right) - score(left);
+    });
+  }, [
+    activeTypeFocus,
+    animation,
+    bodyType,
+    category,
+    items,
+    query,
+    replaceByType,
+    stagedItems,
+    stagedSelections,
+    tag,
+    workspaceTags,
+  ]);
 
   function getVariantChoice(item: SpriteCraftCatalogItem) {
     return variantChoices[item.id] ?? item.variants[0] ?? "default";
@@ -1610,7 +1672,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               <span className="font-medium text-[color:var(--foreground)]">
                 {activeTypeFocus}
               </span>
-              .
+              . Results are also ranked toward current workspace tags, prompt
+              terms, body type, and animation fit.
             </div>
             <Button onClick={clearTypeFocus} type="button" variant="secondary">
               Show all types

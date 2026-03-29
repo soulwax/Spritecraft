@@ -1,3 +1,10 @@
+## 0.4.26 - 2026-03-29
+
+### Changed
+
+- Added staging-aware catalog ranking in `spritecraft-web` so alternatives are now prioritized by focused type, current workspace tags, prompt terms, body type fit, and animation fit.
+- Made web-side replacement browsing feel more intentional by combining the new type-focus flow with smarter result ordering instead of only static filtering.
+
 ## 0.4.25 - 2026-03-29
 
 ### Changed
