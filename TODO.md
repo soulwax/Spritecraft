@@ -74,19 +74,19 @@ Goal: make AI genuinely helpful instead of decorative.
 - [x] Add AI-powered category suggestions like "pick a ranger hood, leather torso, quiver, and short bow"
 - [x] Add prompt-to-build recommendations that can prefill a candidate character setup
 - [x] Add prompt memory so repeated art direction stays visually consistent across projects
-- [ ] Add AI-assisted naming for projects, animations, and export bundles
-- [ ] Add consistency checks such as missing matching body color, incompatible animation coverage, or likely clipping
-- [ ] Add smart warnings when selected layers have incomplete animation support
-- [ ] Explore AI-assisted palette/style helpers once the core builder flow is stable
+- [x] Add AI-assisted naming for projects, animations, and export bundles
+- [x] Add consistency checks such as missing matching body color, incompatible animation coverage, or likely clipping
+- [x] Add smart warnings when selected layers have incomplete animation support
+- [x] Explore AI-assisted palette/style helpers once the core builder flow is stable
 
 ## Phase 6 — Editing and Art Workflow Tools
 
 Goal: support real iteration by artists and designers, not only selection and export.
 
-- [ ] Add palette swapping and controlled recolor workflows
-- [ ] Add preview backgrounds, zoom levels, onion-skin views, and frame stepping
+- [x] Add palette swapping and controlled recolor workflows
+- [x] Add preview backgrounds, zoom levels, onion-skin views, and frame stepping
 - [ ] Add crop guides, anchor editing, and pivot placement tools
-- [ ] Add layer visibility toggles and solo/mute controls
+- [x] Add layer visibility toggles and solo/mute controls
 - [ ] Add animation strip preview with FPS controls
 - [ ] Add sheet diffing between two project snapshots
 - [ ] Add support for importing custom external layers on top of LPC assets

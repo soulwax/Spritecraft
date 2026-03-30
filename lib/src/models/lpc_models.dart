@@ -201,12 +201,14 @@ class LpcRenderRequest {
     required this.animation,
     required this.selections,
     this.prompt,
+    this.recolorGroups = const <String, String>{},
   });
 
   final String bodyType;
   final String animation;
   final Map<String, String> selections;
   final String? prompt;
+  final Map<String, String> recolorGroups;
 
   factory LpcRenderRequest.fromJson(Map<String, dynamic> json) {
     return LpcRenderRequest(
@@ -218,6 +220,12 @@ class LpcRenderRequest {
                 (String key, dynamic value) => MapEntry(key, value.toString()),
               ),
       prompt: json['prompt']?.toString(),
+      recolorGroups:
+          (json['recolorGroups'] as Map<String, dynamic>? ??
+                  <String, dynamic>{})
+              .map(
+                (String key, dynamic value) => MapEntry(key, value.toString()),
+              ),
     );
   }
 
@@ -227,6 +235,7 @@ class LpcRenderRequest {
       'animation': animation,
       'prompt': prompt,
       'selections': selections,
+      'recolorGroups': recolorGroups,
     };
   }
 }
@@ -300,6 +309,11 @@ class LpcRenderResult {
     required LpcRenderRequest request,
     String imageName = 'spritecraft-render.png',
   }) {
+    final Map<String, int> layout = _inferFrameLayout(
+      animation: request.animation,
+      width: width,
+      height: height,
+    );
     return <String, Object>{
       'schema': <String, Object>{
         'name': kSpriteCraftRenderSchemaName,
@@ -312,11 +326,11 @@ class LpcRenderResult {
       },
       'layout': <String, Object>{
         'mode': 'layered-fullsheet',
-        'frameCount': 1,
-        'columns': 1,
-        'rows': 1,
-        'tileWidth': width,
-        'tileHeight': height,
+        'frameCount': layout['frameCount'] ?? 1,
+        'columns': layout['columns'] ?? 1,
+        'rows': layout['rows'] ?? 1,
+        'tileWidth': layout['tileWidth'] ?? width,
+        'tileHeight': layout['tileHeight'] ?? height,
       },
       'content': <String, Object?>{
         'projectSchemaVersion': kSpriteCraftProjectSchemaVersion,
@@ -324,6 +338,7 @@ class LpcRenderResult {
         'animation': request.animation,
         'prompt': request.prompt,
         'selections': request.selections,
+        'recolorGroups': request.recolorGroups,
       },
       'layers': usedLayers.map((UsedLpcLayer layer) => layer.toJson()).toList(),
       'credits': credits
@@ -516,12 +531,14 @@ class SpriteCraftSchemaMigrations {
               'category': 'all',
               'animationFilter': 'current',
               'tagFilter': 'all',
+              'recolorGroups': <String, String>{},
             },
       ),
       'exportSettings': Map<String, Object?>.from(
         working['exportSettings'] as Map<String, dynamic>? ??
             <String, dynamic>{
               'enginePreset': working['enginePreset']?.toString() ?? 'none',
+              'recolorGroups': <String, String>{},
             },
       ),
       'promptHistory': rawPromptHistory,
@@ -554,11 +571,61 @@ class SpriteCraftSchemaMigrations {
         'selections':
             content['selections'] as Map<String, dynamic>? ??
             <String, dynamic>{},
+        'recolorGroups':
+            content['recolorGroups'] as Map<String, dynamic>? ??
+            <String, dynamic>{},
       },
       'layers': working['layers'] as List<dynamic>? ?? <dynamic>[],
       'credits': working['credits'] as List<dynamic>? ?? <dynamic>[],
     };
   }
+
+}
+
+Map<String, int> _inferFrameLayout({
+  required String animation,
+  required int width,
+  required int height,
+}) {
+  final int candidateCount = switch (animation.toLowerCase()) {
+    'walk' || 'run' => 8,
+    'attack' || 'slash' || 'thrust' => 6,
+    _ => 4,
+  };
+
+  if (candidateCount > 1 && width % candidateCount == 0) {
+    final int tileWidth = width ~/ candidateCount;
+    if (tileWidth > 0 && tileWidth <= height * 2) {
+      return <String, int>{
+        'frameCount': candidateCount,
+        'columns': candidateCount,
+        'rows': 1,
+        'tileWidth': tileWidth,
+        'tileHeight': height,
+      };
+    }
+  }
+
+  if (candidateCount > 1 && height % candidateCount == 0) {
+    final int tileHeight = height ~/ candidateCount;
+    if (tileHeight > 0 && tileHeight <= width * 2) {
+      return <String, int>{
+        'frameCount': candidateCount,
+        'columns': 1,
+        'rows': candidateCount,
+        'tileWidth': width,
+        'tileHeight': tileHeight,
+      };
+    }
+  }
+
+  return <String, int>{
+    'frameCount': 1,
+    'columns': 1,
+    'rows': 1,
+    'tileWidth': width,
+    'tileHeight': height,
+  };
 }
 
 class _ScoredItem {

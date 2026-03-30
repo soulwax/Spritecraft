@@ -34,6 +34,8 @@ export type CatalogWorkspaceDraft = {
 	replaceByType: boolean;
 	activeTypeFocus: string | null;
 	activeStagedItemId: string | null;
+	mutedItemIds: string[];
+	soloItemId: string | null;
 	enginePreset: string;
 	exportSettings: {
 		namingStyle: string;
@@ -44,6 +46,7 @@ export type CatalogWorkspaceDraft = {
 		cropMode: string;
 		pivotX: number | null;
 		pivotY: number | null;
+		recolorGroups: Record<string, string>;
 	};
 	batchAnimations: string[];
 	batchVariantPresetNames: string[];
@@ -140,6 +143,13 @@ export function normalizeWorkspaceDraft(
 			typeof draft.activeStagedItemId === "string"
 				? draft.activeStagedItemId
 				: null,
+		mutedItemIds: Array.isArray(draft.mutedItemIds)
+			? draft.mutedItemIds.filter(
+					(entry): entry is string => typeof entry === "string" && Boolean(entry),
+				)
+			: [],
+		soloItemId:
+			typeof draft.soloItemId === "string" ? draft.soloItemId : null,
 		enginePreset:
 			typeof draft.enginePreset === "string" && draft.enginePreset
 				? draft.enginePreset
@@ -181,6 +191,19 @@ export function normalizeWorkspaceDraft(
 							typeof draft.exportSettings.pivotY === "number"
 								? draft.exportSettings.pivotY
 								: null,
+						recolorGroups:
+							draft.exportSettings.recolorGroups &&
+							typeof draft.exportSettings.recolorGroups === "object"
+								? Object.fromEntries(
+										Object.entries(draft.exportSettings.recolorGroups).filter(
+											([key, value]) =>
+												typeof key === "string" &&
+												key &&
+												typeof value === "string" &&
+												value,
+										),
+									)
+								: {},
 					}
 				: {
 						namingStyle: "kebab",
@@ -191,6 +214,7 @@ export function normalizeWorkspaceDraft(
 						cropMode: "none",
 						pivotX: null,
 						pivotY: null,
+						recolorGroups: {},
 					},
 		batchAnimations: Array.isArray(draft.batchAnimations)
 			? draft.batchAnimations.filter(
@@ -263,6 +287,15 @@ export function projectToWorkspaceDraft(
 		replaceByType: true,
 		activeTypeFocus: null,
 		activeStagedItemId: Object.keys(project.selections)[0] ?? null,
+		mutedItemIds: Array.isArray(project.renderSettings?.mutedItemIds)
+			? project.renderSettings.mutedItemIds.filter(
+					(entry): entry is string => typeof entry === "string" && Boolean(entry),
+				)
+			: [],
+		soloItemId:
+			typeof project.renderSettings?.soloItemId === "string"
+				? project.renderSettings.soloItemId
+				: null,
 		enginePreset:
 			typeof project.enginePreset === "string" && project.enginePreset
 				? project.enginePreset
@@ -300,6 +333,19 @@ export function projectToWorkspaceDraft(
 				typeof project.exportSettings?.pivotY === "number"
 					? project.exportSettings.pivotY
 					: null,
+			recolorGroups:
+				project.exportSettings?.recolorGroups &&
+				typeof project.exportSettings.recolorGroups === "object"
+					? Object.fromEntries(
+							Object.entries(project.exportSettings.recolorGroups).filter(
+								([key, value]) =>
+									typeof key === "string" &&
+									key &&
+									typeof value === "string" &&
+									value,
+							),
+						)
+					: {},
 		},
 		batchAnimations: Array.isArray(project.exportSettings?.batchAnimations)
 			? project.exportSettings.batchAnimations.filter(

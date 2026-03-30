@@ -1,6 +1,7 @@
 // File: test/lpc_renderer_test.dart
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
@@ -103,9 +104,98 @@ void main() {
         (metadata['layout'] as Map<String, Object>)['mode'],
         'layered-fullsheet',
       );
+      expect((metadata['layout'] as Map<String, Object>)['frameCount'], 4);
+      expect((metadata['layout'] as Map<String, Object>)['tileWidth'], 4);
       expect(
         (metadata['content'] as Map<String, Object?>)['animation'],
         'idle',
+      );
+      expect(
+        (metadata['content'] as Map<String, Object?>)['recolorGroups'],
+        <String, String>{},
+      );
+    });
+
+    test('applies controlled recolor groups to rendered layers', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'lpc_renderer_recolor_test',
+      );
+      addTearDown(() => sandbox.delete(recursive: true));
+
+      final Directory definitionsDir = Directory(
+        path.join(sandbox.path, 'lpc', 'sheet_definitions', 'body'),
+      );
+      final Directory spritesheetsDir = Directory(
+        path.join(
+          sandbox.path,
+          'lpc',
+          'spritesheets',
+          'body',
+          'bodies',
+          'male',
+          'idle',
+        ),
+      );
+      await definitionsDir.create(recursive: true);
+      await spritesheetsDir.create(recursive: true);
+
+      await File(path.join(definitionsDir.path, 'body.json')).writeAsString('''
+{
+  "name": "Body Color",
+  "type_name": "body",
+  "variants": ["light"],
+  "animations": ["idle"],
+  "match_body_color": false,
+  "layer_1": {
+    "zPos": 10,
+    "male": "body/bodies/male/"
+  },
+  "credits": []
+}
+''');
+
+      final img.Image image = img.Image(width: 4, height: 4);
+      img.fill(image, color: img.ColorRgb8(255, 0, 0));
+      await File(
+        path.join(spritesheetsDir.path, 'light.png'),
+      ).writeAsBytes(img.encodePng(image));
+
+      final LpcCatalog catalog = await const LpcCatalogLoader().load(
+        Directory(path.join(sandbox.path, 'lpc', 'sheet_definitions')),
+      );
+      final LpcRenderer renderer = LpcRenderer(
+        catalog: catalog,
+        spritesheetsDirectory: Directory(
+          path.join(sandbox.path, 'lpc', 'spritesheets'),
+        ),
+      );
+
+      final LpcRenderRequest request = const LpcRenderRequest(
+        bodyType: 'male',
+        animation: 'idle',
+        selections: <String, String>{'body': 'light'},
+        recolorGroups: <String, String>{'body': '#00ff00'},
+      );
+      final LpcRenderResult result = await renderer.render(request);
+      final img.Image decoded =
+          img.decodePng(Uint8List.fromList(result.pngBytes))!;
+      final img.Pixel pixel = decoded.getPixel(0, 0);
+
+      expect(pixel.g, greaterThan(pixel.r));
+      expect(pixel.a, 255);
+      expect(
+        (result.toMetadataJson(
+          request: request,
+          imageName: 'recolor.png',
+        )['content'] as Map<String, Object?>)['recolorGroups'],
+        <String, String>{'body': '#00ff00'},
+      );
+      expect(
+        (result.toMetadataJson(
+          request: request,
+          imageName: 'recolor.png',
+        )['layout'] as Map<String, Object>)['frameCount'],
+        4,
       );
     });
   });

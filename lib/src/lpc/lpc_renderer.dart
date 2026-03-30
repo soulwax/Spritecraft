@@ -56,7 +56,13 @@ class LpcRenderer {
           path.join(spritesheetsDirectory.path, relativeAssetPath),
         );
         final Uint8List bytes = await file.readAsBytes();
-        final img.Image? image = img.decodeImage(bytes);
+        final img.Image? decoded = img.decodeImage(bytes);
+        final img.Image? image = decoded == null
+            ? null
+            : _applyRecolorIfNeeded(
+                decoded,
+                recolorHex: request.recolorGroups[_inferRecolorGroup(item)],
+              );
         if (image == null) {
           continue;
         }
@@ -177,6 +183,97 @@ class LpcRenderer {
   }
 
   int _max(int a, int b) => a > b ? a : b;
+
+  String? _inferRecolorGroup(LpcItemDefinition item) {
+    final String haystack = <String>[
+      item.typeName,
+      item.category,
+      item.name,
+      ...item.tags,
+      ...item.pathSegments,
+    ].join(' ').toLowerCase();
+
+    if (item.typeName == 'body' || item.matchBodyColor) {
+      return 'body';
+    }
+    if (haystack.contains('leather') ||
+        haystack.contains('belt') ||
+        haystack.contains('boot') ||
+        haystack.contains('quiver')) {
+      return 'leather';
+    }
+    if (haystack.contains('armor') ||
+        haystack.contains('metal') ||
+        haystack.contains('plate') ||
+        haystack.contains('steel') ||
+        haystack.contains('mail') ||
+        haystack.contains('helmet') ||
+        haystack.contains('shield')) {
+      return 'metal';
+    }
+    if (haystack.contains('cape') ||
+        haystack.contains('cloak') ||
+        haystack.contains('trim') ||
+        haystack.contains('jewel') ||
+        haystack.contains('accessor')) {
+      return 'accent';
+    }
+    if (haystack.contains('cloth') ||
+        haystack.contains('robe') ||
+        haystack.contains('shirt') ||
+        haystack.contains('hood') ||
+        haystack.contains('torso') ||
+        haystack.contains('dress')) {
+      return 'cloth';
+    }
+    return null;
+  }
+
+  img.Image _applyRecolorIfNeeded(img.Image source, {String? recolorHex}) {
+    final String? normalized = _normalizeHexColor(recolorHex);
+    if (normalized == null) {
+      return source;
+    }
+
+    final img.ColorRgb8 target = _parseHexColor(normalized);
+    final img.Image recolored = img.Image.from(source);
+
+    for (int y = 0; y < recolored.height; y++) {
+      for (int x = 0; x < recolored.width; x++) {
+        final img.Pixel pixel = recolored.getPixel(x, y);
+        final int alpha = pixel.a.toInt();
+        if (alpha == 0) {
+          continue;
+        }
+
+        final double luminance =
+            (0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b) / 255.0;
+        final int red = (target.r * luminance).round().clamp(0, 255);
+        final int green = (target.g * luminance).round().clamp(0, 255);
+        final int blue = (target.b * luminance).round().clamp(0, 255);
+
+        recolored.setPixelRgba(x, y, red, green, blue, alpha);
+      }
+    }
+
+    return recolored;
+  }
+
+  String? _normalizeHexColor(String? input) {
+    final String trimmed = input?.trim() ?? '';
+    if (!RegExp(r'^#?[0-9A-Fa-f]{6}$').hasMatch(trimmed)) {
+      return null;
+    }
+    return trimmed.startsWith('#') ? trimmed.substring(1) : trimmed;
+  }
+
+  img.ColorRgb8 _parseHexColor(String hex) {
+    return img.ColorRgb8(
+      int.parse(hex.substring(0, 2), radix: 16),
+      int.parse(hex.substring(2, 4), radix: 16),
+      int.parse(hex.substring(4, 6), radix: 16),
+    );
+  }
 }
 
 class _ResolvedLayer {

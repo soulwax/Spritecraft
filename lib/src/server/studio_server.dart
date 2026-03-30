@@ -12,11 +12,16 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../ai/sprite_brief_composer.dart';
 import '../ai/gemini_sprite_planner.dart';
+import '../ai/sprite_naming_suggester.dart';
+import '../ai/sprite_style_helper.dart';
 import '../config/runtime_config.dart';
 import '../lpc/lpc_catalog.dart';
+import '../lpc/lpc_consistency_checker.dart';
 import '../lpc/lpc_renderer.dart';
 import '../models/lpc_models.dart';
+import '../models/sprite_name_suggestions.dart';
 import '../models/sprite_plan.dart';
+import '../models/sprite_style_helper.dart';
 import '../persistence/history_repository.dart';
 import 'export_support.dart';
 
@@ -69,8 +74,11 @@ class StudioServer {
       ..get('/api/studio/bootstrap', _bootstrap)
       ..get('/api/lpc/catalog', _catalog)
       ..post('/api/lpc/render', _render)
+      ..post('/api/lpc/consistency', _consistency)
       ..post('/api/lpc/export', _export)
       ..post('/api/ai/brief', _brief)
+      ..post('/api/ai/naming', _naming)
+      ..post('/api/ai/style-helper', _styleHelper)
       ..get('/api/history', _history)
       ..post('/api/history/import', _importHistoryPackage)
       ..post('/api/history/save', _saveHistory)
@@ -261,6 +269,7 @@ class StudioServer {
       'animation': request.animation,
       'prompt': request.prompt,
       'selections': Map<String, String>.fromEntries(orderedSelections),
+      'recolorGroups': request.recolorGroups,
     });
   }
 
@@ -278,6 +287,17 @@ class StudioServer {
     } on StateError catch (error) {
       return _json(400, <String, Object>{'error': error.message});
     }
+  }
+
+  Future<Response> _consistency(Request request) async {
+    final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(
+      await request.readAsJson(),
+    );
+    final LpcConsistencyChecker checker = LpcConsistencyChecker(
+      catalog: catalog,
+    );
+    final LpcConsistencyReport report = checker.analyze(renderRequest);
+    return _json(200, report.toJson());
   }
 
   Future<Response> _export(Request request) async {
@@ -341,6 +361,9 @@ class StudioServer {
             selections:
                 (variant['selections'] as Map<String, String>? ??
                 baseRequest.selections),
+            recolorGroups:
+                (variant['recolorGroups'] as Map<String, String>? ??
+                baseRequest.recolorGroups),
           );
           final LpcRenderResult result = await _renderWithCache(renderRequest);
           final String baseName = isBatch
@@ -481,6 +504,95 @@ class StudioServer {
           .map((LpcItemDefinition item) => item.toJson())
           .toList(),
     });
+  }
+
+  Future<Response> _naming(Request request) async {
+    final Map<String, dynamic> payload = await request.readAsJson();
+    final String prompt = payload['prompt']?.toString().trim() ?? '';
+    final String animation = payload['animation']?.toString().trim() ?? 'idle';
+    final List<String> promptHistory =
+        (payload['promptHistory'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic entry) => entry.toString().trim())
+            .where((String entry) => entry.isNotEmpty)
+            .toList(growable: false);
+    final List<String> tags =
+        (payload['tags'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic entry) => entry.toString().trim())
+            .where((String entry) => entry.isNotEmpty)
+            .toList(growable: false);
+    final String notes = payload['notes']?.toString().trim() ?? '';
+    final int selectionCount = _asInt(payload['selectionCount']) ?? 0;
+
+    if (prompt.isEmpty && promptHistory.isEmpty && tags.isEmpty) {
+      return _json(400, <String, Object>{
+        'error': 'A prompt, saved prompt memory, or tags are required.',
+      });
+    }
+
+    final SpriteNamingSuggester suggester = SpriteNamingSuggester(
+      apiKey: config.hasGemini ? config.geminiApiKey : null,
+    );
+    final SpriteNamingSuggestions suggestions = await suggester.suggestNames(
+      prompt: prompt,
+      animation: animation,
+      promptHistory: promptHistory,
+      tags: tags,
+      notes: notes,
+      selectionCount: selectionCount,
+    );
+
+    return _json(200, suggestions.toJson());
+  }
+
+  Future<Response> _styleHelper(Request request) async {
+    final Map<String, dynamic> payload = await request.readAsJson();
+    final String prompt = payload['prompt']?.toString().trim() ?? '';
+    final String animation = payload['animation']?.toString().trim() ?? 'idle';
+    final List<String> promptHistory =
+        (payload['promptHistory'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic entry) => entry.toString().trim())
+            .where((String entry) => entry.isNotEmpty)
+            .toList(growable: false);
+    final List<String> tags =
+        (payload['tags'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic entry) => entry.toString().trim())
+            .where((String entry) => entry.isNotEmpty)
+            .toList(growable: false);
+    final String notes = payload['notes']?.toString().trim() ?? '';
+    final Map<String, String> selections =
+        (payload['selections'] as Map<dynamic, dynamic>? ?? <dynamic, dynamic>{})
+            .map(
+              (dynamic key, dynamic value) =>
+                  MapEntry(key.toString(), value.toString()),
+            );
+
+    final List<LpcItemDefinition> stagedItems = selections.keys
+        .map((String itemId) => catalog.itemsById[itemId])
+        .whereType<LpcItemDefinition>()
+        .toList(growable: false);
+
+    if (prompt.isEmpty &&
+        promptHistory.isEmpty &&
+        tags.isEmpty &&
+        stagedItems.isEmpty) {
+      return _json(400, <String, Object>{
+        'error': 'A prompt, tags, prompt memory, or staged layers are required.',
+      });
+    }
+
+    final SpriteStyleHelper helper = SpriteStyleHelper(
+      apiKey: config.hasGemini ? config.geminiApiKey : null,
+    );
+    final SpriteStyleHelperResult result = await helper.build(
+      prompt: prompt,
+      animation: animation,
+      promptHistory: promptHistory,
+      tags: tags,
+      notes: notes,
+      stagedItems: stagedItems,
+    );
+
+    return _json(200, result.toJson());
   }
 
   Future<Response> _history(Request request) async {
@@ -624,6 +736,11 @@ class StudioServer {
       'cropMode': exportSettings['cropMode']?.toString() ?? 'none',
       'pivotX': _asInt(exportSettings['pivotX']),
       'pivotY': _asInt(exportSettings['pivotY']),
+      'recolorGroups': exportSettings['recolorGroups'] is Map
+          ? Map<String, Object?>.from(
+              exportSettings['recolorGroups'] as Map<dynamic, dynamic>,
+            )
+          : <String, Object?>{},
     };
 
     final File imageFile = File(
@@ -693,12 +810,21 @@ class StudioServer {
                 ),
               )
             : fallbackRequest.selections;
+        final Map<String, String> recolorGroups = variant['recolorGroups'] is Map
+            ? Map<String, String>.from(
+                (variant['recolorGroups'] as Map<dynamic, dynamic>).map(
+                  (dynamic key, dynamic val) =>
+                      MapEntry(key.toString(), val.toString()),
+                ),
+              )
+            : fallbackRequest.recolorGroups;
         variants.add(<String, Object?>{
           'name': variant['name']?.toString() ?? fallbackName,
           'bodyType':
               variant['bodyType']?.toString() ?? fallbackRequest.bodyType,
           'prompt': variant['prompt']?.toString() ?? fallbackRequest.prompt,
           'selections': selections,
+          'recolorGroups': recolorGroups,
         });
       }
     }
@@ -709,6 +835,7 @@ class StudioServer {
         'bodyType': fallbackRequest.bodyType,
         'prompt': fallbackRequest.prompt,
         'selections': fallbackRequest.selections,
+        'recolorGroups': fallbackRequest.recolorGroups,
       });
     }
 

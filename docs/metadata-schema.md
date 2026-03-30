@@ -89,7 +89,7 @@ When exported with the Aseprite or generic preset options, this metadata is also
 
 SpriteCraft export bundles can also include companion credit files derived from `credits[]`, including structured `.credits.json`, human-readable `CREDITS.md`, and a condensed `LICENSES.txt` summary for shipping and internal asset tracking.
 
-## `spritecraft.render` v3
+## `spritecraft.render` v4
 
 Used by layered LPC render preview/export payloads.
 
@@ -106,7 +106,7 @@ Top-level fields:
 `schema`:
 
 - `name`: `spritecraft.render`
-- `version`: `2`
+- `version`: `4`
 
 `image`:
 
@@ -130,6 +130,7 @@ Top-level fields:
 - `animation`
 - `prompt`
 - `selections`
+- `recolorGroups`
 
 `export` is present on exported render payloads when export options were applied:
 
@@ -141,6 +142,7 @@ Top-level fields:
 - `cropMode`
 - `pivotX`
 - `pivotY`
+- `recolorGroups`
 
 `layers[]` are the resolved used layers for the render result.
 

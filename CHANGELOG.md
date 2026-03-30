@@ -1,3 +1,56 @@
+## 0.29.0 - 2026-03-30
+
+### Added
+
+- Added layer visibility controls in the Studio builder so staged layers can be muted or soloed without removing them from the working stack.
+- Made preview, build checks, and export respect the current visible layer set while still preserving the full staged project state for later refinement.
+
+## 0.28.0 - 2026-03-30
+
+### Added
+
+- Added editable preview guides in Studio with crop bounds, click-to-place pivot markers, and quick anchor presets for common LPC attachment points.
+- Turned the main workspace preview into a lightweight sprite-editing surface so export pivot placement can be adjusted visually before save or export.
+
+## 0.27.0 - 2026-03-30
+
+### Added
+
+- Added frame-aware preview tools with zoom levels, background modes, onion-skin display, and frame stepping for the current workspace and compare view.
+- Improved layered render metadata so preview consumers can infer practical frame layout for LPC animation strips when the sheet dimensions support it.
+
+## 0.26.0 - 2026-03-30
+
+### Added
+
+- Added controlled recolor workflows with semantic palette groups for body, cloth, leather, metal, and accent layers.
+- Added Studio recolor controls that affect live preview, saved workspace state, and export output through the Dart renderer.
+
+### Changed
+
+- Bumped `spritecraft.render` metadata to v4 so layered render/export payloads now record active recolor groups.
+
+## 0.25.0 - 2026-03-30
+
+### Added
+
+- Added AI-assisted style helpers with palette directions, reusable style tags, build guidance, and focused catalog queries for the current LPC workspace.
+- Added Studio apply actions so palette directions can be saved into notes, style tags can be merged into the workspace, and focused catalog searches can be launched directly from the helper panel.
+
+## 0.24.0 - 2026-03-30
+
+### Added
+
+- Added a typed LPC consistency checker that flags missing body-color anchors, incomplete animation support, duplicate layer types, and likely silhouette clutter.
+- Added a Studio build-check panel that evaluates the current staged workspace automatically and surfaces actionable warnings before save or export.
+
+## 0.23.0 - 2026-03-30
+
+### Added
+
+- Added AI-assisted naming suggestions for project names, animation/frame labels, and export stems in the Studio builder.
+- Added a dedicated naming suggestion endpoint with Gemini-backed suggestions and a practical local fallback so naming stays useful even without AI availability.
+
 ## 0.22.0 - 2026-03-30
 
 ### Added

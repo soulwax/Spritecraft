@@ -78,6 +78,25 @@ const renderPreviewSchema = z.object({
 
 export type SpriteCraftRenderPreview = z.infer<typeof renderPreviewSchema>;
 
+const consistencyIssueSchema = z.object({
+	severity: z.enum(["warning", "error"]).default("warning"),
+	code: z.string().default("consistency-issue"),
+	message: z.string().default(""),
+	itemId: z.string().nullable().optional(),
+	itemName: z.string().nullable().optional(),
+	suggestion: z.string().nullable().optional(),
+});
+
+const consistencyReportSchema = z.object({
+	summary: z.string().default(""),
+	hasBlockingIssues: z.boolean().default(false),
+	issues: z.array(consistencyIssueSchema).default([]),
+});
+
+export type SpriteCraftConsistencyReport = z.infer<
+	typeof consistencyReportSchema
+>;
+
 const briefPlanSchema = z.object({
 	concept: z.string().default(""),
 	styleTags: z.array(z.string()).default([]),
@@ -122,6 +141,11 @@ const briefPromptMemorySchema = z.object({
 	inferredTags: z.array(z.string()).default([]),
 });
 
+const namingOptionSchema = z.object({
+	value: z.string().default(""),
+	rationale: z.string().default(""),
+});
+
 const briefResponseSchema = z.object({
 	plan: briefPlanSchema.nullable().optional(),
 	promptMemory: briefPromptMemorySchema.nullable().optional(),
@@ -132,6 +156,33 @@ const briefResponseSchema = z.object({
 });
 
 export type SpriteCraftBriefResponse = z.infer<typeof briefResponseSchema>;
+
+const namingResponseSchema = z.object({
+	summary: z.string().default(""),
+	projectNames: z.array(namingOptionSchema).default([]),
+	animationLabels: z.array(namingOptionSchema).default([]),
+	exportStems: z.array(namingOptionSchema).default([]),
+});
+
+export type SpriteCraftNamingResponse = z.infer<typeof namingResponseSchema>;
+
+const stylePaletteSchema = z.object({
+	label: z.string().default(""),
+	swatches: z.array(z.string()).default([]),
+	rationale: z.string().default(""),
+});
+
+const styleHelperResponseSchema = z.object({
+	summary: z.string().default(""),
+	paletteDirections: z.array(stylePaletteSchema).default([]),
+	styleTags: z.array(z.string()).default([]),
+	guidance: z.array(z.string()).default([]),
+	focusQueries: z.array(z.string()).default([]),
+});
+
+export type SpriteCraftStyleHelperResponse = z.infer<
+	typeof styleHelperResponseSchema
+>;
 
 const exportResponseSchema = z.object({
 	imagePath: z.string(),
@@ -277,8 +328,27 @@ export async function renderSpriteCraftPreview(input: {
 	animation: string;
 	prompt?: string;
 	selections: Record<string, string>;
+	recolorGroups?: Record<string, string>;
 }) {
 	return fetchJson("/api/lpc/render", renderPreviewSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			bodyType: input.bodyType,
+			animation: input.animation,
+			prompt: input.prompt ?? "",
+			selections: input.selections,
+			recolorGroups: input.recolorGroups ?? {},
+		}),
+	});
+}
+
+export async function checkSpriteCraftConsistency(input: {
+	bodyType: string;
+	animation: string;
+	prompt?: string;
+	selections: Record<string, string>;
+}) {
+	return fetchJson("/api/lpc/consistency", consistencyReportSchema, {
 		method: "POST",
 		body: JSON.stringify({
 			bodyType: input.bodyType,
@@ -306,6 +376,48 @@ export async function briefSpriteCraftWorkspace(input: {
 			promptHistory: input.promptHistory ?? [],
 			tags: input.tags ?? [],
 			notes: input.notes ?? "",
+		}),
+	});
+}
+
+export async function suggestSpriteCraftNames(input: {
+	prompt: string;
+	animation?: string;
+	promptHistory?: string[];
+	tags?: string[];
+	notes?: string;
+	selectionCount?: number;
+}) {
+	return fetchJson("/api/ai/naming", namingResponseSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			prompt: input.prompt,
+			animation: input.animation ?? "idle",
+			promptHistory: input.promptHistory ?? [],
+			tags: input.tags ?? [],
+			notes: input.notes ?? "",
+			selectionCount: input.selectionCount ?? 0,
+		}),
+	});
+}
+
+export async function suggestSpriteCraftStyle(input: {
+	prompt: string;
+	animation?: string;
+	promptHistory?: string[];
+	tags?: string[];
+	notes?: string;
+	selections?: Record<string, string>;
+}) {
+	return fetchJson("/api/ai/style-helper", styleHelperResponseSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			prompt: input.prompt,
+			animation: input.animation ?? "idle",
+			promptHistory: input.promptHistory ?? [],
+			tags: input.tags ?? [],
+			notes: input.notes ?? "",
+			selections: input.selections ?? {},
 		}),
 	});
 }

@@ -36,12 +36,16 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
+import { SpriteFramePreview } from "~/app/_components/sprite-frame-preview";
 import type {
   SpriteCraftBriefResponse,
   SpriteCraftCatalogItem,
+  SpriteCraftConsistencyReport,
   SpriteCraftExportResponse,
+  SpriteCraftNamingResponse,
   SpriteCraftProjectSummary,
   SpriteCraftRenderPreview,
+  SpriteCraftStyleHelperResponse,
 } from "~/server/spritecraft-backend";
 
 type CatalogScoutProps = {
@@ -67,6 +71,7 @@ const defaultExportSettings = {
   cropMode: "none",
   pivotX: null as number | null,
   pivotY: null as number | null,
+  recolorGroups: {} as Record<string, string>,
 };
 
 export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
@@ -88,6 +93,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [activeStagedItemId, setActiveStagedItemId] = useState<string | null>(
     null,
   );
+  const [mutedItemIds, setMutedItemIds] = useState<string[]>([]);
+  const [soloItemId, setSoloItemId] = useState<string | null>(null);
   const [workspaceEnginePreset, setWorkspaceEnginePreset] = useState("none");
   const [workspaceExportSettings, setWorkspaceExportSettings] = useState(
     defaultExportSettings,
@@ -115,6 +122,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     "idle" | "loading" | "error"
   >("idle");
   const [previewError, setPreviewError] = useState("");
+  const [consistencyStatus, setConsistencyStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [consistencyReport, setConsistencyReport] =
+    useState<SpriteCraftConsistencyReport | null>(null);
+  const [consistencyError, setConsistencyError] = useState("");
   const [workspacePresets, setWorkspacePresets] = useState<
     CatalogWorkspaceDraft[]
   >([]);
@@ -144,6 +157,18 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     null,
   );
   const [briefError, setBriefError] = useState("");
+  const [namingStatus, setNamingStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [namingResult, setNamingResult] =
+    useState<SpriteCraftNamingResponse | null>(null);
+  const [namingError, setNamingError] = useState("");
+  const [styleHelperStatus, setStyleHelperStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [styleHelperResult, setStyleHelperResult] =
+    useState<SpriteCraftStyleHelperResponse | null>(null);
+  const [styleHelperError, setStyleHelperError] = useState("");
   const [exportStatus, setExportStatus] = useState<
     "idle" | "loading" | "error"
   >("idle");
@@ -165,6 +190,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setActiveStagedItemId(
       Object.keys(draft.stagedSelections)[0] ?? draft.activeStagedItemId ?? null,
     );
+    setMutedItemIds(draft.mutedItemIds);
+    setSoloItemId(draft.soloItemId);
     setWorkspaceEnginePreset(draft.enginePreset);
     setWorkspaceExportSettings(draft.exportSettings);
     setBatchAnimationsText(draft.batchAnimations.join(", "));
@@ -494,7 +521,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   ]);
 
   useEffect(() => {
-    if (!Object.keys(stagedSelections).length) {
+    if (!Object.keys(effectiveSelections).length) {
       setPreview(null);
       setPreviewStatus("idle");
       setPreviewError("");
@@ -517,7 +544,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             bodyType,
             animation,
             prompt: query,
-            selections: stagedSelections,
+            selections: effectiveSelections,
+            recolorGroups: workspaceExportSettings.recolorGroups,
           }),
           cache: "no-store",
         });
@@ -554,7 +582,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     return () => {
       cancelled = true;
     };
-  }, [animation, bodyType, query, stagedSelections]);
+  }, [animation, bodyType, effectiveSelections, query, workspaceExportSettings.recolorGroups]);
 
   useEffect(() => {
     if (!comparedProject || !Object.keys(comparedProject.selections).length) {
@@ -581,6 +609,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             animation: comparedProject.animation,
             prompt: comparedProject.prompt ?? "",
             selections: comparedProject.selections,
+            recolorGroups:
+              (comparedProject.exportSettings?.recolorGroups as Record<
+                string,
+                string
+              > | undefined) ?? {},
           }),
           cache: "no-store",
         });
@@ -618,6 +651,69 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       cancelled = true;
     };
   }, [comparedProject]);
+
+  useEffect(() => {
+    if (!Object.keys(effectiveSelections).length) {
+      setConsistencyReport(null);
+      setConsistencyStatus("idle");
+      setConsistencyError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadConsistency() {
+      setConsistencyStatus("loading");
+      setConsistencyError("");
+
+      try {
+        const response = await fetch("/api/spritecraft/consistency", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            bodyType,
+            animation,
+            prompt: query,
+            selections: effectiveSelections,
+          }),
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as SpriteCraftConsistencyReport & {
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(
+            payload.error ??
+              "SpriteCraft Studio could not check the current build consistency.",
+          );
+        }
+        if (cancelled) {
+          return;
+        }
+        setConsistencyReport(payload);
+        setConsistencyStatus("idle");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setConsistencyReport(null);
+        setConsistencyStatus("error");
+        setConsistencyError(
+          error instanceof Error
+            ? error.message
+            : "SpriteCraft Studio could not check the current build consistency.",
+        );
+      }
+    }
+
+    void loadConsistency();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [animation, bodyType, effectiveSelections, query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -691,6 +787,22 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const stagedItems = useMemo(
     () => items.filter((item) => Object.hasOwn(stagedSelections, item.id)),
     [items, stagedSelections],
+  );
+
+  const effectiveSelections = useMemo(() => {
+    if (soloItemId && stagedSelections[soloItemId]) {
+      return { [soloItemId]: stagedSelections[soloItemId] };
+    }
+
+    const mutedIds = new Set(mutedItemIds);
+    return Object.fromEntries(
+      Object.entries(stagedSelections).filter(([itemId]) => !mutedIds.has(itemId)),
+    );
+  }, [mutedItemIds, soloItemId, stagedSelections]);
+
+  const visibleStagedItemIds = useMemo(
+    () => Object.keys(effectiveSelections),
+    [effectiveSelections],
   );
 
   const activeStagedItem =
@@ -784,6 +896,15 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       setActiveStagedItemId(stagedItems[0]?.id ?? null);
     }
   }, [activeStagedItemId, stagedItems]);
+
+  useEffect(() => {
+    setMutedItemIds((current) =>
+      current.filter((itemId) => Object.hasOwn(stagedSelections, itemId)),
+    );
+    setSoloItemId((current) =>
+      current && Object.hasOwn(stagedSelections, current) ? current : null,
+    );
+  }, [stagedSelections]);
 
   const visibleItems = useMemo(() => {
     const filtered = items.filter((item) => {
@@ -997,6 +1118,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setTag("all");
     setStagedSelections({});
     setVariantChoices({});
+    setMutedItemIds([]);
+    setSoloItemId(null);
     try {
       window.localStorage.removeItem(workspaceStorageKey);
     } catch (error) {
@@ -1018,6 +1141,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       replaceByType,
       activeTypeFocus,
       activeStagedItemId,
+      mutedItemIds,
+      soloItemId,
       enginePreset: workspaceEnginePreset,
       exportSettings: workspaceExportSettings,
       batchAnimations: batchAnimationsText
@@ -1148,10 +1273,10 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   }
 
   async function exportWorkspace() {
-    if (!Object.keys(stagedSelections).length) {
+    if (!Object.keys(effectiveSelections).length) {
       setWorkspaceFeedback({
         tone: "warning",
-        message: "Stage at least one layer before exporting.",
+        message: "Keep at least one layer visible before exporting.",
       });
       return;
     }
@@ -1183,19 +1308,22 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               name: workspaceName.trim() || "Current Workspace",
               bodyType,
               prompt: query.trim(),
-              selections: stagedSelections,
+              selections: effectiveSelections,
+              recolorGroups: workspaceExportSettings.recolorGroups,
             },
             ...selectedVariantPresets.map((preset) => ({
               name: preset.name,
               bodyType: preset.bodyType,
               prompt: preset.query,
               selections: preset.stagedSelections,
+              recolorGroups: preset.exportSettings.recolorGroups,
             })),
           ],
           bodyType,
           animation,
           prompt: query.trim(),
-          selections: stagedSelections,
+          selections: effectiveSelections,
+          recolorGroups: workspaceExportSettings.recolorGroups,
         }),
       });
       const payload = (await response.json()) as SpriteCraftExportResponse & {
@@ -1223,6 +1351,230 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           : "SpriteCraft Studio could not export the workspace.",
       );
     }
+  }
+
+  async function runAiNaming() {
+    const prompt = query.trim();
+    if (!prompt && !promptHistory.length && !workspaceTags.length) {
+      setWorkspaceFeedback({
+        tone: "warning",
+        message:
+          "Write a brief, save prompt memory, or add tags before asking for naming help.",
+      });
+      return;
+    }
+
+    setNamingStatus("loading");
+    setNamingError("");
+    setNamingResult(null);
+
+    try {
+      const response = await fetch("/api/spritecraft/naming", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          animation,
+          promptHistory,
+          tags: workspaceTags,
+          notes: workspaceNotes,
+          selectionCount: Object.keys(effectiveSelections).length,
+        }),
+      });
+      const payload = (await response.json()) as SpriteCraftNamingResponse & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(
+          payload.error ??
+            "SpriteCraft Studio could not create naming suggestions.",
+        );
+      }
+
+      setNamingResult(payload);
+      setNamingStatus("idle");
+      if (prompt) {
+        commitPromptHistory(prompt);
+      }
+    } catch (error) {
+      setNamingStatus("error");
+      setNamingError(
+        error instanceof Error
+          ? error.message
+          : "SpriteCraft Studio could not create naming suggestions.",
+      );
+    }
+  }
+
+  function applySuggestedProjectName(value: string) {
+    setWorkspaceName(value);
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Applied AI project name: ${value}.`,
+    });
+  }
+
+  function applySuggestedAnimationLabel(value: string) {
+    setWorkspaceExportSettings((current) => ({
+      ...current,
+      frameNamePrefix: value,
+    }));
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Applied AI animation label to frame prefix: ${value}.`,
+    });
+  }
+
+  function applySuggestedExportStem(value: string) {
+    setWorkspaceExportSettings((current) => ({
+      ...current,
+      customStem: value,
+    }));
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Applied AI export stem: ${value}.`,
+    });
+  }
+
+  async function runAiStyleHelper() {
+    const prompt = query.trim();
+    if (
+      !prompt &&
+      !promptHistory.length &&
+      !workspaceTags.length &&
+      !Object.keys(effectiveSelections).length
+    ) {
+      setWorkspaceFeedback({
+        tone: "warning",
+        message:
+          "Write a brief, save prompt memory, add tags, or stage layers before asking for style help.",
+      });
+      return;
+    }
+
+    setStyleHelperStatus("loading");
+    setStyleHelperError("");
+    setStyleHelperResult(null);
+
+    try {
+      const response = await fetch("/api/spritecraft/style-helper", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          animation,
+          promptHistory,
+          tags: workspaceTags,
+          notes: workspaceNotes,
+          selections: effectiveSelections,
+        }),
+      });
+      const payload = (await response.json()) as SpriteCraftStyleHelperResponse & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(
+          payload.error ??
+            "SpriteCraft Studio could not create style helper suggestions.",
+        );
+      }
+
+      setStyleHelperResult(payload);
+      setStyleHelperStatus("idle");
+      if (prompt) {
+        commitPromptHistory(prompt);
+      }
+    } catch (error) {
+      setStyleHelperStatus("error");
+      setStyleHelperError(
+        error instanceof Error
+          ? error.message
+          : "SpriteCraft Studio could not create style helper suggestions.",
+      );
+    }
+  }
+
+  function applyStyleTags(nextTags: string[]) {
+    setWorkspaceTags((current) =>
+      Array.from(new Set([...current, ...nextTags.map((entry) => entry.trim())]))
+        .filter(Boolean)
+        .slice(0, 12),
+    );
+    setWorkspaceFeedback({
+      tone: "success",
+      message: "Applied AI style tags to the current workspace.",
+    });
+  }
+
+  function applyStyleFocusQuery(nextQuery: string) {
+    setQuery(nextQuery);
+    setCategory("all");
+    setTag("all");
+    setActiveTypeFocus(null);
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Focused the catalog on AI style query: ${nextQuery}.`,
+    });
+  }
+
+  function applyPaletteDirection(label: string, swatches: string[]) {
+    const paletteNote = `${label}: ${swatches.join(", ")}`;
+    setWorkspaceNotes((current) => {
+      if (!current.trim()) {
+        return paletteNote;
+      }
+      if (current.includes(paletteNote)) {
+        return current;
+      }
+      return `${current.trim()}\n${paletteNote}`;
+    });
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Added ${label} palette direction to workspace notes.`,
+    });
+  }
+
+  function updateRecolorGroup(group: string, value: string) {
+    setWorkspaceExportSettings((current) => {
+      const nextGroups = { ...current.recolorGroups };
+      if (!value.trim()) {
+        delete nextGroups[group];
+      } else {
+        nextGroups[group] = value;
+      }
+      return {
+        ...current,
+        recolorGroups: nextGroups,
+      };
+    });
+  }
+
+  function updatePreviewPivot(nextPivot: { x: number; y: number }) {
+    setWorkspaceExportSettings((current) => ({
+      ...current,
+      pivotX: nextPivot.x,
+      pivotY: nextPivot.y,
+    }));
+    setWorkspaceFeedback({
+      tone: "success",
+      message: `Placed export pivot at ${nextPivot.x}, ${nextPivot.y}.`,
+    });
+  }
+
+  function toggleMutedItem(itemId: string) {
+    setMutedItemIds((current) =>
+      current.includes(itemId)
+        ? current.filter((entry) => entry !== itemId)
+        : [...current, itemId],
+    );
+  }
+
+  function toggleSoloItem(itemId: string) {
+    setSoloItemId((current) => (current === itemId ? null : itemId));
   }
 
   async function saveWorkspaceProject(mode: "fresh" | "version") {
@@ -1280,6 +1632,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             category,
             animationFilter: "current",
             tagFilter: tag,
+            recolorGroups: workspaceExportSettings.recolorGroups,
+            mutedItemIds,
+            soloItemId,
             source: "studio-workspace",
             sourceProjectId,
             versionMode: mode,
@@ -2117,7 +2472,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               </div>
             </div>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+              <div>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
@@ -2135,21 +2490,13 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                         : "Idle"}
                   </Badge>
                 </div>
-                <div className="grid min-h-56 place-items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-4">
-                  {preview ? (
-                    <img
-                      alt="Current workspace render"
-                      className="max-h-56 w-auto max-w-full [image-rendering:pixelated]"
-                      src={`data:image/png;base64,${preview.imageBase64}`}
-                    />
-                  ) : (
-                    <p className="text-sm text-[color:var(--muted-foreground)]">
-                      No current render available.
-                    </p>
-                  )}
-                </div>
+                <SpriteFramePreview
+                  emptyMessage="No current render available."
+                  preview={preview}
+                  title="Current Render"
+                />
               </div>
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+              <div>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
@@ -2167,19 +2514,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                         : "Idle"}
                   </Badge>
                 </div>
-                <div className="grid min-h-56 place-items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-4">
-                  {comparedPreview ? (
-                    <img
-                      alt="Compared version render"
-                      className="max-h-56 w-auto max-w-full [image-rendering:pixelated]"
-                      src={`data:image/png;base64,${comparedPreview.imageBase64}`}
-                    />
-                  ) : (
-                    <p className="text-sm text-[color:var(--muted-foreground)]">
-                      No compared render available.
-                    </p>
-                  )}
-                </div>
+                <SpriteFramePreview
+                  emptyMessage="No compared render available."
+                  preview={comparedPreview}
+                  title="Compared Render"
+                />
                 {comparedPreviewError ? (
                   <p className="mt-3 text-sm text-[color:var(--destructive)]">
                     {comparedPreviewError}
@@ -2225,7 +2564,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
               Staged layers
             </p>
-            <p className="mt-2 text-lg font-semibold">{stagedItems.length}</p>
+            <p className="mt-2 text-lg font-semibold">
+              {visibleStagedItemIds.length} / {stagedItems.length}
+            </p>
           </div>
         </div>
 
@@ -2284,12 +2625,19 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               </h3>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge>{stagedItems.length} staged</Badge>
+              <Badge>
+                {visibleStagedItemIds.length} visible / {stagedItems.length} staged
+              </Badge>
               <Badge variant={replaceByType ? "warning" : "default"}>
                 {replaceByType ? "type replace on" : "stack freely"}
               </Badge>
             </div>
           </div>
+          <p className="mb-4 text-sm text-[color:var(--muted-foreground)]">
+            Mute layers to hide them from preview, build checks, and export.
+            Solo temporarily isolates one staged layer without removing the rest
+            of your stack.
+          </p>
           {(workspaceTags.length || workspaceNotes.trim() || sourceProjectLabel) ? (
             <div className="mb-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
               {sourceProjectLabel ? (
@@ -2313,6 +2661,78 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                   ))}
                 </div>
               ) : null}
+            </div>
+          ) : null}
+          {consistencyReport ? (
+            <div className="mb-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                    Build Check
+                  </p>
+                  <h4 className="mt-2 text-base font-semibold">
+                    Workspace consistency
+                  </h4>
+                </div>
+                <Badge
+                  variant={
+                    consistencyReport.hasBlockingIssues
+                      ? "destructive"
+                      : consistencyReport.issues.length
+                        ? "warning"
+                        : "success"
+                  }
+                >
+                  {consistencyReport.hasBlockingIssues
+                    ? "blocking issues"
+                    : consistencyReport.issues.length
+                      ? "warnings found"
+                      : "looks clean"}
+                </Badge>
+              </div>
+              <p className="text-sm text-[color:var(--muted-foreground)]">
+                {consistencyReport.summary}
+              </p>
+              {consistencyReport.issues.length ? (
+                <div className="mt-4 grid gap-3">
+                  {consistencyReport.issues.map((issue, index) => (
+                    <div
+                      className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3"
+                      key={`${issue.code}-${issue.itemId ?? "global"}-${index + 1}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-[color:var(--foreground)]">
+                          {issue.itemName ?? "Workspace issue"}
+                        </p>
+                        <Badge
+                          variant={
+                            issue.severity === "error" ? "destructive" : "warning"
+                          }
+                        >
+                          {issue.severity}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-sm text-[color:var(--muted-foreground)]">
+                        {issue.message}
+                      </p>
+                      {issue.suggestion ? (
+                        <p className="mt-2 text-xs text-[color:var(--muted-foreground)]">
+                          {issue.suggestion}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : consistencyStatus === "loading" ? (
+            <div className="mb-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4 text-sm text-[color:var(--muted-foreground)]">
+              Checking the current staged build for animation coverage, palette fit, and likely overlap.
+            </div>
+          ) : null}
+          {consistencyError ? (
+            <div className="mb-4 rounded-2xl border border-[color:var(--destructive)]/40 bg-[color:var(--background)]/20 p-4 text-sm text-[color:var(--destructive)]">
+              {consistencyError}
             </div>
           ) : null}
           {activeStagedItem ? (
@@ -2445,9 +2865,17 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                         {item.typeName} · {item.category}
                       </p>
                     </div>
-                    <Badge>{stagedSelections[item.id]}</Badge>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {soloItemId === item.id ? <Badge>Solo</Badge> : null}
+                      {mutedItemIds.includes(item.id) ? (
+                        <Badge variant="warning">Muted</Badge>
+                      ) : visibleStagedItemIds.includes(item.id) ? (
+                        <Badge variant="success">Visible</Badge>
+                      ) : null}
+                      <Badge>{stagedSelections[item.id]}</Badge>
+                    </div>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto_auto]">
                     <Select
                       onChange={(event) => {
                         updateVariantChoice(item.id, event.target.value);
@@ -2486,6 +2914,20 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                       Down
                     </Button>
                     <Button
+                      onClick={() => toggleMutedItem(item.id)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      {mutedItemIds.includes(item.id) ? "Unmute" : "Mute"}
+                    </Button>
+                    <Button
+                      onClick={() => toggleSoloItem(item.id)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      {soloItemId === item.id ? "Unsolo" : "Solo"}
+                    </Button>
+                    <Button
                       onClick={() => unstageItem(item.id)}
                       type="button"
                       variant="secondary"
@@ -2519,39 +2961,16 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
-                  Workspace Preview
-                </p>
-                <h3 className="mt-2 text-lg font-semibold">
-                  Live render glimpse
-                </h3>
-              </div>
-              <Badge>
-                {previewStatus === "loading"
-                  ? "Rendering"
-                  : previewStatus === "error"
-                    ? "Needs attention"
-                    : preview
-                      ? `${preview.width} x ${preview.height}`
-                      : "Idle"}
-              </Badge>
-            </div>
-            <div className="grid min-h-64 place-items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/40 p-4">
-              {preview ? (
-                <img
-                  alt="SpriteCraft workspace preview"
-                  className="max-h-64 w-auto max-w-full [image-rendering:pixelated]"
-                  src={`data:image/png;base64,${preview.imageBase64}`}
-                />
-              ) : (
-                <p className="text-sm text-[color:var(--muted-foreground)]">
-                  Stage some layers to render a workspace preview here.
-                </p>
-              )}
-            </div>
+          <div>
+            <SpriteFramePreview
+              editable
+              emptyMessage="Stage some layers to render a workspace preview here."
+              onPivotChange={updatePreviewPivot}
+              pivotX={workspaceExportSettings.pivotX}
+              pivotY={workspaceExportSettings.pivotY}
+              preview={preview}
+              title="Workspace Preview"
+            />
             {previewError ? (
               <p className="mt-3 text-sm text-[color:var(--destructive)]">
                 {previewError}
@@ -2608,24 +3027,40 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                   Web-side guidance
                 </h3>
               </div>
-              <Button onClick={() => void runAiBrief()} type="button">
-                <Sparkles className="mr-2 size-4" />
-                {briefStatus === "loading" ? "Thinking..." : "Run AI Brief"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => void runAiStyleHelper()}
+                  type="button"
+                  variant="secondary"
+                >
+                  <Sparkles className="mr-2 size-4" />
+                  {styleHelperStatus === "loading" ? "Styling..." : "Suggest Style"}
+                </Button>
+                <Button onClick={() => void runAiNaming()} type="button" variant="secondary">
+                  <Sparkles className="mr-2 size-4" />
+                  {namingStatus === "loading" ? "Naming..." : "Suggest Names"}
+                </Button>
+                <Button onClick={() => void runAiBrief()} type="button">
+                  <Sparkles className="mr-2 size-4" />
+                  {briefStatus === "loading" ? "Thinking..." : "Run AI Brief"}
+                </Button>
+              </div>
             </div>
-            {briefResult?.plan ? (
+            {briefResult?.plan || namingResult ? (
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-4">
-                <p className="text-sm font-medium text-[color:var(--foreground)]">
-                  {briefResult.plan.concept || "AI concept ready"}
-                </p>
-                {briefResult.plan.styleTags?.length ? (
+                {briefResult?.plan ? (
+                  <p className="text-sm font-medium text-[color:var(--foreground)]">
+                    {briefResult.plan.concept || "AI concept ready"}
+                  </p>
+                ) : null}
+                {briefResult?.plan?.styleTags?.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {briefResult.plan.styleTags.map((entry) => (
                       <Badge key={`style-${entry}`}>{entry}</Badge>
                     ))}
                   </div>
                 ) : null}
-                {briefResult.plan.framePrompts?.length ? (
+                {briefResult?.plan?.framePrompts?.length ? (
                   <ul className="mt-3 space-y-2 text-sm text-[color:var(--muted-foreground)]">
                     {briefResult.plan.framePrompts.slice(0, 5).map((entry) => (
                       <li key={`frame-${entry}`}>{entry}</li>
@@ -2671,6 +3106,216 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                         ))}
                       </div>
                     ) : null}
+                  </div>
+                ) : null}
+                {styleHelperResult ? (
+                  <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted-foreground)]">
+                          Style Helper
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted-foreground)]">
+                          {styleHelperResult.summary}
+                        </p>
+                      </div>
+                      <Badge>
+                        {styleHelperResult.paletteDirections.length} palette
+                        {styleHelperResult.paletteDirections.length === 1 ? "" : "s"}
+                      </Badge>
+                    </div>
+                    {styleHelperResult.paletteDirections.length ? (
+                      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                        {styleHelperResult.paletteDirections.map((palette) => (
+                          <div
+                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3"
+                            key={`style-palette-${palette.label}`}
+                          >
+                            <p className="text-sm font-medium text-[color:var(--foreground)]">
+                              {palette.label}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {palette.swatches.map((swatch) => (
+                                <Badge key={`${palette.label}-${swatch}`}>
+                                  {swatch}
+                                </Badge>
+                              ))}
+                            </div>
+                            <p className="mt-2 text-xs text-[color:var(--muted-foreground)]">
+                              {palette.rationale}
+                            </p>
+                            <div className="mt-3">
+                              <Button
+                                onClick={() =>
+                                  applyPaletteDirection(
+                                    palette.label,
+                                    palette.swatches,
+                                  )
+                                }
+                                type="button"
+                                variant="secondary"
+                              >
+                                Add to Notes
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                      <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                            Style Tags
+                          </p>
+                          {styleHelperResult.styleTags.length ? (
+                            <Button
+                              onClick={() =>
+                                applyStyleTags(styleHelperResult.styleTags)
+                              }
+                              type="button"
+                              variant="secondary"
+                            >
+                              Use Tags
+                            </Button>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {styleHelperResult.styleTags.map((entry) => (
+                            <Badge key={`style-tag-${entry}`}>{entry}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+                        <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                          Guidance
+                        </p>
+                        <ul className="mt-3 space-y-2 text-sm text-[color:var(--muted-foreground)]">
+                          {styleHelperResult.guidance.map((entry) => (
+                            <li key={`style-guidance-${entry}`}>{entry}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    {styleHelperResult.focusQueries.length ? (
+                      <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+                        <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                          Focus Queries
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {styleHelperResult.focusQueries.map((entry) => (
+                            <Button
+                              key={`style-focus-${entry}`}
+                              onClick={() => applyStyleFocusQuery(entry)}
+                              type="button"
+                              variant="secondary"
+                            >
+                              {entry}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {namingResult ? (
+                  <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted-foreground)]">
+                          AI Naming
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted-foreground)]">
+                          {namingResult.summary}
+                        </p>
+                      </div>
+                      <Badge>
+                        {namingResult.projectNames.length + namingResult.exportStems.length} options
+                      </Badge>
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                      <div className="space-y-2">
+                        <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                          Project Names
+                        </p>
+                        {namingResult.projectNames.map((option) => (
+                          <div
+                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3"
+                            key={`project-name-${option.value}`}
+                          >
+                            <p className="text-sm font-medium text-[color:var(--foreground)]">
+                              {option.value}
+                            </p>
+                            <p className="mt-1 text-xs text-[color:var(--muted-foreground)]">
+                              {option.rationale}
+                            </p>
+                            <div className="mt-3">
+                              <Button
+                                onClick={() => applySuggestedProjectName(option.value)}
+                                type="button"
+                                variant="secondary"
+                              >
+                                Use for Project
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                          Animation Labels
+                        </p>
+                        {namingResult.animationLabels.map((option) => (
+                          <div
+                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3"
+                            key={`animation-label-${option.value}`}
+                          >
+                            <p className="text-sm font-medium text-[color:var(--foreground)]">
+                              {option.value}
+                            </p>
+                            <p className="mt-1 text-xs text-[color:var(--muted-foreground)]">
+                              {option.rationale}
+                            </p>
+                            <div className="mt-3">
+                              <Button
+                                onClick={() => applySuggestedAnimationLabel(option.value)}
+                                type="button"
+                                variant="secondary"
+                              >
+                                Use for Frames
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                          Export Stems
+                        </p>
+                        {namingResult.exportStems.map((option) => (
+                          <div
+                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3"
+                            key={`export-stem-${option.value}`}
+                          >
+                            <p className="text-sm font-medium text-[color:var(--foreground)]">
+                              {option.value}
+                            </p>
+                            <p className="mt-1 text-xs text-[color:var(--muted-foreground)]">
+                              {option.rationale}
+                            </p>
+                            <div className="mt-3">
+                              <Button
+                                onClick={() => applySuggestedExportStem(option.value)}
+                                type="button"
+                                variant="secondary"
+                              >
+                                Use for Export
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 ) : null}
                 {briefResult.candidateBuild ? (
@@ -2821,8 +3466,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               </div>
             ) : (
               <p className="text-sm text-[color:var(--muted-foreground)]">
-                Use the current workspace brief to get a coherent build path and
-                recommended items inside the web app.
+                Use the current workspace brief to get a coherent build path,
+                naming suggestions, and recommended items inside the web app.
               </p>
             )}
             {briefResult?.recommendations?.length ? (
@@ -2855,6 +3500,16 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             {briefError ? (
               <p className="mt-3 text-sm text-[color:var(--destructive)]">
                 {briefError}
+              </p>
+            ) : null}
+            {namingError ? (
+              <p className="mt-3 text-sm text-[color:var(--destructive)]">
+                {namingError}
+              </p>
+            ) : null}
+            {styleHelperError ? (
+              <p className="mt-3 text-sm text-[color:var(--destructive)]">
+                {styleHelperError}
               </p>
             ) : null}
           </div>
@@ -2971,6 +3626,55 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 type="number"
                 value={workspaceExportSettings.pivotY?.toString() ?? ""}
               />
+            </div>
+            <div className="mb-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                    Controlled Recolor
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-foreground)]">
+                    Apply semantic palette overrides to body, cloth, leather, metal, and accent groups.
+                  </p>
+                </div>
+                <Badge>
+                  {Object.keys(workspaceExportSettings.recolorGroups).length} active
+                </Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {["body", "cloth", "leather", "metal", "accent"].map((group) => (
+                  <label
+                    className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3"
+                    key={`recolor-${group}`}
+                  >
+                    <span className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                      {group}
+                    </span>
+                    <div className="mt-3 flex items-center gap-3">
+                      <input
+                        onChange={(event) =>
+                          updateRecolorGroup(group, event.target.value)
+                        }
+                        type="color"
+                        value={
+                          workspaceExportSettings.recolorGroups[group] ?? "#ffffff"
+                        }
+                      />
+                      <Button
+                        onClick={() => updateRecolorGroup(group, "")}
+                        type="button"
+                        variant="secondary"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-xs text-[color:var(--muted-foreground)]">
+                      {workspaceExportSettings.recolorGroups[group] ??
+                        "No override"}
+                    </p>
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="mb-4 grid gap-3">
               <Input
