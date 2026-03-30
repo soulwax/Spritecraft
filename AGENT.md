@@ -9,6 +9,9 @@ This repository is `SpriteCraft`, a Dart-first spritesheet generator with:
 - Neon/Postgres-backed history storage
 - an LPC asset/definition submodule at `lpc-spritesheet-creator`
 
+The OVERARCHING theme is a smart, AI-assisted, low effort workflow for creating game-ready spritesheets, with a focus on layered LPC-style character composition.
+It's a kind of clone of the LPC Asset Creator but in Dart, with a more explicit focus on export quality and AI assistance.
+
 Use this file as the primary AI navigation guide for the repo.
 
 ## Fast Start

@@ -80,7 +80,7 @@ What the backend + web app do together:
 - asks Gemini for a structured sprite brief with ordered build steps, category-level picks, candidate builds, prompt-memory consistency cues, naming suggestions, build checks, style helpers, and matched layer recommendations
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
-- gives the Studio builder frame-aware preview tools such as background switching, zoom, onion-skin stepping, crop guides, visual pivot placement, and non-destructive mute/solo layer control
+- gives the Studio builder frame-aware preview tools such as background switching, zoom, onion-skin stepping, crop guides, visual pivot placement, non-destructive mute/solo layer control, animation strip playback with FPS control, per-frame snapshot diffing, and custom local PNG overlays above the LPC stack
 - exports matched PNG, JSON, zip bundles, and engine companion files such as native Godot `SpriteFrames` `.tres` resources, Unity importer-ready slicing metadata, and Aseprite/generic JSON companions
 - powers the full `studio` builder workflow
 

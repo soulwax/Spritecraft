@@ -270,6 +270,9 @@ class StudioServer {
       'prompt': request.prompt,
       'selections': Map<String, String>.fromEntries(orderedSelections),
       'recolorGroups': request.recolorGroups,
+      'externalLayers': request.externalLayers
+          .map((ExternalRenderLayer layer) => layer.toJson())
+          .toList(),
     });
   }
 
@@ -364,6 +367,9 @@ class StudioServer {
             recolorGroups:
                 (variant['recolorGroups'] as Map<String, String>? ??
                 baseRequest.recolorGroups),
+            externalLayers:
+                (variant['externalLayers'] as List<ExternalRenderLayer>? ??
+                baseRequest.externalLayers),
           );
           final LpcRenderResult result = await _renderWithCache(renderRequest);
           final String baseName = isBatch
@@ -818,6 +824,17 @@ class StudioServer {
                 ),
               )
             : fallbackRequest.recolorGroups;
+        final List<ExternalRenderLayer> externalLayers =
+            variant['externalLayers'] is List
+            ? (variant['externalLayers'] as List<dynamic>)
+                  .whereType<Map<dynamic, dynamic>>()
+                  .map(
+                    (Map<dynamic, dynamic> entry) => ExternalRenderLayer.fromJson(
+                      Map<String, dynamic>.from(entry),
+                    ),
+                  )
+                  .toList()
+            : fallbackRequest.externalLayers;
         variants.add(<String, Object?>{
           'name': variant['name']?.toString() ?? fallbackName,
           'bodyType':
@@ -825,6 +842,7 @@ class StudioServer {
           'prompt': variant['prompt']?.toString() ?? fallbackRequest.prompt,
           'selections': selections,
           'recolorGroups': recolorGroups,
+          'externalLayers': externalLayers,
         });
       }
     }
@@ -836,6 +854,7 @@ class StudioServer {
         'prompt': fallbackRequest.prompt,
         'selections': fallbackRequest.selections,
         'recolorGroups': fallbackRequest.recolorGroups,
+        'externalLayers': fallbackRequest.externalLayers,
       });
     }
 

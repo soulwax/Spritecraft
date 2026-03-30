@@ -18,6 +18,8 @@ void main() {
         rows: 2,
         imagePath: 'build/sheet.png',
         metadataPath: 'build/sheet.json',
+        layoutMode: 'uniform-grid',
+        animations: const <SpritesheetAnimationSequence>[],
         frames: const <SpriteFramePlacement>[
           SpriteFramePlacement(
             name: 'idle_0',
@@ -37,11 +39,16 @@ void main() {
             offsetY: 0,
             sourceWidth: 16,
             sourceHeight: 16,
+            durationMs: 100,
+            pivotX: 0,
+            pivotY: 0,
+            tags: <String>[],
           ),
         ],
       );
 
-      const String expected = '{\n'
+      const String expected =
+          '{\n'
           '  "schema": {\n'
           '    "name": "spritecraft.spritesheet",\n'
           '    "version": 1\n'
@@ -130,10 +137,15 @@ void main() {
         'name': 'spritecraft.render',
         'version': kSpriteCraftRenderSchemaVersion,
       });
-      expect((metadata['content'] as Map<String, Object?>)['projectSchemaVersion'],
-          kSpriteCraftProjectSchemaVersion);
+      expect(
+        (metadata['content'] as Map<String, Object?>)['projectSchemaVersion'],
+        kSpriteCraftProjectSchemaVersion,
+      );
       expect((metadata['content'] as Map<String, Object?>)['bodyType'], 'male');
-      expect((metadata['content'] as Map<String, Object?>)['animation'], 'idle');
+      expect(
+        (metadata['content'] as Map<String, Object?>)['animation'],
+        'idle',
+      );
       expect((metadata['layers'] as List<Object?>).length, 1);
       expect((metadata['credits'] as List<Object?>).length, 1);
     });

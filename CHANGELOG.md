@@ -1,3 +1,24 @@
+## 0.32.0 - 2026-03-30
+
+### Added
+
+- Added support for custom external PNG overlay layers in the Studio builder, including local path entry, label editing, z-order control, and workspace persistence.
+- Extended the Dart renderer and export pipeline so external overlays render alongside LPC layers, appear in the resolved layer stack, and carry through preview, save, restore, and export flows.
+
+## 0.31.0 - 2026-03-30
+
+### Added
+
+- Added snapshot sheet diffing in the Studio compare flow, including per-frame playback, blend mode, difference mode, and changed-pixel summary.
+- Turned version comparison into a more practical creator tool by letting users inspect what actually changed across animation frames instead of relying on side-by-side previews alone.
+
+## 0.30.0 - 2026-03-30
+
+### Added
+
+- Added animation strip previews with direct frame picking, play/pause controls, and adjustable FPS in the Studio frame preview.
+- Made both workspace and comparison previews more animation-friendly by turning frame stepping into a lightweight playback workflow.
+
 ## 0.29.0 - 2026-03-30
 
 ### Added

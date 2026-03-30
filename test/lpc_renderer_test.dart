@@ -198,5 +198,96 @@ void main() {
         4,
       );
     });
+
+    test('renders custom external overlay layers above LPC assets', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'lpc_renderer_external_test',
+      );
+      addTearDown(() => sandbox.delete(recursive: true));
+
+      final Directory definitionsDir = Directory(
+        path.join(sandbox.path, 'lpc', 'sheet_definitions', 'body'),
+      );
+      final Directory spritesheetsDir = Directory(
+        path.join(
+          sandbox.path,
+          'lpc',
+          'spritesheets',
+          'body',
+          'bodies',
+          'male',
+          'idle',
+        ),
+      );
+      await definitionsDir.create(recursive: true);
+      await spritesheetsDir.create(recursive: true);
+
+      await File(path.join(definitionsDir.path, 'body.json')).writeAsString('''
+{
+  "name": "Body Color",
+  "type_name": "body",
+  "variants": ["light"],
+  "animations": ["idle"],
+  "match_body_color": false,
+  "layer_1": {
+    "zPos": 10,
+    "male": "body/bodies/male/"
+  },
+  "credits": []
+}
+''');
+
+      final img.Image baseImage = img.Image(width: 8, height: 8);
+      img.fill(baseImage, color: img.ColorRgb8(255, 0, 0));
+      await File(
+        path.join(spritesheetsDir.path, 'light.png'),
+      ).writeAsBytes(img.encodePng(baseImage));
+
+      final File externalFile = File(path.join(sandbox.path, 'overlay.png'));
+      final img.Image overlayImage = img.Image(width: 8, height: 8);
+      img.fill(overlayImage, color: img.ColorRgba8(0, 0, 0, 0));
+      overlayImage.setPixelRgba(0, 0, 0, 0, 255, 255);
+      await externalFile.writeAsBytes(img.encodePng(overlayImage));
+
+      final LpcCatalog catalog = await const LpcCatalogLoader().load(
+        Directory(path.join(sandbox.path, 'lpc', 'sheet_definitions')),
+      );
+      final LpcRenderer renderer = LpcRenderer(
+        catalog: catalog,
+        spritesheetsDirectory: Directory(
+          path.join(sandbox.path, 'lpc', 'spritesheets'),
+        ),
+      );
+
+      final LpcRenderRequest request = LpcRenderRequest(
+        bodyType: 'male',
+        animation: 'idle',
+        selections: const <String, String>{'body': 'light'},
+        externalLayers: <ExternalRenderLayer>[
+          ExternalRenderLayer(
+            path: externalFile.path,
+            name: 'Custom Mark',
+            zPos: 999,
+          ),
+        ],
+      );
+
+      final LpcRenderResult result = await renderer.render(request);
+      final img.Image decoded =
+          img.decodePng(Uint8List.fromList(result.pngBytes))!;
+      final img.Pixel pixel = decoded.getPixel(0, 0);
+
+      expect(result.usedLayers, hasLength(2));
+      expect(result.usedLayers.last.typeName, 'external-overlay');
+      expect(result.usedLayers.last.itemName, 'Custom Mark');
+      expect(pixel.b, greaterThan(pixel.r));
+      expect(
+        (result.toMetadataJson(
+          request: request,
+          imageName: 'external.png',
+        )['content'] as Map<String, Object?>)['externalLayers'],
+        hasLength(1),
+      );
+    });
   });
 }

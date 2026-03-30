@@ -87,9 +87,9 @@ Goal: support real iteration by artists and designers, not only selection and ex
 - [x] Add preview backgrounds, zoom levels, onion-skin views, and frame stepping
 - [ ] Add crop guides, anchor editing, and pivot placement tools
 - [x] Add layer visibility toggles and solo/mute controls
-- [ ] Add animation strip preview with FPS controls
-- [ ] Add sheet diffing between two project snapshots
-- [ ] Add support for importing custom external layers on top of LPC assets
+- [x] Add animation strip preview with FPS controls
+- [x] Add sheet diffing between two project snapshots
+- [x] Add support for importing custom external layers on top of LPC assets
 - [ ] Add non-LPC spritesheet import workflows so SpriteCraft can serve broader users
 
 ## Phase 7 — Performance and Reliability
@@ -146,5 +146,4 @@ Goal: make SpriteCraft sustainable as a real project.
 - [ ] Prioritize Phase 2 and Phase 3 next so the app becomes truly usable
 - [ ] Use Phase 4 and Phase 5 to turn usability into production value
 - [ ] Treat Phase 8 and Phase 9 as the bridge from tool to product
-
 

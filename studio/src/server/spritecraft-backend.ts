@@ -329,6 +329,7 @@ export async function renderSpriteCraftPreview(input: {
 	prompt?: string;
 	selections: Record<string, string>;
 	recolorGroups?: Record<string, string>;
+	externalLayers?: Array<{ path: string; name: string; zPos: number }>;
 }) {
 	return fetchJson("/api/lpc/render", renderPreviewSchema, {
 		method: "POST",
@@ -338,6 +339,7 @@ export async function renderSpriteCraftPreview(input: {
 			prompt: input.prompt ?? "",
 			selections: input.selections,
 			recolorGroups: input.recolorGroups ?? {},
+			externalLayers: input.externalLayers ?? [],
 		}),
 	});
 }
@@ -432,11 +434,13 @@ export async function exportSpriteCraftWorkspace(input: {
 		bodyType?: string;
 		prompt?: string;
 		selections: Record<string, string>;
+		externalLayers?: Array<{ path: string; name: string; zPos: number }>;
 	}>;
 	bodyType: string;
 	animation: string;
 	prompt?: string;
 	selections: Record<string, string>;
+	externalLayers?: Array<{ path: string; name: string; zPos: number }>;
 }) {
 	return fetchJson("/api/lpc/export", exportResponseSchema, {
 		method: "POST",
@@ -450,6 +454,7 @@ export async function exportSpriteCraftWorkspace(input: {
 			animation: input.animation,
 			prompt: input.prompt ?? "",
 			selections: input.selections,
+			externalLayers: input.externalLayers ?? [],
 		}),
 	});
 }

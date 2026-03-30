@@ -36,6 +36,11 @@ export type CatalogWorkspaceDraft = {
 	activeStagedItemId: string | null;
 	mutedItemIds: string[];
 	soloItemId: string | null;
+	externalLayers: Array<{
+		path: string;
+		name: string;
+		zPos: number;
+	}>;
 	enginePreset: string;
 	exportSettings: {
 		namingStyle: string;
@@ -150,6 +155,33 @@ export function normalizeWorkspaceDraft(
 			: [],
 		soloItemId:
 			typeof draft.soloItemId === "string" ? draft.soloItemId : null,
+		externalLayers: Array.isArray(draft.externalLayers)
+			? draft.externalLayers.flatMap((entry) => {
+					if (!entry || typeof entry !== "object") {
+						return [];
+					}
+
+					const layer = entry as Partial<{
+						path: string;
+						name: string;
+						zPos: number;
+					}>;
+					if (typeof layer.path !== "string" || !layer.path.trim()) {
+						return [];
+					}
+
+					return [
+						{
+							path: layer.path,
+							name:
+								typeof layer.name === "string" && layer.name.trim()
+									? layer.name
+									: "External Overlay",
+							zPos: typeof layer.zPos === "number" ? layer.zPos : 1000,
+						},
+					];
+				})
+			: [],
 		enginePreset:
 			typeof draft.enginePreset === "string" && draft.enginePreset
 				? draft.enginePreset
@@ -296,6 +328,33 @@ export function projectToWorkspaceDraft(
 			typeof project.renderSettings?.soloItemId === "string"
 				? project.renderSettings.soloItemId
 				: null,
+		externalLayers: Array.isArray(project.renderSettings?.externalLayers)
+			? project.renderSettings.externalLayers.flatMap((entry) => {
+					if (!entry || typeof entry !== "object") {
+						return [];
+					}
+
+					const layer = entry as Partial<{
+						path: string;
+						name: string;
+						zPos: number;
+					}>;
+					if (typeof layer.path !== "string" || !layer.path.trim()) {
+						return [];
+					}
+
+					return [
+						{
+							path: layer.path,
+							name:
+								typeof layer.name === "string" && layer.name.trim()
+									? layer.name
+									: "External Overlay",
+							zPos: typeof layer.zPos === "number" ? layer.zPos : 1000,
+						},
+					];
+				})
+			: [],
 		enginePreset:
 			typeof project.enginePreset === "string" && project.enginePreset
 				? project.enginePreset

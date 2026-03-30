@@ -39,6 +39,9 @@ type FrameLayout = {
 };
 
 const zoomOptions = [1, 2, 4, 6] as const;
+const fpsOptions = [4, 6, 8, 12, 16, 24] as const;
+const MIN_FRAME_INTERVAL_MS = 40;
+const STRIP_THUMBNAIL_BACKGROUND_COLOR = "rgba(20, 24, 38, 0.42)";
 
 const anchorLabels: Record<AnchorPreset, string> = {
 	center: "Center",
@@ -64,6 +67,8 @@ export function SpriteFramePreview({
 	const [frameIndex, setFrameIndex] = useState(0);
 	const [onionSkin, setOnionSkin] = useState(false);
 	const [showGuides, setShowGuides] = useState(true);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [fps, setFps] = useState<(typeof fpsOptions)[number]>(8);
 	const [contentBounds, setContentBounds] = useState<ContentBounds | null>(null);
 
 	const layout = useMemo<FrameLayout>(() => {
@@ -117,6 +122,20 @@ export function SpriteFramePreview({
 			Math.min(current, Math.max(layout.frameCount - 1, 0)),
 		);
 	}, [layout.frameCount]);
+
+	useEffect(() => {
+		if (!preview || layout.frameCount <= 1 || !isPlaying) {
+			return;
+		}
+
+		const interval = window.setInterval(() => {
+			setFrameIndex((current) => (current + 1) % layout.frameCount);
+		}, Math.max(1000 / fps, MIN_FRAME_INTERVAL_MS));
+
+		return () => {
+			window.clearInterval(interval);
+		};
+	}, [fps, isPlaying, layout.frameCount, preview]);
 
 	useEffect(() => {
 		if (!preview) {
@@ -291,6 +310,20 @@ export function SpriteFramePreview({
 					</Select>
 					<Select
 						onChange={(event) =>
+							setFps(
+								Number.parseInt(event.target.value, 10) as (typeof fpsOptions)[number],
+							)
+						}
+						value={String(fps)}
+					>
+						{fpsOptions.map((entry) => (
+							<option key={`fps-${entry}`} value={String(entry)}>
+								{entry} fps
+							</option>
+						))}
+					</Select>
+					<Select
+						onChange={(event) =>
 							setZoom(
 								Number.parseInt(event.target.value, 10) as (typeof zoomOptions)[number],
 							)
@@ -305,7 +338,15 @@ export function SpriteFramePreview({
 					</Select>
 				</div>
 			</div>
-			<div className="mb-3 grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+			<div className="mb-3 grid gap-3 md:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]">
+				<Button
+					disabled={!preview || layout.frameCount <= 1}
+					onClick={() => setIsPlaying((current) => !current)}
+					type="button"
+					variant="secondary"
+				>
+					{isPlaying ? "Pause" : "Play"}
+				</Button>
 				<Button
 					disabled={!preview || frameIndex <= 0}
 					onClick={() => setFrameIndex((current) => Math.max(current - 1, 0))}
@@ -351,9 +392,10 @@ export function SpriteFramePreview({
 				<p>
 					Frame {preview ? frameIndex + 1 : 0} / {preview ? layout.frameCount : 0}
 				</p>
-				<p>
-					{layout.tileWidth} x {layout.tileHeight}
-				</p>
+				<div className="flex flex-wrap items-center gap-3">
+					<p>{layout.tileWidth} x {layout.tileHeight}</p>
+					<p>{fps} fps</p>
+				</div>
 			</div>
 			<div className="mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
 				<div className="flex flex-wrap gap-2">
@@ -458,6 +500,56 @@ export function SpriteFramePreview({
 					</p>
 				</div>
 			) : null}
+			{preview && layout.frameCount > 1 ? (
+				<div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+					<div className="mb-3 flex items-center justify-between gap-3">
+						<p className="text-sm font-medium text-[color:var(--foreground)]">
+							Animation strip
+						</p>
+						<p className="text-sm text-[color:var(--muted-foreground)]">
+							Click a frame to inspect it.
+						</p>
+					</div>
+					<div className="flex gap-2 overflow-x-auto pb-1">
+						{Array.from({ length: layout.frameCount }, (_, entry) => {
+							const isActive = entry === frameIndex;
+							return (
+								<button
+									aria-label={`Show frame ${entry + 1}`}
+									className={`shrink-0 rounded-xl border p-2 transition ${
+										isActive
+											? "border-[color:var(--accent)] bg-[color:var(--surface-strong)]"
+											: "border-[color:var(--border)] bg-[color:var(--surface-soft)] hover:border-[color:var(--accent-soft)]"
+									}`}
+									key={`strip-frame-${entry}`}
+									onClick={() => {
+										setFrameIndex(entry);
+										setIsPlaying(false);
+									}}
+									type="button"
+								>
+									<div
+										aria-hidden="true"
+										className="h-16 w-16 rounded-md border border-[color:var(--border)] bg-cover bg-no-repeat [image-rendering:pixelated]"
+										style={buildStripThumbnailStyle({
+											frameIndex: entry,
+											columns: layout.columns,
+											tileWidth: layout.tileWidth,
+											tileHeight: layout.tileHeight,
+											sheetWidth: preview.width,
+											sheetHeight: preview.height,
+											imageBase64: preview.imageBase64,
+										})}
+									/>
+									<p className="mt-2 text-xs text-[color:var(--muted-foreground)]">
+										{entry + 1}
+									</p>
+								</button>
+							);
+						})}
+					</div>
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -555,6 +647,27 @@ function computeFrameContentBounds(
 
 function clamp(value: number, min: number, max: number) {
 	return Math.min(Math.max(value, min), max);
+}
+
+function buildStripThumbnailStyle(input: {
+	frameIndex: number;
+	columns: number;
+	tileWidth: number;
+	tileHeight: number;
+	sheetWidth: number;
+	sheetHeight: number;
+	imageBase64: string;
+}): CSSProperties {
+	const sx = (input.frameIndex % input.columns) * input.tileWidth;
+	const sy = Math.floor(input.frameIndex / input.columns) * input.tileHeight;
+
+	return {
+		backgroundColor: STRIP_THUMBNAIL_BACKGROUND_COLOR,
+		backgroundImage: `url(data:image/png;base64,${input.imageBase64})`,
+		backgroundPosition: `-${sx}px -${sy}px`,
+		backgroundRepeat: "no-repeat",
+		backgroundSize: `${input.sheetWidth}px ${input.sheetHeight}px`,
+	};
 }
 
 const backgroundStyle: Record<BackgroundMode, CSSProperties> = {

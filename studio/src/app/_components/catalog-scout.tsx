@@ -37,6 +37,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
 import { SpriteFramePreview } from "~/app/_components/sprite-frame-preview";
+import { SpriteFrameDiffPreview } from "~/app/_components/sprite-frame-diff-preview";
 import type {
   SpriteCraftBriefResponse,
   SpriteCraftCatalogItem,
@@ -95,6 +96,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   );
   const [mutedItemIds, setMutedItemIds] = useState<string[]>([]);
   const [soloItemId, setSoloItemId] = useState<string | null>(null);
+  const [externalLayers, setExternalLayers] = useState<
+    Array<{ path: string; name: string; zPos: number }>
+  >([]);
   const [workspaceEnginePreset, setWorkspaceEnginePreset] = useState("none");
   const [workspaceExportSettings, setWorkspaceExportSettings] = useState(
     defaultExportSettings,
@@ -192,6 +196,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     );
     setMutedItemIds(draft.mutedItemIds);
     setSoloItemId(draft.soloItemId);
+    setExternalLayers(draft.externalLayers);
     setWorkspaceEnginePreset(draft.enginePreset);
     setWorkspaceExportSettings(draft.exportSettings);
     setBatchAnimationsText(draft.batchAnimations.join(", "));
@@ -239,6 +244,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       bodyType: params.get("bodyType") ?? bodyTypes[0] ?? "male",
       animation: params.get("animation") ?? animations[0] ?? "idle",
       enginePreset: params.get("enginePreset") ?? "none",
+      externalLayers: [],
       exportSettings: { ...defaultExportSettings },
       batchAnimations: [],
       batchVariantPresetNames: [],
@@ -327,6 +333,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         bodyType: detail.config.bodyType,
         animation: detail.config.animation,
         enginePreset: detail.config.enginePreset,
+        externalLayers: [],
         exportSettings: { ...defaultExportSettings },
         batchAnimations: [],
         batchVariantPresetNames: [],
@@ -521,7 +528,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   ]);
 
   useEffect(() => {
-    if (!Object.keys(effectiveSelections).length) {
+    if (!Object.keys(effectiveSelections).length && !externalLayers.length) {
       setPreview(null);
       setPreviewStatus("idle");
       setPreviewError("");
@@ -546,6 +553,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             prompt: query,
             selections: effectiveSelections,
             recolorGroups: workspaceExportSettings.recolorGroups,
+            externalLayers,
           }),
           cache: "no-store",
         });
@@ -582,10 +590,24 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     return () => {
       cancelled = true;
     };
-  }, [animation, bodyType, effectiveSelections, query, workspaceExportSettings.recolorGroups]);
+  }, [
+    animation,
+    bodyType,
+    effectiveSelections,
+    externalLayers,
+    query,
+    workspaceExportSettings.recolorGroups,
+  ]);
 
   useEffect(() => {
-    if (!comparedProject || !Object.keys(comparedProject.selections).length) {
+    if (
+      !comparedProject ||
+      (!Object.keys(comparedProject.selections).length &&
+        !(
+          Array.isArray(comparedProject.renderSettings?.externalLayers) &&
+          comparedProject.renderSettings.externalLayers.length
+        ))
+    ) {
       setComparedPreview(null);
       setComparedPreviewStatus("idle");
       setComparedPreviewError("");
@@ -614,6 +636,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 string,
                 string
               > | undefined) ?? {},
+            externalLayers:
+              (comparedProject.renderSettings?.externalLayers as Array<{
+                path: string;
+                name: string;
+                zPos: number;
+              }> | undefined) ?? [],
           }),
           cache: "no-store",
         });
@@ -1120,6 +1148,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setVariantChoices({});
     setMutedItemIds([]);
     setSoloItemId(null);
+    setExternalLayers([]);
     try {
       window.localStorage.removeItem(workspaceStorageKey);
     } catch (error) {
@@ -1143,6 +1172,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       activeStagedItemId,
       mutedItemIds,
       soloItemId,
+      externalLayers,
       enginePreset: workspaceEnginePreset,
       exportSettings: workspaceExportSettings,
       batchAnimations: batchAnimationsText
@@ -1273,10 +1303,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   }
 
   async function exportWorkspace() {
-    if (!Object.keys(effectiveSelections).length) {
+    if (!Object.keys(effectiveSelections).length && !externalLayers.length) {
       setWorkspaceFeedback({
         tone: "warning",
-        message: "Keep at least one layer visible before exporting.",
+        message:
+          "Keep at least one visible LPC layer or external overlay before exporting.",
       });
       return;
     }
@@ -1310,6 +1341,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               prompt: query.trim(),
               selections: effectiveSelections,
               recolorGroups: workspaceExportSettings.recolorGroups,
+              externalLayers,
             },
             ...selectedVariantPresets.map((preset) => ({
               name: preset.name,
@@ -1317,6 +1349,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               prompt: preset.query,
               selections: preset.stagedSelections,
               recolorGroups: preset.exportSettings.recolorGroups,
+              externalLayers: preset.externalLayers,
             })),
           ],
           bodyType,
@@ -1324,6 +1357,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           prompt: query.trim(),
           selections: effectiveSelections,
           recolorGroups: workspaceExportSettings.recolorGroups,
+          externalLayers,
         }),
       });
       const payload = (await response.json()) as SpriteCraftExportResponse & {
@@ -1577,12 +1611,40 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setSoloItemId((current) => (current === itemId ? null : itemId));
   }
 
+  function addExternalLayer() {
+    setExternalLayers((current) => [
+      ...current,
+      {
+        path: "",
+        name: `External Overlay ${current.length + 1}`,
+        zPos: 1000 + current.length,
+      },
+    ]);
+  }
+
+  function updateExternalLayer(
+    index: number,
+    nextValue: Partial<{ path: string; name: string; zPos: number }>,
+  ) {
+    setExternalLayers((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...nextValue } : entry,
+      ),
+    );
+  }
+
+  function removeExternalLayer(index: number) {
+    setExternalLayers((current) =>
+      current.filter((_, entryIndex) => entryIndex !== index),
+    );
+  }
+
   async function saveWorkspaceProject(mode: "fresh" | "version") {
-    if (!Object.keys(stagedSelections).length) {
+    if (!Object.keys(stagedSelections).length && !externalLayers.length) {
       setWorkspaceFeedback({
         tone: "warning",
         message:
-          "Stage at least one layer before saving this workspace as a project.",
+          "Stage at least one LPC layer or add an external overlay before saving this workspace as a project.",
       });
       return;
     }
@@ -1635,6 +1697,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             recolorGroups: workspaceExportSettings.recolorGroups,
             mutedItemIds,
             soloItemId,
+            externalLayers,
             source: "studio-workspace",
             sourceProjectId,
             versionMode: mode,
@@ -2526,6 +2589,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 ) : null}
               </div>
             </div>
+            <div className="mt-4">
+              <SpriteFrameDiffPreview
+                comparedPreview={comparedPreview}
+                currentPreview={preview}
+              />
+            </div>
           </div>
         ) : null}
 
@@ -2958,6 +3027,72 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 the web builder workspace.
               </p>
             )}
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                    External Layers
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-foreground)]">
+                    Add local PNG overlays on top of the LPC stack.
+                  </p>
+                </div>
+                <Button onClick={addExternalLayer} type="button" variant="secondary">
+                  Add Overlay
+                </Button>
+              </div>
+              {externalLayers.length ? (
+                <div className="space-y-3">
+                  {externalLayers.map((layer, index) => (
+                    <div
+                      className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3"
+                      key={`external-layer-${index + 1}`}
+                    >
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_120px_auto]">
+                        <Input
+                          onChange={(event) =>
+                            updateExternalLayer(index, { path: event.target.value })
+                          }
+                          placeholder="Path to local PNG overlay"
+                          value={layer.path}
+                        />
+                        <Input
+                          onChange={(event) =>
+                            updateExternalLayer(index, { name: event.target.value })
+                          }
+                          placeholder="Overlay label"
+                          value={layer.name}
+                        />
+                        <Input
+                          min="0"
+                          onChange={(event) =>
+                            updateExternalLayer(index, {
+                              zPos: Number.parseInt(event.target.value, 10) || 0,
+                            })
+                          }
+                          placeholder="z"
+                          type="number"
+                          value={String(layer.zPos)}
+                        />
+                        <Button
+                          onClick={() => removeExternalLayer(index)}
+                          type="button"
+                          variant="secondary"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[color:var(--muted-foreground)]">
+                  No external overlays yet. Add one if you want to place a
+                  custom decal, guide, or extra painted layer above the LPC
+                  character.
+                </p>
+              )}
+            </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">

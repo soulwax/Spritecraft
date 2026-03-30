@@ -88,6 +88,54 @@ class LpcRenderer {
       }
     }
 
+    for (final ExternalRenderLayer externalLayer in request.externalLayers) {
+      if (externalLayer.path.trim().isEmpty) {
+        continue;
+      }
+
+      final File file = _resolveExternalLayerFile(externalLayer.path);
+      if (!await file.exists()) {
+        throw StateError(
+          'External layer was not found at ${file.path}.',
+        );
+      }
+
+      final Uint8List bytes = await file.readAsBytes();
+      final img.Image? image = img.decodeImage(bytes);
+      if (image == null) {
+        throw StateError(
+          'External layer at ${file.path} could not be decoded as an image.',
+        );
+      }
+
+      final String normalizedPath = path.normalize(file.path);
+      layers.add(
+        _ResolvedLayer(
+          image: image,
+          usedLayer: UsedLpcLayer(
+            itemId: 'external:$normalizedPath',
+            itemName: externalLayer.name.trim().isEmpty
+                ? path.basenameWithoutExtension(file.path)
+                : externalLayer.name,
+            typeName: 'external-overlay',
+            variant: 'custom',
+            layerId: 'external',
+            zPos: externalLayer.zPos,
+            assetPath: normalizedPath,
+          ),
+          credits: <LpcCreditRecord>[
+            LpcCreditRecord(
+              file: normalizedPath,
+              notes: 'User-provided external overlay layer.',
+              authors: const <String>[],
+              licenses: const <String>[],
+              urls: const <String>[],
+            ),
+          ],
+        ),
+      );
+    }
+
     if (layers.isEmpty) {
       throw StateError(
         'No renderable layers were found for ${request.bodyType} / ${request.animation}.',
@@ -227,6 +275,14 @@ class LpcRenderer {
       return 'cloth';
     }
     return null;
+  }
+
+  File _resolveExternalLayerFile(String rawPath) {
+    final String normalized = path.normalize(rawPath.trim());
+    if (path.isAbsolute(normalized)) {
+      return File(normalized);
+    }
+    return File(path.join(Directory.current.path, normalized));
   }
 
   img.Image _applyRecolorIfNeeded(img.Image source, {String? recolorHex}) {

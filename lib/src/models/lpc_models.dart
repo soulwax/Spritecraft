@@ -202,6 +202,7 @@ class LpcRenderRequest {
     required this.selections,
     this.prompt,
     this.recolorGroups = const <String, String>{},
+    this.externalLayers = const <ExternalRenderLayer>[],
   });
 
   final String bodyType;
@@ -209,6 +210,7 @@ class LpcRenderRequest {
   final Map<String, String> selections;
   final String? prompt;
   final Map<String, String> recolorGroups;
+  final List<ExternalRenderLayer> externalLayers;
 
   factory LpcRenderRequest.fromJson(Map<String, dynamic> json) {
     return LpcRenderRequest(
@@ -226,6 +228,11 @@ class LpcRenderRequest {
               .map(
                 (String key, dynamic value) => MapEntry(key, value.toString()),
               ),
+      externalLayers:
+          (json['externalLayers'] as List<dynamic>? ?? <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(ExternalRenderLayer.fromJson)
+              .toList(),
     );
   }
 
@@ -236,6 +243,37 @@ class LpcRenderRequest {
       'prompt': prompt,
       'selections': selections,
       'recolorGroups': recolorGroups,
+      'externalLayers': externalLayers
+          .map((ExternalRenderLayer layer) => layer.toJson())
+          .toList(),
+    };
+  }
+}
+
+class ExternalRenderLayer {
+  const ExternalRenderLayer({
+    required this.path,
+    required this.name,
+    required this.zPos,
+  });
+
+  final String path;
+  final String name;
+  final int zPos;
+
+  factory ExternalRenderLayer.fromJson(Map<String, dynamic> json) {
+    return ExternalRenderLayer(
+      path: json['path']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      zPos: (json['zPos'] as num?)?.toInt() ?? 1000,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'path': path,
+      'name': name,
+      'zPos': zPos,
     };
   }
 }
@@ -339,6 +377,9 @@ class LpcRenderResult {
         'prompt': request.prompt,
         'selections': request.selections,
         'recolorGroups': request.recolorGroups,
+        'externalLayers': request.externalLayers
+            .map((ExternalRenderLayer layer) => layer.toJson())
+            .toList(),
       },
       'layers': usedLayers.map((UsedLpcLayer layer) => layer.toJson()).toList(),
       'credits': credits
@@ -532,6 +573,7 @@ class SpriteCraftSchemaMigrations {
               'animationFilter': 'current',
               'tagFilter': 'all',
               'recolorGroups': <String, String>{},
+              'externalLayers': <Map<String, Object?>>[],
             },
       ),
       'exportSettings': Map<String, Object?>.from(
@@ -574,6 +616,8 @@ class SpriteCraftSchemaMigrations {
         'recolorGroups':
             content['recolorGroups'] as Map<String, dynamic>? ??
             <String, dynamic>{},
+        'externalLayers':
+            content['externalLayers'] as List<dynamic>? ?? <dynamic>[],
       },
       'layers': working['layers'] as List<dynamic>? ?? <dynamic>[],
       'credits': working['credits'] as List<dynamic>? ?? <dynamic>[],
