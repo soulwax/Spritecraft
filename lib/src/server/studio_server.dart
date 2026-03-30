@@ -60,6 +60,7 @@ class StudioServer {
       renderer: LpcRenderer(
         catalog: catalog,
         spritesheetsDirectory: config.lpcSpritesheetsDirectory,
+        decodedAssetCacheDirectory: config.renderCacheDirectory,
       ),
       historyRepository: historyRepository,
     );
@@ -76,6 +77,7 @@ class StudioServer {
       ..post('/api/lpc/render', _render)
       ..post('/api/lpc/consistency', _consistency)
       ..post('/api/lpc/export', _export)
+      ..post('/api/non-lpc/import', _importNonLpc)
       ..post('/api/ai/brief', _brief)
       ..post('/api/ai/naming', _naming)
       ..post('/api/ai/style-helper', _styleHelper)
@@ -419,6 +421,71 @@ class StudioServer {
         'baseName': firstJob['baseName'] ?? rootBaseName,
         'jobs': jobs,
         'batch': isBatch,
+      });
+    } on StateError catch (error) {
+      return _json(400, <String, Object>{'error': error.message});
+    }
+  }
+
+  Future<Response> _importNonLpc(Request request) async {
+    try {
+      final Map<String, dynamic> payload = await request.readAsJson();
+      final String imagePath = payload['imagePath']?.toString().trim() ?? '';
+      final String metadataPath =
+          payload['metadataPath']?.toString().trim() ?? '';
+      if (imagePath.isEmpty) {
+        return _json(400, <String, Object>{'error': 'imagePath is required.'});
+      }
+
+      final File imageFile = _resolveLocalFile(imagePath);
+      if (!await imageFile.exists()) {
+        return _json(404, <String, Object>{
+          'error': 'Spritesheet image not found at ${path.normalize(imageFile.path)}.',
+        });
+      }
+
+      File? metadataFile;
+      if (metadataPath.isNotEmpty) {
+        metadataFile = _resolveLocalFile(metadataPath);
+        if (!await metadataFile.exists()) {
+          return _json(404, <String, Object>{
+            'error':
+                'Metadata file not found at ${path.normalize(metadataFile.path)}.',
+          });
+        }
+      }
+
+      final List<int> imageBytes = await imageFile.readAsBytes();
+      final img.Image decodedImage =
+          img.decodeImage(Uint8List.fromList(imageBytes)) ??
+          (throw StateError(
+            'Could not decode the imported spritesheet image.',
+          ));
+
+      final Map<String, Object?> metadata = metadataFile == null
+          ? <String, Object?>{}
+          : _normalizeImportedMetadata(
+              jsonDecode(await metadataFile.readAsString()),
+            );
+
+      final Map<String, Object?> summary = _buildImportedSpritesheetSummary(
+        image: decodedImage,
+        imagePath: imageFile.path,
+        metadataPath: metadataFile?.path,
+        payload: payload,
+        metadata: metadata,
+      );
+
+      return _json(200, <String, Object?>{
+        'imageBase64': base64Encode(imageBytes),
+        'width': decodedImage.width,
+        'height': decodedImage.height,
+        'metadata': metadata,
+        'summary': summary,
+      });
+    } on FormatException catch (error) {
+      return _json(400, <String, Object>{
+        'error': 'Could not parse imported metadata JSON: ${error.message}',
       });
     } on StateError catch (error) {
       return _json(400, <String, Object>{'error': error.message});
@@ -896,6 +963,189 @@ class StudioServer {
       return value;
     }
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  File _resolveLocalFile(String rawPath) {
+    final String trimmed = rawPath.trim();
+    final String resolvedPath = path.isAbsolute(trimmed)
+        ? trimmed
+        : path.join(Directory.current.path, trimmed);
+    return File(path.normalize(resolvedPath));
+  }
+
+  Map<String, Object?> _normalizeImportedMetadata(Object? rawMetadata) {
+    if (rawMetadata is Map<dynamic, dynamic>) {
+      return Map<String, Object?>.fromEntries(
+        rawMetadata.entries.map(
+          (MapEntry<dynamic, dynamic> entry) =>
+              MapEntry(entry.key.toString(), entry.value),
+        ),
+      );
+    }
+    return <String, Object?>{'raw': rawMetadata};
+  }
+
+  Map<String, Object?> _buildImportedSpritesheetSummary({
+    required img.Image image,
+    required String imagePath,
+    required String? metadataPath,
+    required Map<String, dynamic> payload,
+    required Map<String, Object?> metadata,
+  }) {
+    final List<Map<String, Object?>> metadataFrames = _extractMetadataFrames(
+      metadata,
+    );
+    int? tileWidth = _asInt(payload['tileWidth']);
+    int? tileHeight = _asInt(payload['tileHeight']);
+    int? frameCount = _asInt(payload['frameCount']);
+    int? columns = _asInt(payload['columns']);
+    int? rows = _asInt(payload['rows']);
+
+    if (metadataFrames.isNotEmpty) {
+      int maxFrameWidth = 0;
+      int maxFrameHeight = 0;
+      bool isUniformFrameSize = true;
+      int? firstFrameWidth;
+      int? firstFrameHeight;
+
+      for (final Map<String, Object?> frame in metadataFrames) {
+        final int currentWidth = frame['w'] as int? ?? 0;
+        final int currentHeight = frame['h'] as int? ?? 0;
+        if (currentWidth > maxFrameWidth) {
+          maxFrameWidth = currentWidth;
+        }
+        if (currentHeight > maxFrameHeight) {
+          maxFrameHeight = currentHeight;
+        }
+        firstFrameWidth ??= currentWidth;
+        firstFrameHeight ??= currentHeight;
+        if (currentWidth != firstFrameWidth || currentHeight != firstFrameHeight) {
+          isUniformFrameSize = false;
+        }
+      }
+
+      frameCount ??= metadataFrames.length;
+      tileWidth ??= isUniformFrameSize ? firstFrameWidth : maxFrameWidth;
+      tileHeight ??= isUniformFrameSize ? firstFrameHeight : maxFrameHeight;
+    }
+
+    if (tileWidth != null &&
+        tileWidth > 0 &&
+        columns == null &&
+        image.width >= tileWidth) {
+      columns = (image.width / tileWidth).floor();
+    }
+    if (tileHeight != null &&
+        tileHeight > 0 &&
+        rows == null &&
+        image.height >= tileHeight) {
+      rows = (image.height / tileHeight).floor();
+    }
+
+    if (frameCount == null) {
+      if (columns != null && rows != null && columns > 0 && rows > 0) {
+        frameCount = columns * rows;
+      } else {
+        frameCount = metadataFrames.isNotEmpty ? metadataFrames.length : 1;
+      }
+    }
+
+    if (columns == null || columns <= 0) {
+      columns = frameCount <= 0 ? 1 : frameCount;
+    }
+    if (rows == null || rows <= 0) {
+      rows = ((frameCount / columns).ceil()).clamp(1, 1000000);
+    }
+
+    tileWidth ??= columns > 0 ? (image.width / columns).floor() : image.width;
+    tileHeight ??= rows > 0 ? (image.height / rows).floor() : image.height;
+
+    final String source = metadataPath == null || metadataPath.isEmpty
+        ? 'image-only'
+        : 'image+metadata';
+    final String metadataFormat = metadata.containsKey('frames')
+        ? (metadata['frames'] is Map ? 'frame-map' : 'frame-list')
+        : (metadata.containsKey('meta') ? 'metadata-only' : 'none');
+
+    return <String, Object?>{
+      'imagePath': path.normalize(imagePath),
+      'metadataPath': metadataPath == null || metadataPath.isEmpty
+          ? null
+          : path.normalize(metadataPath),
+      'source': source,
+      'metadataFormat': metadataFormat,
+      'inferred': <String, bool>{
+        'frameCount': _asInt(payload['frameCount']) == null,
+        'columns': _asInt(payload['columns']) == null,
+        'rows': _asInt(payload['rows']) == null,
+        'tileWidth': _asInt(payload['tileWidth']) == null,
+        'tileHeight': _asInt(payload['tileHeight']) == null,
+      },
+      'frameCount': frameCount,
+      'columns': columns,
+      'rows': rows,
+      'tileWidth': tileWidth,
+      'tileHeight': tileHeight,
+      'frameNames': metadataFrames
+          .map((Map<String, Object?> frame) => frame['name'])
+          .whereType<String>()
+          .toList(),
+    };
+  }
+
+  List<Map<String, Object?>> _extractMetadataFrames(
+    Map<String, Object?> metadata,
+  ) {
+    final Object? frames = metadata['frames'];
+    if (frames is List) {
+      return frames
+          .whereType<Map>()
+          .map((Map frame) => _normalizeMetadataFrame(frame))
+          .toList();
+    }
+    if (frames is Map) {
+      return frames.entries
+          .where((MapEntry<dynamic, dynamic> entry) => entry.value is Map)
+          .map(
+            (MapEntry<dynamic, dynamic> entry) => _normalizeMetadataFrame(
+              entry.value as Map,
+              name: entry.key.toString(),
+            ),
+          )
+          .toList();
+    }
+    return <Map<String, Object?>>[];
+  }
+
+  Map<String, Object?> _normalizeMetadataFrame(
+    Map<dynamic, dynamic> rawFrame, {
+    String? name,
+  }) {
+    final Map<String, Object?> frame = rawFrame['frame'] is Map<dynamic, dynamic>
+        ? Map<String, Object?>.from(
+            (rawFrame['frame'] as Map<dynamic, dynamic>).map(
+              (dynamic key, dynamic value) =>
+                  MapEntry(key.toString(), value as Object?),
+            ),
+          )
+        : Map<String, Object?>.from(
+            rawFrame.map(
+              (dynamic key, dynamic value) =>
+                  MapEntry(key.toString(), value as Object?),
+            ),
+          );
+
+    return <String, Object?>{
+      'name':
+          name ??
+          rawFrame['filename']?.toString() ??
+          rawFrame['name']?.toString() ??
+          '',
+      'x': _asInt(frame['x']) ?? 0,
+      'y': _asInt(frame['y']) ?? 0,
+      'w': _asInt(frame['w']) ?? 0,
+      'h': _asInt(frame['h']) ?? 0,
+    };
   }
 
   Future<Response> _duplicateHistory(Request request, String id) async {

@@ -289,5 +289,162 @@ void main() {
         hasLength(1),
       );
     });
+
+    test('reuses decoded LPC assets across repeated renders', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'lpc_renderer_cache_test',
+      );
+      addTearDown(() => sandbox.delete(recursive: true));
+
+      final Directory definitionsDir = Directory(
+        path.join(sandbox.path, 'lpc', 'sheet_definitions', 'body'),
+      );
+      final Directory spritesheetsDir = Directory(
+        path.join(
+          sandbox.path,
+          'lpc',
+          'spritesheets',
+          'body',
+          'bodies',
+          'male',
+          'idle',
+        ),
+      );
+      await definitionsDir.create(recursive: true);
+      await spritesheetsDir.create(recursive: true);
+
+      await File(path.join(definitionsDir.path, 'body.json')).writeAsString('''
+{
+  "name": "Body Color",
+  "type_name": "body",
+  "variants": ["light"],
+  "animations": ["idle"],
+  "match_body_color": false,
+  "layer_1": {
+    "zPos": 10,
+    "male": "body/bodies/male/"
+  },
+  "credits": []
+}
+''');
+
+      final File assetFile = File(path.join(spritesheetsDir.path, 'light.png'));
+      final img.Image image = img.Image(width: 4, height: 4);
+      img.fill(image, color: img.ColorRgb8(255, 0, 0));
+      await assetFile.writeAsBytes(img.encodePng(image));
+
+      final LpcCatalog catalog = await const LpcCatalogLoader().load(
+        Directory(path.join(sandbox.path, 'lpc', 'sheet_definitions')),
+      );
+      final LpcRenderer renderer = LpcRenderer(
+        catalog: catalog,
+        spritesheetsDirectory: Directory(
+          path.join(sandbox.path, 'lpc', 'spritesheets'),
+        ),
+      );
+
+      const LpcRenderRequest request = LpcRenderRequest(
+        bodyType: 'male',
+        animation: 'idle',
+        selections: <String, String>{'body': 'light'},
+      );
+
+      final LpcRenderResult firstResult = await renderer.render(request);
+      expect(firstResult.usedLayers, hasLength(1));
+
+      await assetFile.delete();
+
+      final LpcRenderResult secondResult = await renderer.render(request);
+      expect(secondResult.usedLayers, hasLength(1));
+      expect(secondResult.width, firstResult.width);
+      expect(secondResult.height, firstResult.height);
+    });
+
+    test('reuses decoded LPC assets from disk cache across renderer instances', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'lpc_renderer_disk_cache_test',
+      );
+      addTearDown(() => sandbox.delete(recursive: true));
+
+      final Directory definitionsDir = Directory(
+        path.join(sandbox.path, 'lpc', 'sheet_definitions', 'body'),
+      );
+      final Directory spritesheetsDir = Directory(
+        path.join(
+          sandbox.path,
+          'lpc',
+          'spritesheets',
+          'body',
+          'bodies',
+          'male',
+          'idle',
+        ),
+      );
+      final Directory cacheDir = Directory(path.join(sandbox.path, 'cache'));
+      await definitionsDir.create(recursive: true);
+      await spritesheetsDir.create(recursive: true);
+
+      await File(path.join(definitionsDir.path, 'body.json')).writeAsString('''
+{
+  "name": "Body Color",
+  "type_name": "body",
+  "variants": ["light"],
+  "animations": ["idle"],
+  "match_body_color": false,
+  "layer_1": {
+    "zPos": 10,
+    "male": "body/bodies/male/"
+  },
+  "credits": []
+}
+''');
+
+      final File assetFile = File(path.join(spritesheetsDir.path, 'light.png'));
+      final img.Image image = img.Image(width: 4, height: 4);
+      img.fill(image, color: img.ColorRgb8(255, 0, 0));
+      await assetFile.writeAsBytes(img.encodePng(image));
+
+      final LpcCatalog catalog = await const LpcCatalogLoader().load(
+        Directory(path.join(sandbox.path, 'lpc', 'sheet_definitions')),
+      );
+
+      const LpcRenderRequest request = LpcRenderRequest(
+        bodyType: 'male',
+        animation: 'idle',
+        selections: <String, String>{'body': 'light'},
+      );
+
+      final LpcRenderer firstRenderer = LpcRenderer(
+        catalog: catalog,
+        spritesheetsDirectory: Directory(
+          path.join(sandbox.path, 'lpc', 'spritesheets'),
+        ),
+        decodedAssetCacheDirectory: cacheDir,
+      );
+      final LpcRenderResult firstResult = await firstRenderer.render(request);
+      expect(firstResult.usedLayers, hasLength(1));
+
+      await assetFile.delete();
+
+      final LpcRenderer secondRenderer = LpcRenderer(
+        catalog: catalog,
+        spritesheetsDirectory: Directory(
+          path.join(sandbox.path, 'lpc', 'spritesheets'),
+        ),
+        decodedAssetCacheDirectory: cacheDir,
+      );
+      final LpcRenderResult secondResult = await secondRenderer.render(request);
+      expect(secondResult.usedLayers, hasLength(1));
+      expect(secondResult.width, firstResult.width);
+      expect(secondResult.height, firstResult.height);
+      expect(
+        cacheDir
+            .listSync()
+            .whereType<File>()
+            .map((File file) => path.extension(file.path))
+            .toSet(),
+        containsAll(<String>{'.json', '.rgba'}),
+      );
+    });
   });
 }

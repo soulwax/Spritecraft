@@ -208,6 +208,46 @@ const exportResponseSchema = z.object({
 
 export type SpriteCraftExportResponse = z.infer<typeof exportResponseSchema>;
 
+const nonLpcImportSummarySchema = z.object({
+	imagePath: z.string(),
+	metadataPath: z.string().nullable().optional(),
+	source: z.enum(["image-only", "image+metadata"]).default("image-only"),
+	metadataFormat: z.string().default("none"),
+	inferred: z
+		.object({
+			frameCount: z.boolean().default(false),
+			columns: z.boolean().default(false),
+			rows: z.boolean().default(false),
+			tileWidth: z.boolean().default(false),
+			tileHeight: z.boolean().default(false),
+		})
+		.default({
+			frameCount: false,
+			columns: false,
+			rows: false,
+			tileWidth: false,
+			tileHeight: false,
+		}),
+	frameCount: z.number().default(1),
+	columns: z.number().default(1),
+	rows: z.number().default(1),
+	tileWidth: z.number().default(0),
+	tileHeight: z.number().default(0),
+	frameNames: z.array(z.string()).default([]),
+});
+
+const nonLpcImportResponseSchema = z.object({
+	imageBase64: z.string(),
+	width: z.number(),
+	height: z.number(),
+	metadata: z.record(z.any()).default({}),
+	summary: nonLpcImportSummarySchema,
+});
+
+export type SpriteCraftNonLpcImportResponse = z.infer<
+	typeof nonLpcImportResponseSchema
+>;
+
 const saveRequestSchema = z.object({
 	projectName: z.string().optional(),
 	notes: z.string().optional(),
@@ -455,6 +495,29 @@ export async function exportSpriteCraftWorkspace(input: {
 			prompt: input.prompt ?? "",
 			selections: input.selections,
 			externalLayers: input.externalLayers ?? [],
+		}),
+	});
+}
+
+export async function importNonLpcSpritesheet(input: {
+	imagePath: string;
+	metadataPath?: string;
+	tileWidth?: number;
+	tileHeight?: number;
+	frameCount?: number;
+	columns?: number;
+	rows?: number;
+}) {
+	return fetchJson("/api/non-lpc/import", nonLpcImportResponseSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			imagePath: input.imagePath,
+			metadataPath: input.metadataPath ?? "",
+			tileWidth: input.tileWidth,
+			tileHeight: input.tileHeight,
+			frameCount: input.frameCount,
+			columns: input.columns,
+			rows: input.rows,
 		}),
 	});
 }

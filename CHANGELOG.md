@@ -1,3 +1,24 @@
+## 0.33.2 - 2026-03-30
+
+### Added
+
+- Added a disk-backed decoded asset cache for LPC renders under `build/cache/render-assets`, so repeated previews can survive renderer restarts without re-decoding unchanged source PNGs.
+- Added a cross-instance renderer test that proves SpriteCraft can reuse cached decoded assets even after the original source file is gone.
+
+## 0.33.1 - 2026-03-30
+
+### Added
+
+- Added an LRU-style decoded asset cache and resolved-path cache to the LPC renderer so repeated preview and export renders avoid unnecessary disk reads.
+- Added a renderer regression test that verifies repeated renders can still succeed after the original LPC asset file is removed, proving the hot-path cache is being used.
+
+## 0.33.0 - 2026-03-30
+
+### Added
+
+- Added a non-LPC spritesheet import workflow with a dedicated backend endpoint, Studio-side import panel, PNG preview, optional metadata JSON parsing, and manual tile/grid fallback fields.
+- Added normalized non-LPC import summaries so SpriteCraft can inspect frame counts, grid dimensions, inferred values, and detected frame names for broader sprite pipelines beyond LPC assets.
+
 ## 0.32.0 - 2026-03-30
 
 ### Added

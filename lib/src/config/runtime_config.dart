@@ -25,6 +25,8 @@ class RuntimeConfig {
 
   Directory get exportDirectory =>
       Directory(path.join(projectRoot.path, 'build', 'exports'));
+  Directory get renderCacheDirectory =>
+      Directory(path.join(projectRoot.path, 'build', 'cache', 'render-assets'));
   Directory get projectPackageDirectory =>
       Directory(path.join(exportDirectory.path, 'projects'));
   Directory get lpcDefinitionsDirectory =>

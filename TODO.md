@@ -85,19 +85,19 @@ Goal: support real iteration by artists and designers, not only selection and ex
 
 - [x] Add palette swapping and controlled recolor workflows
 - [x] Add preview backgrounds, zoom levels, onion-skin views, and frame stepping
-- [ ] Add crop guides, anchor editing, and pivot placement tools
+- [x] Add crop guides, anchor editing, and pivot placement tools
 - [x] Add layer visibility toggles and solo/mute controls
 - [x] Add animation strip preview with FPS controls
 - [x] Add sheet diffing between two project snapshots
 - [x] Add support for importing custom external layers on top of LPC assets
-- [ ] Add non-LPC spritesheet import workflows so SpriteCraft can serve broader users
+- [x] Add non-LPC spritesheet import workflows so SpriteCraft can serve broader users
 
 ## Phase 7 — Performance and Reliability
 
 Goal: make the app feel fast and trustworthy as projects grow.
 
-- [ ] Profile render hotspots and reduce repeated disk reads during preview/export
-- [ ] Add in-memory and on-disk caching for decoded image assets
+- [x] Profile render hotspots and reduce repeated disk reads during preview/export
+- [x] Add in-memory and on-disk caching for decoded image assets
 - [ ] Move expensive export/render work off the main request path where needed
 - [ ] Add structured logging for render, export, AI, and DB failures
 - [ ] Add startup self-checks for submodule integrity and expected asset directories
@@ -109,7 +109,7 @@ Goal: make the app feel fast and trustworthy as projects grow.
 
 Goal: make SpriteCraft easy to install and use outside the dev folder.
 
-- [ ] Decide on the primary product shape: local web app, desktop shell, or both
+- [ ] Decide on the primary product shape: local web app, desktop shell, or both - user prefers desktop but web is fine too
 - [ ] Add a proper desktop distribution strategy for Windows first
 - [ ] Bundle required runtime assets cleanly while preserving submodule update workflows for development
 - [ ] Create release builds with versioned changelogs and migration notes
@@ -146,4 +146,3 @@ Goal: make SpriteCraft sustainable as a real project.
 - [ ] Prioritize Phase 2 and Phase 3 next so the app becomes truly usable
 - [ ] Use Phase 4 and Phase 5 to turn usability into production value
 - [ ] Treat Phase 8 and Phase 9 as the bridge from tool to product
-

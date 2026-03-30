@@ -44,6 +44,7 @@ import type {
   SpriteCraftConsistencyReport,
   SpriteCraftExportResponse,
   SpriteCraftNamingResponse,
+  SpriteCraftNonLpcImportResponse,
   SpriteCraftProjectSummary,
   SpriteCraftRenderPreview,
   SpriteCraftStyleHelperResponse,
@@ -179,6 +180,19 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [exportResult, setExportResult] =
     useState<SpriteCraftExportResponse | null>(null);
   const [exportError, setExportError] = useState("");
+  const [nonLpcImagePath, setNonLpcImagePath] = useState("");
+  const [nonLpcMetadataPath, setNonLpcMetadataPath] = useState("");
+  const [nonLpcTileWidth, setNonLpcTileWidth] = useState("");
+  const [nonLpcTileHeight, setNonLpcTileHeight] = useState("");
+  const [nonLpcFrameCount, setNonLpcFrameCount] = useState("");
+  const [nonLpcColumns, setNonLpcColumns] = useState("");
+  const [nonLpcRows, setNonLpcRows] = useState("");
+  const [nonLpcImportStatus, setNonLpcImportStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [nonLpcImportResult, setNonLpcImportResult] =
+    useState<SpriteCraftNonLpcImportResponse | null>(null);
+  const [nonLpcImportError, setNonLpcImportError] = useState("");
 
   function applyWorkspaceDraft(draft: CatalogWorkspaceDraft) {
     setWorkspaceName(draft.name);
@@ -483,6 +497,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         replaceByType,
         activeTypeFocus,
         activeStagedItemId,
+        mutedItemIds,
+        soloItemId,
+        externalLayers,
         enginePreset: workspaceEnginePreset,
         exportSettings: workspaceExportSettings,
         batchAnimations: batchAnimationsText
@@ -512,11 +529,14 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     workspaceExportSettings,
     batchAnimationsText,
     batchVariantPresetNames,
+    externalLayers,
+    mutedItemIds,
     promptHistory,
     query,
     relatedProjects,
     replaceByType,
     activeTypeFocus,
+    soloItemId,
     sourceProjectId,
     sourceProjectLabel,
     stagedSelections,
@@ -1383,6 +1403,72 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         error instanceof Error
           ? error.message
           : "SpriteCraft Studio could not export the workspace.",
+      );
+    }
+  }
+
+  function parseOptionalNumber(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  async function importNonLpcWorkspace() {
+    const imagePath = nonLpcImagePath.trim();
+    if (!imagePath) {
+      setWorkspaceFeedback({
+        tone: "warning",
+        message: "Choose a local spritesheet path before importing a non-LPC sheet.",
+      });
+      return;
+    }
+
+    setNonLpcImportStatus("loading");
+    setNonLpcImportError("");
+    setNonLpcImportResult(null);
+
+    try {
+      const response = await fetch("/api/spritecraft/non-lpc/import", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          imagePath,
+          metadataPath: nonLpcMetadataPath.trim(),
+          tileWidth: parseOptionalNumber(nonLpcTileWidth),
+          tileHeight: parseOptionalNumber(nonLpcTileHeight),
+          frameCount: parseOptionalNumber(nonLpcFrameCount),
+          columns: parseOptionalNumber(nonLpcColumns),
+          rows: parseOptionalNumber(nonLpcRows),
+        }),
+      });
+      const payload = (await response.json()) as SpriteCraftNonLpcImportResponse & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(
+          payload.error ??
+            "SpriteCraft Studio could not import the non-LPC spritesheet.",
+        );
+      }
+
+      setNonLpcImportResult(payload);
+      setNonLpcImportStatus("idle");
+      setWorkspaceFeedback({
+        tone: "success",
+        message: `Imported non-LPC sheet with ${payload.summary.frameCount} frames.`,
+      });
+    } catch (error) {
+      setNonLpcImportStatus("error");
+      setNonLpcImportError(
+        error instanceof Error
+          ? error.message
+          : "SpriteCraft Studio could not import the non-LPC spritesheet.",
       );
     }
   }
@@ -3092,6 +3178,130 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                   character.
                 </p>
               )}
+            </div>
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                    Non-LPC Import
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-foreground)]">
+                    Inspect an external spritesheet with optional metadata and manual grid fallback.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => void importNonLpcWorkspace()}
+                  type="button"
+                  variant="secondary"
+                >
+                  {nonLpcImportStatus === "loading" ? "Importing..." : "Import Sheet"}
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input
+                  onChange={(event) => setNonLpcImagePath(event.target.value)}
+                  placeholder="Path to local spritesheet PNG"
+                  value={nonLpcImagePath}
+                />
+                <Input
+                  onChange={(event) => setNonLpcMetadataPath(event.target.value)}
+                  placeholder="Optional metadata JSON path"
+                  value={nonLpcMetadataPath}
+                />
+                <Input
+                  onChange={(event) => setNonLpcTileWidth(event.target.value)}
+                  placeholder="Tile width"
+                  type="number"
+                  value={nonLpcTileWidth}
+                />
+                <Input
+                  onChange={(event) => setNonLpcTileHeight(event.target.value)}
+                  placeholder="Tile height"
+                  type="number"
+                  value={nonLpcTileHeight}
+                />
+                <Input
+                  onChange={(event) => setNonLpcFrameCount(event.target.value)}
+                  placeholder="Frame count"
+                  type="number"
+                  value={nonLpcFrameCount}
+                />
+                <Input
+                  onChange={(event) => setNonLpcColumns(event.target.value)}
+                  placeholder="Columns"
+                  type="number"
+                  value={nonLpcColumns}
+                />
+                <Input
+                  onChange={(event) => setNonLpcRows(event.target.value)}
+                  placeholder="Rows"
+                  type="number"
+                  value={nonLpcRows}
+                />
+              </div>
+              {nonLpcImportResult ? (
+                <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+                  <div className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3">
+                    <img
+                      alt="Imported non-LPC spritesheet preview"
+                      className="h-auto w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--background)] object-contain"
+                      src={`data:image/png;base64,${nonLpcImportResult.imageBase64}`}
+                    />
+                  </div>
+                  <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-3">
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      <Badge>{nonLpcImportResult.summary.source}</Badge>
+                      <Badge>{nonLpcImportResult.summary.metadataFormat}</Badge>
+                      <Badge>{nonLpcImportResult.summary.frameCount} frames</Badge>
+                    </div>
+                    <div className="grid gap-2 text-sm text-[color:var(--muted-foreground)] md:grid-cols-2">
+                      <p>Size: {nonLpcImportResult.width}×{nonLpcImportResult.height}</p>
+                      <p>
+                        Grid: {nonLpcImportResult.summary.columns}×{nonLpcImportResult.summary.rows}
+                      </p>
+                      <p>
+                        Tile: {nonLpcImportResult.summary.tileWidth}×{nonLpcImportResult.summary.tileHeight}
+                      </p>
+                      <p>Image: {nonLpcImportResult.summary.imagePath}</p>
+                      <p>
+                        Metadata: {nonLpcImportResult.summary.metadataPath ?? "none"}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {Object.entries(nonLpcImportResult.summary.inferred)
+                        .filter(([, inferred]) => inferred)
+                        .map(([field]) => (
+                          <Badge key={`non-lpc-inferred-${field}`} variant="warning">
+                            inferred {field}
+                          </Badge>
+                        ))}
+                    </div>
+                    {nonLpcImportResult.summary.frameNames.length ? (
+                      <div className="mt-3">
+                        <p className="text-xs uppercase tracking-[0.14em] text-[color:var(--muted-foreground)]">
+                          Frame names
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {nonLpcImportResult.summary.frameNames
+                            .slice(0, 12)
+                            .map((name) => (
+                              <Badge key={`non-lpc-frame-${name}`}>{name}</Badge>
+                            ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-[color:var(--muted-foreground)]">
+                  Import any sheet you already have to inspect its dimensions, inferred frame grid, and metadata structure inside SpriteCraft.
+                </p>
+              )}
+              {nonLpcImportError ? (
+                <p className="mt-3 text-sm text-[color:var(--destructive)]">
+                  {nonLpcImportError}
+                </p>
+              ) : null}
             </div>
         </div>
 

@@ -11,6 +11,7 @@ Pure Dart tooling for building spritesheets, now with a Next.js-based SpriteCraf
 - Gemini-assisted sprite briefs with coherent build paths, category suggestions, candidate builds, prompt memory, naming suggestions, build checks, style helpers, and local recommendation search
 - Neon/Postgres-backed history for saved sprite projects
 - Structured metadata JSON for every spritesheet export and web-rendered preview/export
+- Non-LPC spritesheet inspection with optional metadata import and manual grid inference inside Studio
 
 ## LPC dependency
 
@@ -81,6 +82,8 @@ What the backend + web app do together:
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
 - gives the Studio builder frame-aware preview tools such as background switching, zoom, onion-skin stepping, crop guides, visual pivot placement, non-destructive mute/solo layer control, animation strip playback with FPS control, per-frame snapshot diffing, and custom local PNG overlays above the LPC stack
+- inspects non-LPC spritesheets from local PNG plus optional metadata JSON so broader sprite workflows can still use SpriteCraft without going through the LPC catalog
+- keeps repeated preview and export renders faster by caching resolved asset paths and decoded LPC image assets inside the Dart renderer, both in memory and on disk under `build/cache/render-assets`
 - exports matched PNG, JSON, zip bundles, and engine companion files such as native Godot `SpriteFrames` `.tres` resources, Unity importer-ready slicing metadata, and Aseprite/generic JSON companions
 - powers the full `studio` builder workflow
 
