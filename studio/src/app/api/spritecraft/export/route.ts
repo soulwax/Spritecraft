@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { exportSpriteCraftWorkspace } from "~/server/spritecraft-backend";
+import { startSpriteCraftExportJob } from "~/server/spritecraft-backend";
 
 export async function POST(request: Request) {
 	try {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 			prompt?: string;
 			selections?: Record<string, string>;
 		};
-		const exported = await exportSpriteCraftWorkspace({
+		const exported = await startSpriteCraftExportJob({
 			projectName: payload.projectName ?? "",
 			enginePreset: payload.enginePreset ?? "none",
 			exportSettings: payload.exportSettings ?? {},

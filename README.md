@@ -86,6 +86,7 @@ What the backend + web app do together:
 - keeps repeated preview and export renders faster by caching resolved asset paths and decoded LPC image assets inside the Dart renderer, both in memory and on disk under `build/cache/render-assets`
 - exports matched PNG, JSON, zip bundles, and engine companion files such as native Godot `SpriteFrames` `.tres` resources, Unity importer-ready slicing metadata, and Aseprite/generic JSON companions
 - powers the full `studio` builder workflow
+- runs heavier export bundles as background-style export jobs with polling so the web app does not depend on one long-lived export request
 
 ## Command reference
 

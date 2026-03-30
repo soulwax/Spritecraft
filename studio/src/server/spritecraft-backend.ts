@@ -208,6 +208,18 @@ const exportResponseSchema = z.object({
 
 export type SpriteCraftExportResponse = z.infer<typeof exportResponseSchema>;
 
+const exportJobSchema = z.object({
+	jobId: z.string(),
+	status: z.enum(["queued", "running", "completed", "failed"]),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+	pollPath: z.string(),
+	result: exportResponseSchema.nullable().optional(),
+	error: z.string().nullable().optional(),
+});
+
+export type SpriteCraftExportJob = z.infer<typeof exportJobSchema>;
+
 const nonLpcImportSummarySchema = z.object({
 	imagePath: z.string(),
 	metadataPath: z.string().nullable().optional(),
@@ -464,7 +476,7 @@ export async function suggestSpriteCraftStyle(input: {
 	});
 }
 
-export async function exportSpriteCraftWorkspace(input: {
+type SpriteCraftExportInput = {
 	projectName?: string;
 	enginePreset?: string;
 	exportSettings?: Record<string, unknown>;
@@ -481,10 +493,13 @@ export async function exportSpriteCraftWorkspace(input: {
 	prompt?: string;
 	selections: Record<string, string>;
 	externalLayers?: Array<{ path: string; name: string; zPos: number }>;
-}) {
-	return fetchJson("/api/lpc/export", exportResponseSchema, {
+};
+
+export async function startSpriteCraftExportJob(input: SpriteCraftExportInput) {
+	return fetchJson("/api/lpc/export", exportJobSchema, {
 		method: "POST",
 		body: JSON.stringify({
+			async: true,
 			projectName: input.projectName ?? "",
 			enginePreset: input.enginePreset ?? "none",
 			exportSettings: input.exportSettings ?? {},
@@ -497,6 +512,10 @@ export async function exportSpriteCraftWorkspace(input: {
 			externalLayers: input.externalLayers ?? [],
 		}),
 	});
+}
+
+export async function getSpriteCraftExportJob(jobId: string) {
+	return fetchJson(`/api/lpc/export/jobs/${jobId}`, exportJobSchema);
 }
 
 export async function importNonLpcSpritesheet(input: {

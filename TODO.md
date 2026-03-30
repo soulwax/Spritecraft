@@ -98,7 +98,7 @@ Goal: make the app feel fast and trustworthy as projects grow.
 
 - [x] Profile render hotspots and reduce repeated disk reads during preview/export
 - [x] Add in-memory and on-disk caching for decoded image assets
-- [ ] Move expensive export/render work off the main request path where needed
+- [x] Move expensive export/render work off the main request path where needed
 - [ ] Add structured logging for render, export, AI, and DB failures
 - [ ] Add startup self-checks for submodule integrity and expected asset directories
 - [ ] Add regression tests for representative LPC combinations and export presets

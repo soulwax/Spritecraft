@@ -42,6 +42,7 @@ import type {
   SpriteCraftBriefResponse,
   SpriteCraftCatalogItem,
   SpriteCraftConsistencyReport,
+  SpriteCraftExportJob,
   SpriteCraftExportResponse,
   SpriteCraftNamingResponse,
   SpriteCraftNonLpcImportResponse,
@@ -75,6 +76,12 @@ const defaultExportSettings = {
   pivotY: null as number | null,
   recolorGroups: {} as Record<string, string>,
 };
+
+function sleep(milliseconds: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
 
 export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const didHydrateFromUrl = useRef(false);
@@ -1380,7 +1387,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           externalLayers,
         }),
       });
-      const payload = (await response.json()) as SpriteCraftExportResponse & {
+      const payload = (await response.json()) as SpriteCraftExportJob & {
         error?: string;
       };
       if (!response.ok) {
@@ -1389,13 +1396,44 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         );
       }
 
-      setExportResult(payload);
+      let completedJob = payload;
+      while (
+        completedJob.status === "queued" ||
+        completedJob.status === "running"
+      ) {
+        await sleep(600);
+        const jobResponse = await fetch(
+          `/api/spritecraft/export/${completedJob.jobId}`,
+          {
+            cache: "no-store",
+          },
+        );
+        const jobPayload = (await jobResponse.json()) as SpriteCraftExportJob & {
+          error?: string;
+        };
+        if (!jobResponse.ok && completedJob.status !== "failed") {
+          throw new Error(
+            jobPayload.error ??
+              "SpriteCraft Studio could not finish the export job.",
+          );
+        }
+        completedJob = jobPayload;
+      }
+
+      if (completedJob.status !== "completed" || !completedJob.result) {
+        throw new Error(
+          completedJob.error ??
+            "SpriteCraft Studio could not finish the export job.",
+        );
+      }
+
+      setExportResult(completedJob.result);
       setExportStatus("idle");
       setWorkspaceFeedback({
         tone: "success",
-        message: payload.batch
-          ? `Exported ${payload.jobs.length} batch jobs with ${payload.enginePreset} preset output.`
-          : `Exported ${payload.baseName} with ${payload.enginePreset} preset output.`,
+        message: completedJob.result.batch
+          ? `Exported ${completedJob.result.jobs.length} batch jobs with ${completedJob.result.enginePreset} preset output.`
+          : `Exported ${completedJob.result.baseName} with ${completedJob.result.enginePreset} preset output.`,
       });
     } catch (error) {
       setExportStatus("error");

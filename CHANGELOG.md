@@ -1,3 +1,10 @@
+## 0.34.0 - 2026-03-30
+
+### Added
+
+- Added asynchronous LPC export jobs with polling so heavier batch and bundle exports can run off the main request path instead of holding one long-lived backend request open.
+- Updated Studio export flow to start a background export job and wait on job status updates before showing the final bundle result.
+
 ## 0.33.2 - 2026-03-30
 
 ### Added

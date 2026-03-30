@@ -1,5 +1,6 @@
 // File: lib/src/server/studio_server.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -40,6 +41,8 @@ class StudioServer {
   final LpcRenderer renderer;
   final HistoryRepository? historyRepository;
   final Map<String, LpcRenderResult> _renderCache = <String, LpcRenderResult>{};
+  final Map<String, _ExportJob> _exportJobs = <String, _ExportJob>{};
+  int _exportJobCounter = 0;
 
   static Future<StudioServer> create(RuntimeConfig config) async {
     final LpcCatalog catalog = await const LpcCatalogLoader().load(
@@ -77,6 +80,7 @@ class StudioServer {
       ..post('/api/lpc/render', _render)
       ..post('/api/lpc/consistency', _consistency)
       ..post('/api/lpc/export', _export)
+      ..get('/api/lpc/export/jobs/<id>', _exportJobStatus)
       ..post('/api/non-lpc/import', _importNonLpc)
       ..post('/api/ai/brief', _brief)
       ..post('/api/ai/naming', _naming)
@@ -308,123 +312,31 @@ class StudioServer {
   Future<Response> _export(Request request) async {
     try {
       final Map<String, dynamic> payload = await request.readAsJson();
-      final String projectName = payload['projectName']?.toString() ?? '';
-      final String enginePreset =
-          payload['enginePreset']?.toString().toLowerCase() ?? 'none';
-      final Map<String, Object?> exportSettings =
-          payload['exportSettings'] is Map
-          ? Map<String, Object?>.from(
-              payload['exportSettings'] as Map<dynamic, dynamic>,
-            )
-          : <String, Object?>{};
-
-      final LpcRenderRequest baseRequest = LpcRenderRequest.fromJson(payload);
-      final String rootBaseName = ExportSupport.buildBaseName(
-        prompt: baseRequest.prompt ?? '',
-        projectName: projectName,
-        timestamp: DateTime.now(),
-        customStem: exportSettings['customStem']?.toString() ?? '',
-        namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab',
-      );
-      final List<String> batchAnimations = _parseStringList(
-        payload['batchAnimations'],
-      );
-      await config.exportDirectory.create(recursive: true);
-      final List<Map<String, Object?>> variants = _parseBatchVariants(
-        payload['variants'],
-        fallbackRequest: baseRequest,
-        fallbackName: projectName,
-      );
-      final List<String> animations = batchAnimations.isEmpty
-          ? <String>[baseRequest.animation]
-          : batchAnimations;
-
-      final List<File> allFiles = <File>[];
-      final List<Map<String, Object?>> jobs = <Map<String, Object?>>[];
-      final bool isBatch = variants.length > 1 || animations.length > 1;
-
-      for (
-        int variantIndex = 0;
-        variantIndex < variants.length;
-        variantIndex++
-      ) {
-        final Map<String, Object?> variant = variants[variantIndex];
-        final String variantName =
-            variant['name']?.toString().trim().isNotEmpty == true
-            ? variant['name']!.toString().trim()
-            : 'variant-${variantIndex + 1}';
-        final String variantStem = ExportSupport.sanitizeFileStem(
-          variantName,
-          namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab',
-        );
-
-        for (final String animationName in animations) {
-          final LpcRenderRequest renderRequest = LpcRenderRequest(
-            bodyType: variant['bodyType']?.toString() ?? baseRequest.bodyType,
-            animation: animationName,
-            prompt: variant['prompt']?.toString() ?? baseRequest.prompt,
-            selections:
-                (variant['selections'] as Map<String, String>? ??
-                baseRequest.selections),
-            recolorGroups:
-                (variant['recolorGroups'] as Map<String, String>? ??
-                baseRequest.recolorGroups),
-            externalLayers:
-                (variant['externalLayers'] as List<ExternalRenderLayer>? ??
-                baseRequest.externalLayers),
-          );
-          final LpcRenderResult result = await _renderWithCache(renderRequest);
-          final String baseName = isBatch
-              ? '$rootBaseName-$variantStem-${ExportSupport.sanitizeFileStem(animationName, namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab')}'
-              : rootBaseName;
-
-          final _ExportArtifact artifact = await _writeExportArtifact(
-            result: result,
-            renderRequest: renderRequest,
-            baseName: baseName,
-            enginePreset: enginePreset,
-            exportSettings: exportSettings,
-          );
-          allFiles.addAll(<File>[
-            artifact.imageFile,
-            artifact.metadataFile,
-            ...artifact.extraFiles,
-          ]);
-          jobs.add(<String, Object?>{
-            'variant': variantName,
-            'animation': animationName,
-            'baseName': baseName,
-            'imagePath': path.normalize(artifact.imageFile.path),
-            'metadataPath': path.normalize(artifact.metadataFile.path),
-            'extraPaths': artifact.extraFiles
-                .map((File file) => path.normalize(file.path))
-                .toList(),
-          });
-        }
+      final bool asyncRequested = payload['async'] == true;
+      if (asyncRequested) {
+        final _ExportJob job = _createExportJob();
+        unawaited(_runExportJob(job, payload));
+        return _json(202, job.toJson());
       }
 
-      final File zipFile = await ExportSupport.writeExportBundle(
-        exportDirectory: config.exportDirectory,
-        baseName: isBatch ? '$rootBaseName-batch' : rootBaseName,
-        files: allFiles,
-      );
-      final Map<String, Object?> firstJob = jobs.isNotEmpty
-          ? jobs.first
-          : <String, Object?>{};
-
-      return _json(200, <String, Object?>{
-        'imagePath': firstJob['imagePath'],
-        'metadataPath': firstJob['metadataPath'],
-        'bundlePath': path.normalize(zipFile.path),
-        'enginePreset': enginePreset,
-        'extraPaths': firstJob['extraPaths'] ?? <String>[],
-        'baseName': firstJob['baseName'] ?? rootBaseName,
-        'jobs': jobs,
-        'batch': isBatch,
-      });
+      return _json(200, await _performExport(payload));
     } on StateError catch (error) {
       return _json(400, <String, Object>{'error': error.message});
     }
+  }
+
+  Future<Response> _exportJobStatus(Request request, String id) async {
+    final _ExportJob? job = _exportJobs[id];
+    if (job == null) {
+      return _json(404, <String, Object>{'error': 'Export job not found.'});
+    }
+
+    final int statusCode = switch (job.status) {
+      'completed' => 200,
+      'failed' => 500,
+      _ => 202,
+    };
+    return _json(statusCode, job.toJson());
   }
 
   Future<Response> _importNonLpc(Request request) async {
@@ -489,6 +401,158 @@ class StudioServer {
       });
     } on StateError catch (error) {
       return _json(400, <String, Object>{'error': error.message});
+    }
+  }
+
+  Future<Map<String, Object?>> _performExport(
+    Map<String, dynamic> payload,
+  ) async {
+    final String projectName = payload['projectName']?.toString() ?? '';
+    final String enginePreset =
+        payload['enginePreset']?.toString().toLowerCase() ?? 'none';
+    final Map<String, Object?> exportSettings = payload['exportSettings'] is Map
+        ? Map<String, Object?>.from(
+            payload['exportSettings'] as Map<dynamic, dynamic>,
+          )
+        : <String, Object?>{};
+
+    final LpcRenderRequest baseRequest = LpcRenderRequest.fromJson(payload);
+    final String rootBaseName = ExportSupport.buildBaseName(
+      prompt: baseRequest.prompt ?? '',
+      projectName: projectName,
+      timestamp: DateTime.now(),
+      customStem: exportSettings['customStem']?.toString() ?? '',
+      namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab',
+    );
+    final List<String> batchAnimations = _parseStringList(
+      payload['batchAnimations'],
+    );
+    await config.exportDirectory.create(recursive: true);
+    final List<Map<String, Object?>> variants = _parseBatchVariants(
+      payload['variants'],
+      fallbackRequest: baseRequest,
+      fallbackName: projectName,
+    );
+    final List<String> animations = batchAnimations.isEmpty
+        ? <String>[baseRequest.animation]
+        : batchAnimations;
+
+    final List<File> allFiles = <File>[];
+    final List<Map<String, Object?>> jobs = <Map<String, Object?>>[];
+    final bool isBatch = variants.length > 1 || animations.length > 1;
+
+    for (int variantIndex = 0; variantIndex < variants.length; variantIndex++) {
+      final Map<String, Object?> variant = variants[variantIndex];
+      final String variantName = variant['name']?.toString().trim().isNotEmpty == true
+          ? variant['name']!.toString().trim()
+          : 'variant-${variantIndex + 1}';
+      final String variantStem = ExportSupport.sanitizeFileStem(
+        variantName,
+        namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab',
+      );
+
+      for (final String animationName in animations) {
+        final LpcRenderRequest renderRequest = LpcRenderRequest(
+          bodyType: variant['bodyType']?.toString() ?? baseRequest.bodyType,
+          animation: animationName,
+          prompt: variant['prompt']?.toString() ?? baseRequest.prompt,
+          selections:
+              (variant['selections'] as Map<String, String>? ??
+              baseRequest.selections),
+          recolorGroups:
+              (variant['recolorGroups'] as Map<String, String>? ??
+              baseRequest.recolorGroups),
+          externalLayers:
+              (variant['externalLayers'] as List<ExternalRenderLayer>? ??
+              baseRequest.externalLayers),
+        );
+        final LpcRenderResult result = await _renderWithCache(renderRequest);
+        final String baseName = isBatch
+            ? '$rootBaseName-$variantStem-${ExportSupport.sanitizeFileStem(animationName, namingStyle: exportSettings['namingStyle']?.toString() ?? 'kebab')}'
+            : rootBaseName;
+
+        final _ExportArtifact artifact = await _writeExportArtifact(
+          result: result,
+          renderRequest: renderRequest,
+          baseName: baseName,
+          enginePreset: enginePreset,
+          exportSettings: exportSettings,
+        );
+        allFiles.addAll(<File>[
+          artifact.imageFile,
+          artifact.metadataFile,
+          ...artifact.extraFiles,
+        ]);
+        jobs.add(<String, Object?>{
+          'variant': variantName,
+          'animation': animationName,
+          'baseName': baseName,
+          'imagePath': path.normalize(artifact.imageFile.path),
+          'metadataPath': path.normalize(artifact.metadataFile.path),
+          'extraPaths': artifact.extraFiles
+              .map((File file) => path.normalize(file.path))
+              .toList(),
+        });
+      }
+    }
+
+    final File zipFile = await ExportSupport.writeExportBundle(
+      exportDirectory: config.exportDirectory,
+      baseName: isBatch ? '$rootBaseName-batch' : rootBaseName,
+      files: allFiles,
+    );
+    final Map<String, Object?> firstJob = jobs.isNotEmpty
+        ? jobs.first
+        : <String, Object?>{};
+
+    return <String, Object?>{
+      'imagePath': firstJob['imagePath'],
+      'metadataPath': firstJob['metadataPath'],
+      'bundlePath': path.normalize(zipFile.path),
+      'enginePreset': enginePreset,
+      'extraPaths': firstJob['extraPaths'] ?? <String>[],
+      'baseName': firstJob['baseName'] ?? rootBaseName,
+      'jobs': jobs,
+      'batch': isBatch,
+    };
+  }
+
+  _ExportJob _createExportJob() {
+    final DateTime now = DateTime.now().toUtc();
+    final String id =
+        'export-${now.microsecondsSinceEpoch}-${_exportJobCounter++}';
+    final _ExportJob job = _ExportJob(
+      id: id,
+      status: 'queued',
+      createdAt: now,
+      updatedAt: now,
+      pollPath: '/api/lpc/export/jobs/$id',
+    );
+    _exportJobs[id] = job;
+    while (_exportJobs.length > 64) {
+      _exportJobs.remove(_exportJobs.keys.first);
+    }
+    return job;
+  }
+
+  Future<void> _runExportJob(
+    _ExportJob job,
+    Map<String, dynamic> payload,
+  ) async {
+    job.status = 'running';
+    job.updatedAt = DateTime.now().toUtc();
+    try {
+      job.result = await _performExport(payload);
+      job.status = 'completed';
+      job.error = null;
+    } on StateError catch (error) {
+      job.status = 'failed';
+      job.error = error.message;
+    } on Exception catch (error) {
+      job.status = 'failed';
+      job.error = error.toString();
+    } finally {
+      job.updatedAt = DateTime.now().toUtc();
     }
   }
 
@@ -1354,5 +1418,35 @@ class _ExportArtifact {
   final File imageFile;
   final File metadataFile;
   final List<File> extraFiles;
+}
+
+class _ExportJob {
+  _ExportJob({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.pollPath,
+  });
+
+  final String id;
+  String status;
+  DateTime createdAt;
+  DateTime updatedAt;
+  final String pollPath;
+  Map<String, Object?>? result;
+  String? error;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'jobId': id,
+      'status': status,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'pollPath': pollPath,
+      'result': result,
+      'error': error,
+    };
+  }
 }
 
