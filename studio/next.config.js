@@ -8,6 +8,7 @@ import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
 const config = {
+	output: "standalone",
 	allowedDevOrigins: ["localhost", "127.0.0.1", "localhost.isobelnet.de"],
 };
 

@@ -53,6 +53,7 @@ Supported keys:
 SpriteCraft's Phase 8 packaging target is a Windows-first local app that keeps the current architecture intact: the Dart backend remains the runtime owner, and `studio` remains the main UI. The packaged experience should launch both locally for the user without introducing a second desktop-only UI stack.
 
 The full decision and rollout guidance live in [docs/packaging-strategy.md](docs/packaging-strategy.md).
+The concrete Windows bundle workflow lives in [docs/windows-distribution.md](docs/windows-distribution.md).
 
 ## Run SpriteCraft
 

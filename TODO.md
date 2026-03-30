@@ -121,7 +121,7 @@ Goal: make the app feel fast and trustworthy as projects grow.
 Goal: make SpriteCraft easy to install and use outside the dev folder.
 
 - [x] Decide on the primary product shape: local web app, desktop shell, or both - user prefers desktop but web is fine too
-- [ ] Add a proper desktop distribution strategy for Windows first
+- [x] Add a proper desktop distribution strategy for Windows first
 - [ ] Bundle required runtime assets cleanly while preserving submodule update workflows for development
 - [ ] Create release builds with versioned changelogs and migration notes
 - [ ] Add first-run onboarding for environment setup, submodule status, and optional Gemini configuration
