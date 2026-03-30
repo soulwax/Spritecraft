@@ -1,3 +1,9 @@
+## 0.20.1 - 2026-03-30
+
+### Fixed
+
+- Fixed `dart run bin/spritecraft.dart app` shutdown on Windows so stopping the app now terminates the full Studio dev-server process tree instead of leaving port `3000` occupied.
+
 ## 0.20.0 - 2026-03-30
 
 ### Changed

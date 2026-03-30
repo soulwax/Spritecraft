@@ -8,7 +8,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/spritesheet_creator.dart';
 
-const String version = '0.20.0';
+const String version = '0.20.1';
 const Duration _studioStartupTimeout = Duration(seconds: 20);
 
 ArgParser buildParser() {
@@ -474,11 +474,11 @@ Future<void> _runApp(ArgResults results) async {
   }
 
   await shutdownCompleter.future;
-  if (webProcess.kill()) {
-    await webExit;
-  } else if (!webExited) {
-    await webExit;
-  }
+  await _stopWebProcess(
+    webProcess,
+    alreadyExited: webExited,
+    exitCode: webExit,
+  );
   for (final StreamSubscription<ProcessSignal> subscription
       in signalSubscriptions) {
     await subscription.cancel();
@@ -574,6 +574,39 @@ Future<void> _waitForHttpReady(Uri uri, {required Duration timeout}) async {
     );
   } finally {
     client.close(force: true);
+  }
+}
+
+Future<void> _stopWebProcess(
+  Process process, {
+  required bool alreadyExited,
+  required Future<int> exitCode,
+}) async {
+  if (alreadyExited) {
+    await exitCode;
+    return;
+  }
+
+  if (Platform.isWindows) {
+    try {
+      await Process.run('taskkill', <String>[
+        '/PID',
+        '${process.pid}',
+        '/T',
+        '/F',
+      ]);
+    } on ProcessException {
+      process.kill();
+    }
+  } else {
+    process.kill(ProcessSignal.sigterm);
+  }
+
+  try {
+    await exitCode.timeout(const Duration(seconds: 5));
+  } on TimeoutException {
+    process.kill(ProcessSignal.sigkill);
+    await exitCode;
   }
 }
 
