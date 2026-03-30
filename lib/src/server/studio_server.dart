@@ -223,7 +223,9 @@ class StudioServer {
           .map((RuntimeStartupCheck check) => check.toJson())
           .toList(),
       'catalog': catalog.toSummaryJson(),
+      'runtime': _buildRuntimeSummary(),
       'exportPresets': ExportSupport.enginePresetOptions,
+      'onboarding': _buildOnboardingPayload(recent),
       'defaults': <String, Object?>{
         'bodyType': catalog.bodyTypes.contains('male')
             ? 'male'
@@ -237,6 +239,112 @@ class StudioServer {
           .map((StudioHistoryEntry entry) => entry.toJson())
           .toList(),
     });
+  }
+
+  Map<String, Object> _buildOnboardingPayload(List<StudioHistoryEntry> recent) {
+    final RuntimeStartupCheck? lpcRootCheck = config.startupChecks
+        .where((RuntimeStartupCheck check) => check.code == 'lpc_project_root')
+        .firstOrNull;
+    final RuntimeStartupCheck? definitionsCheck = config.startupChecks
+        .where(
+          (RuntimeStartupCheck check) => check.code == 'lpc_definitions_directory',
+        )
+        .firstOrNull;
+    final RuntimeStartupCheck? spritesheetsCheck = config.startupChecks
+        .where(
+          (RuntimeStartupCheck check) => check.code == 'lpc_spritesheets_directory',
+        )
+        .firstOrNull;
+
+    String lpcStatus = 'ok';
+    if (<RuntimeStartupCheck?>[lpcRootCheck, definitionsCheck, spritesheetsCheck]
+        .any((RuntimeStartupCheck? check) => check?.status == 'error')) {
+      lpcStatus = 'error';
+    } else if (<RuntimeStartupCheck?>[
+      lpcRootCheck,
+      definitionsCheck,
+      spritesheetsCheck,
+    ].any((RuntimeStartupCheck? check) => check?.status == 'warning')) {
+      lpcStatus = 'warning';
+    }
+
+    final List<Map<String, Object?>> steps = <Map<String, Object?>>[
+      <String, Object?>{
+        'id': 'lpc-assets',
+        'title': 'Verify LPC content',
+        'status': lpcStatus,
+        'optional': false,
+        'detail': lpcStatus == 'ok'
+            ? 'SpriteCraft can see the layered LPC definitions and spritesheet assets it needs.'
+            : (config.expectsLpcSubmoduleMarker
+                  ? 'Initialize the LPC submodule before using the layered builder workflow.'
+                  : 'Restore or rebuild the bundled LPC runtime assets before using the layered builder workflow.'),
+        'actionLabel': config.expectsLpcSubmoduleMarker
+            ? 'Initialize submodule'
+            : 'Restore packaged assets',
+        'actionHint': config.expectsLpcSubmoduleMarker
+            ? 'git submodule update --init --recursive'
+            : 'Rebuild the Windows bundle so runtime/assets/lpc-spritesheet-creator is present.',
+      },
+      <String, Object?>{
+        'id': 'env-file',
+        'title': 'Create local environment config',
+        'status': config.hasDotEnvFile
+            ? (config.configurationWarnings.isEmpty ? 'ok' : 'warning')
+            : 'warning',
+        'optional': false,
+        'detail': config.hasDotEnvFile
+            ? (config.configurationWarnings.isEmpty
+                  ? 'A local .env file is present and parsed cleanly.'
+                  : config.configurationWarnings.join(' '))
+            : 'SpriteCraft can run without a local .env file, but adding one makes local setup repeatable.',
+        'actionLabel': 'Create .env',
+        'actionHint': 'Copy-Item .env.example .env',
+      },
+      <String, Object?>{
+        'id': 'gemini',
+        'title': 'Enable Gemini assistance',
+        'status': config.hasGemini ? 'ok' : 'warning',
+        'optional': true,
+        'detail': config.hasGemini
+            ? 'Gemini-backed planning and naming helpers are available.'
+            : 'Gemini is optional. Without it, SpriteCraft still works and falls back to local recommendation paths.',
+        'actionLabel': 'Set GEMINI_API_KEY',
+        'actionHint': 'Add GEMINI_API_KEY to .env when you want AI planning and naming helpers.',
+      },
+    ];
+
+    final bool hasBlockingStep = steps.any(
+      (Map<String, Object?> step) => step['status'] == 'error',
+    );
+    final bool hasActionableStep = steps.any(
+      (Map<String, Object?> step) => step['status'] != 'ok',
+    );
+
+    return <String, Object>{
+      'show': recent.isEmpty || hasActionableStep,
+      'isFirstRun': recent.isEmpty,
+      'hasBlockingStep': hasBlockingStep,
+      'steps': steps,
+    };
+  }
+
+  Map<String, Object> _buildRuntimeSummary() {
+    final String historyMode = historyRepository != null
+        ? 'enabled'
+        : (config.hasDatabase ? 'degraded' : 'disabled');
+
+    return <String, Object>{
+      'exportDirectory': config.exportDirectory.path,
+      'projectPackageDirectory': config.projectPackageDirectory.path,
+      'recoveryDirectory': config.recoveryDirectory.path,
+      'lpcProjectRoot': config.lpcProjectRoot.path,
+      'usesBundledLpcAssets': !config.expectsLpcSubmoduleMarker,
+      'hasDotEnvFile': config.hasDotEnvFile,
+      'historyMode': historyMode,
+      'historyPersistenceAvailable': historyRepository != null,
+      'geminiMode': config.hasGemini ? 'enabled' : 'disabled',
+    };
   }
 
   Future<Response> _health(Request request) async {

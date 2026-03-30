@@ -122,10 +122,10 @@ Goal: make SpriteCraft easy to install and use outside the dev folder.
 
 - [x] Decide on the primary product shape: local web app, desktop shell, or both - user prefers desktop but web is fine too
 - [x] Add a proper desktop distribution strategy for Windows first
-- [ ] Bundle required runtime assets cleanly while preserving submodule update workflows for development
-- [ ] Create release builds with versioned changelogs and migration notes
-- [ ] Add first-run onboarding for environment setup, submodule status, and optional Gemini configuration
-- [ ] Add settings UI for export paths, DB usage, AI toggle, and theme/preferences
+- [x] Bundle required runtime assets cleanly while preserving submodule update workflows for development
+- [x] Create release builds with versioned changelogs and migration notes
+- [x] Add first-run onboarding for environment setup, submodule status, and optional Gemini configuration
+- [x] Add settings UI for export paths, DB usage, AI toggle, and theme/preferences
 - [ ] Add crash-safe logging and a support bundle export for debugging user issues
 
 ## Phase 9 — Polish

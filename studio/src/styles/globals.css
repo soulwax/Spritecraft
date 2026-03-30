@@ -28,8 +28,32 @@
 	--ring: rgb(126 156 216 / 0.55);
 }
 
+:root[data-theme="paper"] {
+	--background: #f6f2df;
+	--foreground: #1f1f28;
+	--muted-foreground: rgb(60 64 76 / 0.78);
+	--hero-copy: rgb(31 31 40 / 0.78);
+	--surface-soft: rgb(255 251 240 / 0.84);
+	--surface-strong: rgb(245 239 220 / 0.94);
+	--hero-surface: rgb(250 245 229 / 0.96);
+	--card: rgb(255 252 244 / 0.92);
+	--border: rgb(110 122 148 / 0.28);
+	--border-strong: rgb(63 93 152 / 0.28);
+	--accent: #3f5d98;
+	--accent-foreground: #f8f6ee;
+	--accent-soft: rgb(63 93 152 / 0.12);
+	--success: #4f7a3e;
+	--warning: #9b6c1f;
+	--destructive: #b0303c;
+	--ring: rgb(63 93 152 / 0.35);
+}
+
 html {
 	color-scheme: dark;
+}
+
+html[data-theme="paper"] {
+	color-scheme: light;
 }
 
 body {

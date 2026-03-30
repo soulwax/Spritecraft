@@ -32,12 +32,21 @@ function Get-BuildCommand([string]$Manager) {
   }
 }
 
+function Get-SpriteCraftVersion([string]$PubspecPath) {
+  $versionLine = Select-String -Path $PubspecPath -Pattern "^version:\s*(.+)$" | Select-Object -First 1
+  if (-not $versionLine) {
+    throw "Could not read SpriteCraft version from $PubspecPath"
+  }
+
+  return $versionLine.Matches[0].Groups[1].Value.Trim()
+}
+
 $resolvedRoot = (Resolve-Path $ProjectRoot).Path
 $pubspecPath = Join-Path $resolvedRoot "pubspec.yaml"
 $studioRoot = Join-Path $resolvedRoot "studio"
 $lpcRoot = Join-Path $resolvedRoot "lpc-spritesheet-creator"
 $nodeExe = Join-Path $NodeRuntimeDir "node.exe"
-$effectiveVersion = if ($Version) { $Version } else { "0.34.0" }
+$effectiveVersion = if ($Version) { $Version } else { Get-SpriteCraftVersion $pubspecPath }
 
 Require-Path $pubspecPath "pubspec.yaml"
 Require-Path $studioRoot "studio app"
@@ -50,21 +59,26 @@ if ([string]::IsNullOrWhiteSpace($NodeRuntimeDir)) {
 Require-Path $nodeExe "Node runtime"
 
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-  $OutputDir = Join-Path $resolvedRoot "build\release\windows\SpriteCraft-win-x64"
+  $OutputDir = Join-Path $resolvedRoot "build\release\windows\SpriteCraft-win-x64-$effectiveVersion"
 }
 
 $backendOutputDir = Join-Path $OutputDir "runtime\backend"
+$assetOutputDir = Join-Path $OutputDir "runtime\assets\lpc-spritesheet-creator"
 $nodeOutputDir = Join-Path $OutputDir "runtime\node"
 $webOutputDir = Join-Path $OutputDir "runtime\web"
 $standaloneDir = Join-Path $studioRoot ".next\standalone"
 $staticDir = Join-Path $studioRoot ".next\static"
 $publicDir = Join-Path $studioRoot "public"
+$definitionsDir = Join-Path $lpcRoot "sheet_definitions"
+$spritesheetsDir = Join-Path $lpcRoot "spritesheets"
+$creditsFile = Join-Path $lpcRoot "CREDITS.csv"
 
 if (Test-Path $OutputDir) {
   Remove-Item -LiteralPath $OutputDir -Recurse -Force
 }
 
 New-Item -ItemType Directory -Path $backendOutputDir -Force | Out-Null
+New-Item -ItemType Directory -Path $assetOutputDir -Force | Out-Null
 New-Item -ItemType Directory -Path $nodeOutputDir -Force | Out-Null
 New-Item -ItemType Directory -Path $webOutputDir -Force | Out-Null
 
@@ -101,12 +115,19 @@ Copy-IfPresent $staticDir (Join-Path $packagedStaticRoot "static")
 Copy-IfPresent $publicDir (Join-Path $webOutputDir "public")
 
 Write-Host "Copying support files..."
+Copy-Item -Path $definitionsDir -Destination (Join-Path $assetOutputDir "sheet_definitions") -Recurse -Force
+Copy-Item -Path $spritesheetsDir -Destination (Join-Path $assetOutputDir "spritesheets") -Recurse -Force
+Copy-Item -Path $creditsFile -Destination (Join-Path $assetOutputDir "CREDITS.csv") -Force
 Copy-Item -Path (Join-Path $resolvedRoot ".env.example") -Destination (Join-Path $OutputDir ".env.example") -Force
 Copy-Item -Path (Join-Path $resolvedRoot "README.md") -Destination (Join-Path $OutputDir "README.md") -Force
 Copy-Item -Path (Join-Path $resolvedRoot "docs") -Destination (Join-Path $OutputDir "docs") -Recurse -Force
-Copy-Item -Path $lpcRoot -Destination (Join-Path $OutputDir "lpc-spritesheet-creator") -Recurse -Force
 Copy-Item -Path (Join-Path $resolvedRoot "packaging\windows\launch-spritecraft.ps1") -Destination (Join-Path $OutputDir "SpriteCraft Studio.ps1") -Force
 Copy-Item -Path (Join-Path $resolvedRoot "packaging\windows\launch-spritecraft.cmd") -Destination (Join-Path $OutputDir "SpriteCraft Studio.cmd") -Force
+
+$releaseNotesPath = Join-Path $resolvedRoot "docs\releases\$effectiveVersion.md"
+if (Test-Path $releaseNotesPath) {
+  Copy-Item -Path $releaseNotesPath -Destination (Join-Path $OutputDir "$effectiveVersion-release-notes.md") -Force
+}
 
 $manifest = [ordered]@{
   product = "SpriteCraft"
@@ -114,6 +135,7 @@ $manifest = [ordered]@{
   platform = "windows-x64"
   shape = "portable-local-app"
   backendExecutable = "runtime/backend/spritecraft.exe"
+  bundledLpcRoot = "runtime/assets/lpc-spritesheet-creator"
   webEntry = "runtime/web/server.js"
   bundledNode = "runtime/node/node.exe"
   backendPort = $BackendPort

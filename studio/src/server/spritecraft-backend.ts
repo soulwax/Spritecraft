@@ -294,6 +294,17 @@ const bootstrapSchema = z.object({
 		variants: z.array(z.string()).default([]),
 		loadWarningCount: z.number().default(0),
 	}),
+	runtime: z.object({
+		exportDirectory: z.string(),
+		projectPackageDirectory: z.string(),
+		recoveryDirectory: z.string(),
+		lpcProjectRoot: z.string(),
+		usesBundledLpcAssets: z.boolean().default(false),
+		hasDotEnvFile: z.boolean().default(false),
+		historyMode: z.enum(["enabled", "degraded", "disabled"]).default("disabled"),
+		historyPersistenceAvailable: z.boolean().default(false),
+		geminiMode: z.enum(["enabled", "disabled"]).default("disabled"),
+	}),
 	exportPresets: z
 		.array(
 			z.object({
@@ -303,6 +314,24 @@ const bootstrapSchema = z.object({
 			}),
 		)
 		.default([]),
+	onboarding: z.object({
+		show: z.boolean().default(false),
+		isFirstRun: z.boolean().default(false),
+		hasBlockingStep: z.boolean().default(false),
+		steps: z
+			.array(
+				z.object({
+					id: z.string(),
+					title: z.string(),
+					status: z.enum(["ok", "warning", "error"]).default("warning"),
+					optional: z.boolean().default(false),
+					detail: z.string().default(""),
+					actionLabel: z.string().default(""),
+					actionHint: z.string().default(""),
+				}),
+			)
+			.default([]),
+	}),
 	recent: z.array(historyEntrySchema).default([]),
 });
 

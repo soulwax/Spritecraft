@@ -10,6 +10,8 @@ class RuntimeConfig {
     required this.geminiApiKey,
     required this.databaseUrl,
     required this.lpcProjectRoot,
+    required this.expectsLpcSubmoduleMarker,
+    required this.hasDotEnvFile,
     required this.configurationWarnings,
     required this.startupChecks,
   });
@@ -18,6 +20,8 @@ class RuntimeConfig {
   final String geminiApiKey;
   final String databaseUrl;
   final Directory lpcProjectRoot;
+  final bool expectsLpcSubmoduleMarker;
+  final bool hasDotEnvFile;
   final List<String> configurationWarnings;
   final List<RuntimeStartupCheck> startupChecks;
 
@@ -38,6 +42,10 @@ class RuntimeConfig {
       Directory(path.join(projectRoot.path, 'build', 'exports'));
   Directory get recoveryDirectory =>
       Directory(path.join(projectRoot.path, 'build', 'recovery'));
+  Directory get logsDirectory =>
+      Directory(path.join(projectRoot.path, 'build', 'logs'));
+  Directory get supportBundleDirectory =>
+      Directory(path.join(projectRoot.path, 'build', 'support'));
   Directory get renderCacheDirectory =>
       Directory(path.join(projectRoot.path, 'build', 'cache', 'render-assets'));
   Directory get projectPackageDirectory =>
@@ -47,32 +55,42 @@ class RuntimeConfig {
   Directory get lpcSpritesheetsDirectory =>
       Directory(path.join(lpcProjectRoot.path, 'spritesheets'));
 
-  static Future<RuntimeConfig> load({Directory? projectRoot}) async {
+  static Future<RuntimeConfig> load({
+    Directory? projectRoot,
+    Map<String, String>? environment,
+  }) async {
     final Directory root = projectRoot ?? Directory.current;
     final _DotEnvLoadResult dotEnv = await _loadDotEnvIfPresent(root);
     final Map<String, String> values = <String, String>{
       ...dotEnv.values,
-      ...Platform.environment,
+      ...(environment ?? Platform.environment),
     };
+    final String configuredLpcRoot = values['SPRITECRAFT_LPC_ROOT']?.trim() ?? '';
+    final bool expectsLpcSubmoduleMarker = configuredLpcRoot.isEmpty;
+    final Directory lpcProjectRoot = Directory(
+      configuredLpcRoot.isEmpty
+          ? path.join(root.path, 'lpc-spritesheet-creator')
+          : path.normalize(configuredLpcRoot),
+    );
 
     return RuntimeConfig(
       projectRoot: root,
       geminiApiKey: values['GEMINI_API_KEY'] ?? '',
       databaseUrl: values['DATABASE_URL'] ?? '',
-      lpcProjectRoot: Directory(
-        path.join(root.path, 'lpc-spritesheet-creator'),
-      ),
+      lpcProjectRoot: lpcProjectRoot,
+      expectsLpcSubmoduleMarker: expectsLpcSubmoduleMarker,
+      hasDotEnvFile: dotEnv.foundFile,
       configurationWarnings: dotEnv.warnings,
       startupChecks: await _buildStartupChecks(
-        lpcProjectRoot: Directory(
-          path.join(root.path, 'lpc-spritesheet-creator'),
-        ),
+        lpcProjectRoot: lpcProjectRoot,
+        expectSubmoduleMarker: expectsLpcSubmoduleMarker,
       ),
     );
   }
 
   static Future<List<RuntimeStartupCheck>> _buildStartupChecks({
     required Directory lpcProjectRoot,
+    required bool expectSubmoduleMarker,
   }) async {
     final Directory definitionsDirectory = Directory(
       path.join(lpcProjectRoot.path, 'sheet_definitions'),
@@ -92,7 +110,9 @@ class RuntimeConfig {
         status: lpcProjectRoot.existsSync() ? 'ok' : 'error',
         detail: lpcProjectRoot.existsSync()
             ? 'Found LPC project root at ${lpcProjectRoot.path}.'
-            : 'Missing lpc-spritesheet-creator at ${lpcProjectRoot.path}. Run git submodule update --init --recursive.',
+            : expectSubmoduleMarker
+            ? 'Missing lpc-spritesheet-creator at ${lpcProjectRoot.path}. Run git submodule update --init --recursive.'
+            : 'Missing bundled LPC assets at ${lpcProjectRoot.path}. Rebuild or restore the packaged runtime assets.',
         location: lpcProjectRoot.path,
       ),
     ];
@@ -127,17 +147,22 @@ class RuntimeConfig {
       return checks;
     }
 
-    final bool hasSubmoduleMarker =
-        submoduleMarker.existsSync() ||
-        Directory(path.join(lpcProjectRoot.path, '.git')).existsSync();
     checks.add(
       RuntimeStartupCheck(
         code: 'lpc_submodule_marker',
         label: 'LPC submodule marker',
-        status: hasSubmoduleMarker ? 'ok' : 'warning',
-        detail: hasSubmoduleMarker
-            ? 'Found a .git marker inside the LPC project.'
-            : 'The LPC project does not contain a .git marker. It may not be initialized as a submodule in this checkout.',
+        status: expectSubmoduleMarker
+            ? ((submoduleMarker.existsSync() ||
+                    Directory(path.join(lpcProjectRoot.path, '.git')).existsSync())
+                ? 'ok'
+                : 'warning')
+            : 'ok',
+        detail: expectSubmoduleMarker
+            ? ((submoduleMarker.existsSync() ||
+                    Directory(path.join(lpcProjectRoot.path, '.git')).existsSync())
+                ? 'Found a .git marker inside the LPC project.'
+                : 'The LPC project does not contain a .git marker. It may not be initialized as a submodule in this checkout.')
+            : 'Using bundled LPC runtime assets, so a git submodule marker is not required.',
         location: submoduleMarker.path,
       ),
     );
@@ -279,7 +304,11 @@ class RuntimeConfig {
       values[key] = value;
     }
 
-    return _DotEnvLoadResult(values: values, warnings: warnings);
+    return _DotEnvLoadResult(
+      values: values,
+      warnings: warnings,
+      foundFile: true,
+    );
   }
 }
 
@@ -287,10 +316,12 @@ class _DotEnvLoadResult {
   const _DotEnvLoadResult({
     this.values = const <String, String>{},
     this.warnings = const <String>[],
+    this.foundFile = false,
   });
 
   final Map<String, String> values;
   final List<String> warnings;
+  final bool foundFile;
 }
 
 class RuntimeStartupCheck {

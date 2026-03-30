@@ -24,11 +24,29 @@ export async function getStudioPageData() {
     typeNames: bootstrap?.catalog.typeNames ?? [],
     tags: bootstrap?.catalog.tags ?? [],
     variants: bootstrap?.catalog.variants ?? [],
+    runtime:
+      bootstrap?.runtime ?? {
+        exportDirectory: "",
+        projectPackageDirectory: "",
+        recoveryDirectory: "",
+        lpcProjectRoot: "",
+        usesBundledLpcAssets: false,
+        hasDotEnvFile: false,
+        historyMode: "disabled",
+        historyPersistenceAvailable: false,
+        geminiMode: "disabled",
+      },
     exportPresets: (bootstrap?.exportPresets ?? []).map((option) => ({
       id: option.id,
       label: option.label,
       description: option.description ?? "",
     })),
+    onboarding: bootstrap?.onboarding ?? {
+      show: false,
+      isFirstRun: false,
+      hasBlockingStep: false,
+      steps: [],
+    },
     checks: health?.checks ?? [],
   };
 }

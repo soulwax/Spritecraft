@@ -7,6 +7,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { FirstRunOnboarding } from "~/app/_components/first-run-onboarding";
 import { ProjectLauncher } from "~/app/_components/project-launcher";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -42,6 +43,7 @@ export default async function Home() {
     tags,
     variants,
     exportPresets,
+    onboarding,
     checks,
   } = await getStudioPageData();
 
@@ -50,6 +52,13 @@ export default async function Home() {
 
   return (
     <main className="flex flex-col gap-8">
+      {onboarding.show ? (
+        <FirstRunOnboarding
+          hasBlockingStep={onboarding.hasBlockingStep}
+          isFirstRun={onboarding.isFirstRun}
+          steps={onboarding.steps}
+        />
+      ) : null}
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
         <Card className="overflow-hidden border-[color:var(--border-strong)] bg-[color:var(--hero-surface)]">
           <CardHeader className="gap-4">

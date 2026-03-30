@@ -36,6 +36,11 @@ SpriteCraft-win-x64/
   runtime/
     backend/
       spritecraft.exe
+    assets/
+      lpc-spritesheet-creator/
+        sheet_definitions/
+        spritesheets/
+        CREDITS.csv
     node/
       node.exe
     web/
@@ -43,7 +48,6 @@ SpriteCraft-win-x64/
       .next/
       public/
       package.json
-  lpc-spritesheet-creator/
   .env.example
   README.md
   docs/
@@ -56,7 +60,7 @@ The portable bundle expects:
 - a working Dart toolchain
 - a local Node runtime directory containing `node.exe`
 - a production `studio` build with Next standalone output
-- the checked-out `lpc-spritesheet-creator` submodule
+- the checked-out `lpc-spritesheet-creator` submodule as a build input
 
 ## Build command
 
@@ -77,8 +81,9 @@ Optional parameters:
 The packaged launcher:
 
 1. starts the compiled Dart backend with `studio --no-open`
-2. starts the packaged standalone Next server with the bundled `node.exe`
-3. opens the local SpriteCraft Studio URL in the default browser
+2. points the backend at `runtime/assets/lpc-spritesheet-creator` through `SPRITECRAFT_LPC_ROOT`
+3. starts the packaged standalone Next server with the bundled `node.exe`
+4. opens the local SpriteCraft Studio URL in the default browser
 
 ## Follow-on work
 

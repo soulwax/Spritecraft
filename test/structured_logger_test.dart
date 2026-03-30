@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:path/path.dart' as path;
 
 import 'package:spritecraft/src/logging/structured_logger.dart';
 import 'package:test/test.dart';
@@ -73,5 +75,37 @@ void main() {
         entries.single['context']! as Map<String, dynamic>;
     expect(context['attemptedAt'], '2026-03-30 12:30:00.000Z');
     expect(context['uri'], 'https://spritecraft.test/health');
+  });
+
+  test('writes jsonl log files when a log directory is configured', () async {
+    final Directory sandbox = await Directory.systemTemp.createTemp(
+      'spritecraft-logger-test',
+    );
+    addTearDown(() => sandbox.delete(recursive: true));
+
+    final StructuredLogger logger = StructuredLogger(
+      clock: () => DateTime.utc(2026, 3, 30, 18, 45, 0),
+      logDirectory: sandbox,
+      writer: (_, {required LogSeverity severity}) {},
+    );
+
+    logger.warning(
+      subsystem: 'server',
+      event: 'request_failed',
+      message: 'Request failed during support export.',
+      context: <String, Object?>{'path': '/api/support/bundle'},
+    );
+
+    final File logFile = File(
+      path.join(sandbox.path, 'spritecraft-2026-03-30.log.jsonl'),
+    );
+    expect(await logFile.exists(), isTrue);
+    final List<String> lines = await logFile.readAsLines();
+    expect(lines, hasLength(1));
+
+    final Map<String, dynamic> entry =
+        jsonDecode(lines.single) as Map<String, dynamic>;
+    expect(entry['event'], 'request_failed');
+    expect(entry['severity'], 'warning');
   });
 }

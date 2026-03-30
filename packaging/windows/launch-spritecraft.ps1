@@ -10,6 +10,7 @@ $ErrorActionPreference = "Stop"
 $bundleRoot = Split-Path -Parent $PSScriptRoot
 $runtimeRoot = Join-Path $bundleRoot "runtime"
 $backendExe = Join-Path $runtimeRoot "backend\\spritecraft.exe"
+$assetRoot = Join-Path $runtimeRoot "assets\\lpc-spritesheet-creator"
 $nodeExe = Join-Path $runtimeRoot "node\\node.exe"
 $webRoot = Join-Path $runtimeRoot "web"
 $webEntry = Join-Path $webRoot "server.js"
@@ -27,6 +28,10 @@ if (-not (Test-Path $webEntry)) {
   throw "Missing packaged studio entrypoint at $webEntry"
 }
 
+if (-not (Test-Path $assetRoot)) {
+  throw "Missing bundled LPC assets at $assetRoot"
+}
+
 $backendArgs = @(
   "studio",
   "--host", $BackendHost,
@@ -40,7 +45,11 @@ $webArgs = @(
   "--port", "$WebPort"
 )
 
-$backend = Start-Process -FilePath $backendExe -ArgumentList $backendArgs -WorkingDirectory $bundleRoot -PassThru
+$backendEnv = @{
+  "SPRITECRAFT_LPC_ROOT" = $assetRoot
+}
+
+$backend = Start-Process -FilePath $backendExe -ArgumentList $backendArgs -WorkingDirectory $bundleRoot -Environment $backendEnv -PassThru
 $web = Start-Process -FilePath $nodeExe -ArgumentList $webArgs -WorkingDirectory $webRoot -PassThru
 
 Write-Host "SpriteCraft backend PID: $($backend.Id)"

@@ -104,7 +104,19 @@ void main() {
       expect(payload['catalog']['categories'], contains('body'));
       expect(payload['catalog']['typeNames'], contains('body'));
       expect(payload['catalog']['variants'], contains('light'));
+      expect(payload['runtime'], isA<Map<String, dynamic>>());
+      expect(payload['runtime']['exportDirectory'], isA<String>());
+      expect(payload['runtime']['projectPackageDirectory'], isA<String>());
+      expect(payload['runtime']['recoveryDirectory'], isA<String>());
+      expect(payload['runtime']['lpcProjectRoot'], isA<String>());
+      expect(payload['runtime']['usesBundledLpcAssets'], isA<bool>());
+      expect(payload['runtime']['hasDotEnvFile'], isA<bool>());
+      expect(payload['runtime']['historyMode'], isA<String>());
+      expect(payload['runtime']['historyPersistenceAvailable'], isA<bool>());
+      expect(payload['runtime']['geminiMode'], isA<String>());
       expect(payload['exportPresets'], isA<List<dynamic>>());
+      expect(payload['onboarding'], isA<Map<String, dynamic>>());
+      expect(payload['onboarding']['steps'], isA<List<dynamic>>());
       expect(
         (payload['exportPresets'] as List<dynamic>)
             .map((dynamic option) => (option as Map<String, dynamic>)['id'])

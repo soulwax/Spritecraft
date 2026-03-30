@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as path;
 
 enum LogSeverity { info, warning, error }
 
@@ -7,12 +8,21 @@ typedef StructuredLogWriter =
     void Function(String line, {required LogSeverity severity});
 
 class StructuredLogger {
-  StructuredLogger({DateTime Function()? clock, StructuredLogWriter? writer})
+  StructuredLogger({
+    DateTime Function()? clock,
+    StructuredLogWriter? writer,
+    Directory? logDirectory,
+    String logPrefix = 'spritecraft',
+  })
     : _clock = clock ?? DateTime.now,
-      _writer = writer ?? _defaultWriter;
+      _writer = writer ?? _defaultWriter,
+      _logDirectory = logDirectory,
+      _logPrefix = logPrefix;
 
   final DateTime Function() _clock;
   final StructuredLogWriter _writer;
+  final Directory? _logDirectory;
+  final String _logPrefix;
 
   void info({
     required String subsystem,
@@ -92,6 +102,7 @@ class StructuredLogger {
     };
 
     _writer(jsonEncode(payload), severity: severity);
+    _writeToFile(jsonEncode(payload));
   }
 
   Object? _normalizeValue(Object? value) {
@@ -118,5 +129,26 @@ class StructuredLogger {
   static void _defaultWriter(String line, {required LogSeverity severity}) {
     final IOSink sink = severity == LogSeverity.info ? stdout : stderr;
     sink.writeln(line);
+  }
+
+  void _writeToFile(String line) {
+    if (_logDirectory == null) {
+      return;
+    }
+
+    try {
+      _logDirectory.createSync(recursive: true);
+      final DateTime now = _clock().toUtc();
+      final String stamp =
+          '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+      final File logFile = File(
+        path.join(_logDirectory.path, '$_logPrefix-$stamp.log.jsonl'),
+      );
+      logFile.writeAsStringSync('$line\n', mode: FileMode.append, flush: true);
+    } catch (_) {
+      // Keep structured stdout/stderr logging working even if local file logging fails.
+    }
   }
 }

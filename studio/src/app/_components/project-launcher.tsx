@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, Sparkles, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +9,11 @@ import {
 	projectTemplates,
 	type SpriteCraftLaunchConfig,
 } from "~/app/_components/project-launching";
+import {
+	loadStudioPreferences,
+	studioPreferencesChangedEvent,
+	type StudioPreferences,
+} from "~/app/_components/studio-preferences";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -88,6 +93,34 @@ export function ProjectLauncher({
 	const [previewMode, setPreviewMode] = useState(
 		selectedTemplate?.previewMode ?? fallbackConfig.previewMode,
 	);
+
+	useEffect(() => {
+		function applyPreferences(preferences: StudioPreferences) {
+			setEnginePreset((current) =>
+				current === fallbackConfig.enginePreset
+					? preferences.defaultEnginePreset
+					: current,
+			);
+		}
+
+		applyPreferences(loadStudioPreferences());
+
+		function handlePreferencesChanged(event: Event) {
+			applyPreferences((event as CustomEvent<StudioPreferences>).detail);
+		}
+
+		window.addEventListener(
+			studioPreferencesChangedEvent,
+			handlePreferencesChanged as EventListener,
+		);
+
+		return () => {
+			window.removeEventListener(
+				studioPreferencesChangedEvent,
+				handlePreferencesChanged as EventListener,
+			);
+		};
+	}, []);
 
 	function syncFromTemplate(templateId: string) {
 		setSelectedTemplateId(templateId);

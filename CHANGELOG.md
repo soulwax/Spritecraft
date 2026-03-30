@@ -1,3 +1,38 @@
+## 0.37.0 - 2026-03-30
+
+### Added
+
+- Added a dedicated Studio settings route with runtime-path visibility for exports, project packages, recovery logs, LPC asset roots, history mode, and Gemini availability.
+- Added client-side Studio preferences for theme, AI panel visibility, history/project navigation visibility, default export preset, and default naming style.
+
+### Changed
+
+- Extended the Dart bootstrap contract with a typed runtime summary so Studio can show backend-owned settings without duplicating runtime logic in the frontend.
+- Applied Studio theme preference globally and made the AI/history toggles affect the active Studio surface immediately.
+
+## 0.36.0 - 2026-03-30
+
+### Added
+
+- Added a first-run onboarding checklist on the Studio home page so new local installs can verify LPC content, local `.env` setup, and optional Gemini availability before a longer builder session.
+- Added a typed onboarding payload to the Dart bootstrap response so setup guidance now comes from backend-owned runtime state instead of duplicated client heuristics.
+
+### Changed
+
+- Extended runtime config to distinguish missing `.env` files from parsing warnings, which makes setup guidance clearer for both repo-based and packaged runs.
+
+## 0.35.0 - 2026-03-30
+
+### Added
+
+- Added a Windows-first packaging workflow for SpriteCraft with a portable bundle builder, launcher scripts, and documented release layout around the Dart backend plus standalone `studio` app.
+- Added support for packaged LPC runtime assets through `SPRITECRAFT_LPC_ROOT`, so release bundles can run from bundled asset directories without requiring a git submodule checkout at runtime.
+
+### Changed
+
+- Switched `studio` to Next.js standalone output so packaged builds can ship a tighter runtime layout for release bundles.
+- Updated Phase 8 packaging docs to define the primary product shape, Windows distribution target, and bundled-runtime asset behavior.
+
 ## 0.34.0 - 2026-03-30
 
 ### Added

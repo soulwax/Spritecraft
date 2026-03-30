@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 
 import {
+  loadStudioPreferences,
+  studioPreferencesChangedEvent,
+  type StudioPreferences,
+} from "~/app/_components/studio-preferences";
+import {
   type WorkspaceLaunchPayload,
   type WorkspaceLinkedProject,
   type WorkspaceLoadPayload,
@@ -137,6 +142,7 @@ export function CatalogScout({
   const [workspaceExportSettings, setWorkspaceExportSettings] = useState(
     defaultExportSettings,
   );
+  const [showAiAssistance, setShowAiAssistance] = useState(true);
   const [batchAnimationsText, setBatchAnimationsText] = useState("");
   const [batchVariantPresetNames, setBatchVariantPresetNames] = useState<
     string[]
@@ -320,9 +326,37 @@ export function CatalogScout({
   }
 
   useEffect(() => {
+    const preferences = loadStudioPreferences();
+    setShowAiAssistance(preferences.showAiAssistance);
+
+    function handlePreferencesChanged(event: Event) {
+      const detail = (event as CustomEvent<StudioPreferences>).detail;
+      setShowAiAssistance(detail.showAiAssistance);
+    }
+
+    window.addEventListener(
+      studioPreferencesChangedEvent,
+      handlePreferencesChanged as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        studioPreferencesChangedEvent,
+        handlePreferencesChanged as EventListener,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(workspaceStorageKey);
       if (!raw) {
+        const preferences = loadStudioPreferences();
+        setWorkspaceEnginePreset(preferences.defaultEnginePreset);
+        setWorkspaceExportSettings((current) => ({
+          ...current,
+          namingStyle: preferences.defaultNamingStyle,
+        }));
         return;
       }
 
@@ -3516,6 +3550,7 @@ export function CatalogScout({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
+          {showAiAssistance ? (
           <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
@@ -4012,6 +4047,26 @@ export function CatalogScout({
               </p>
             ) : null}
           </div>
+          ) : (
+          <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  AI Brief
+                </p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  Hidden by Studio preference
+                </h3>
+              </div>
+              <Badge variant="warning">AI surfaces off</Badge>
+            </div>
+            <p className="text-sm text-[color:var(--muted-foreground)]">
+              AI brief, naming, and style-helper panels are currently hidden on
+              this machine. Re-enable them from Settings when you want those
+              tools back in the builder.
+            </p>
+          </div>
+          )}
 
           <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] p-4">
             <div className="mb-3 flex items-center justify-between gap-3">

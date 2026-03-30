@@ -7,6 +7,7 @@ import { Geist } from "next/font/google";
 
 import { Badge } from "~/components/ui/badge";
 import { StudioNav } from "~/app/_components/studio-nav";
+import { StudioThemeController } from "~/app/_components/studio-theme-controller";
 
 export const metadata: Metadata = {
 	title: "SpriteCraft Studio",
@@ -25,6 +26,7 @@ export default function RootLayout({
 	return (
 		<html className={`${geist.variable}`} lang="en">
 			<body className="antialiased">
+				<StudioThemeController />
 				<div className="studio-shell mx-auto flex min-h-screen w-full max-w-[1400px] flex-col px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
 					<header className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 						<div className="flex items-center gap-4">

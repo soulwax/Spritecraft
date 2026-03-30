@@ -1,18 +1,48 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import {
+	loadStudioPreferences,
+	studioPreferencesChangedEvent,
+	type StudioPreferences,
+} from "~/app/_components/studio-preferences";
 import { cn } from "~/lib/utils";
-
-const navItems = [
-  { href: "/", label: "Overview" },
-  { href: "/projects", label: "Projects" },
-  { href: "/builder", label: "Builder" },
-] as const;
 
 export function StudioNav() {
   const pathname = usePathname();
+  const [preferences, setPreferences] = useState<StudioPreferences>(() =>
+    loadStudioPreferences(),
+  );
+
+  useEffect(() => {
+    function handlePreferencesChanged(event: Event) {
+      setPreferences((event as CustomEvent<StudioPreferences>).detail);
+    }
+
+    window.addEventListener(
+      studioPreferencesChangedEvent,
+      handlePreferencesChanged as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        studioPreferencesChangedEvent,
+        handlePreferencesChanged as EventListener,
+      );
+    };
+  }, []);
+
+  const navItems = [
+    { href: "/", label: "Overview" },
+    ...(preferences.showHistoryTools
+      ? [{ href: "/projects", label: "Projects" }]
+      : []),
+    { href: "/builder", label: "Builder" },
+    { href: "/settings", label: "Settings" },
+  ];
 
   return (
     <nav
