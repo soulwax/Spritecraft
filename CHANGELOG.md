@@ -1,3 +1,26 @@
+## 0.39.0 - 2026-03-30
+
+### Added
+
+- Added a reusable SpriteCraft brand mark and wordmark for the Studio shell.
+- Added a new SpriteCraft favicon and a short brand-system document so app chrome, favicon usage, and release-facing references share one visual direction.
+
+### Changed
+
+- Replaced the placeholder `SC` header badge with the new product mark in the Studio layout.
+- Updated branding references in the root docs, Studio docs, and Windows distribution notes.
+
+## 0.38.0 - 2026-03-30
+
+### Added
+
+- Added file-backed structured logging under `build/logs` so backend diagnostics survive process exits and local support triage no longer depends on the active terminal session.
+- Added support bundle export from Studio Settings and a backend support-bundle route that packages runtime snapshots, structured logs, and recovery indexes into a diagnostics zip under `build/support`.
+
+### Changed
+
+- Extended the runtime summary contract so Studio can show support/logging directories alongside export and recovery paths.
+
 ## 0.37.0 - 2026-03-30
 
 ### Added

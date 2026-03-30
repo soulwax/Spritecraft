@@ -32,6 +32,8 @@ type RuntimeSummary = {
 	exportDirectory: string;
 	projectPackageDirectory: string;
 	recoveryDirectory: string;
+	logsDirectory: string;
+	supportBundleDirectory: string;
 	lpcProjectRoot: string;
 	usesBundledLpcAssets: boolean;
 	hasDotEnvFile: boolean;
@@ -99,6 +101,12 @@ export function StudioSettingsPanel({
 	const [preferences, setPreferences] = useState<StudioPreferences>(
 		defaultStudioPreferences,
 	);
+	const [supportNote, setSupportNote] = useState("");
+	const [supportBundlePath, setSupportBundlePath] = useState("");
+	const [supportStatus, setSupportStatus] = useState<"idle" | "loading" | "error">(
+		"idle",
+	);
+	const [supportError, setSupportError] = useState("");
 	const effectiveExportPresets = useMemo(
 		() =>
 			exportPresets.length
@@ -120,6 +128,42 @@ export function StudioSettingsPanel({
 		});
 		setPreferences(next);
 		return next;
+	}
+
+	async function exportSupportBundle() {
+		setSupportStatus("loading");
+		setSupportError("");
+
+		try {
+			const response = await fetch("/api/spritecraft/support/bundle", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					note: supportNote,
+				}),
+			});
+			const payload = (await response.json()) as {
+				bundlePath?: string;
+				error?: string;
+			};
+			if (!response.ok) {
+				throw new Error(
+					payload.error ?? "SpriteCraft could not create a support bundle.",
+				);
+			}
+
+			setSupportBundlePath(payload.bundlePath ?? "");
+			setSupportStatus("idle");
+		} catch (error) {
+			setSupportStatus("error");
+			setSupportError(
+				error instanceof Error
+					? error.message
+					: "SpriteCraft could not create a support bundle.",
+			);
+		}
 	}
 
 	return (
@@ -277,6 +321,22 @@ export function StudioSettingsPanel({
 								</Badge>
 							</div>
 						</div>
+						<div className="rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-strong)]/74 p-4">
+							<p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted-foreground)]">
+								Structured logs
+							</p>
+							<p className="mt-2 break-all text-[color:var(--foreground)]">
+								{runtime.logsDirectory}
+							</p>
+						</div>
+						<div className="rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-strong)]/74 p-4">
+							<p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted-foreground)]">
+								Support bundles
+							</p>
+							<p className="mt-2 break-all text-[color:var(--foreground)]">
+								{runtime.supportBundleDirectory}
+							</p>
+						</div>
 					</CardContent>
 				</Card>
 
@@ -337,6 +397,44 @@ export function StudioSettingsPanel({
 								{runtime.geminiMode}
 							</Badge>
 						</div>
+					</CardContent>
+				</Card>
+
+				<Card className="border-[color:var(--border)] bg-[color:var(--surface-soft)]/80">
+					<CardHeader>
+						<CardTitle>Support Bundle</CardTitle>
+						<CardDescription>
+							Export a diagnostics zip with runtime snapshots, recent logs, and
+							recovery indexes for support triage.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<textarea
+							className="min-h-28 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--ring)] placeholder:text-[color:var(--muted-foreground)]"
+							onChange={(event) => setSupportNote(event.target.value)}
+							placeholder="Optional note for what the user saw before exporting the bundle"
+							value={supportNote}
+						/>
+						<Button onClick={() => void exportSupportBundle()} type="button">
+							{supportStatus === "loading"
+								? "Building support bundle..."
+								: "Export support bundle"}
+						</Button>
+						{supportBundlePath ? (
+							<div className="rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-strong)]/74 p-4 text-sm">
+								<p className="font-medium text-[color:var(--foreground)]">
+									Bundle ready
+								</p>
+								<p className="mt-2 break-all text-[color:var(--muted-foreground)]">
+									{supportBundlePath}
+								</p>
+							</div>
+						) : null}
+						{supportError ? (
+							<p className="text-sm text-[color:var(--destructive)]">
+								{supportError}
+							</p>
+						) : null}
 					</CardContent>
 				</Card>
 			</div>

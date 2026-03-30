@@ -126,13 +126,13 @@ Goal: make SpriteCraft easy to install and use outside the dev folder.
 - [x] Create release builds with versioned changelogs and migration notes
 - [x] Add first-run onboarding for environment setup, submodule status, and optional Gemini configuration
 - [x] Add settings UI for export paths, DB usage, AI toggle, and theme/preferences
-- [ ] Add crash-safe logging and a support bundle export for debugging user issues
+- [x] Add crash-safe logging and a support bundle export for debugging user issues
 
 ## Phase 9 — Polish
 
 Goal: make the app feel finished.
 
-- [ ] Create a cohesive icon, favicon, and brand system for SpriteCraft
+- [x] Create a cohesive icon, favicon, and brand system for SpriteCraft
 - [ ] Add loading states, progress indicators, and toasts everywhere they matter
 - [ ] Improve empty states so new users always know the next useful action
 - [ ] Add keyboard shortcuts for common creator flows

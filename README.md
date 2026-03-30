@@ -54,7 +54,9 @@ SpriteCraft's Phase 8 packaging target is a Windows-first local app that keeps t
 
 The full decision and rollout guidance live in [docs/packaging-strategy.md](docs/packaging-strategy.md).
 The concrete Windows bundle workflow lives in [docs/windows-distribution.md](docs/windows-distribution.md), including the packaged LPC asset layout used outside a git submodule checkout.
-Release-specific notes live under [docs/releases](docs/releases), including [0.37.0](docs/releases/0.37.0.md).
+Release-specific notes live under [docs/releases](docs/releases), including [0.39.0](docs/releases/0.39.0.md).
+Support bundle behavior is documented in [docs/support-bundles.md](docs/support-bundles.md).
+The current app icon and wordmark guidance live in [docs/brand-system.md](docs/brand-system.md).
 
 ## Run SpriteCraft
 
@@ -319,5 +321,11 @@ If a consumer depends on SpriteCraft JSON output, it should branch on `schema.na
 SpriteCraft records recovery indexes for export bundles and project package operations under `build/recovery`.
 
 See [backup-recovery.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/backup-recovery.md) for the recovery log format, on-disk behavior, and the recommended restore flow.
+
+## Structured Logs And Support Bundles
+
+SpriteCraft now writes structured JSONL logs under `build/logs` and can export a diagnostics zip under `build/support`.
+
+See [support-bundles.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/support-bundles.md) for the bundle contents and recommended support workflow.
 
 

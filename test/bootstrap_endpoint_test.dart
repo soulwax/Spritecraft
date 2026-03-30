@@ -108,6 +108,8 @@ void main() {
       expect(payload['runtime']['exportDirectory'], isA<String>());
       expect(payload['runtime']['projectPackageDirectory'], isA<String>());
       expect(payload['runtime']['recoveryDirectory'], isA<String>());
+      expect(payload['runtime']['logsDirectory'], isA<String>());
+      expect(payload['runtime']['supportBundleDirectory'], isA<String>());
       expect(payload['runtime']['lpcProjectRoot'], isA<String>());
       expect(payload['runtime']['usesBundledLpcAssets'], isA<bool>());
       expect(payload['runtime']['hasDotEnvFile'], isA<bool>());

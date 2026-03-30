@@ -91,5 +91,6 @@ This portable strategy intentionally leaves a few installer-grade concerns for l
 
 - move writable runtime data to `%LOCALAPPDATA%\SpriteCraft`
 - add first-run onboarding and settings
+- carry the shared SpriteCraft icon/brand assets into installer-grade shortcuts and launchers
 - add installer-specific shortcuts and uninstall behavior
 - add crash/support bundle capture outside the install directory

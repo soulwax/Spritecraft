@@ -9,6 +9,7 @@ of replacing it all at once.
 
 - Next.js + TypeScript frontend shell
 - Kanagawa Wave themed UI
+- SpriteCraft icon and wordmark system shared with the Studio shell and favicon
 - Live backend health dashboard
 - Project browser for SpriteCraft history, duplication, deletion, and package import/export
 - Uses the Dart backend at `NEXT_PUBLIC_SPRITECRAFT_API_BASE`

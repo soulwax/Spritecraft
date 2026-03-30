@@ -1,63 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Forest clearing legal stone favicon">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SpriteCraft favicon">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#dff3ea"/>
-      <stop offset="100%" stop-color="#bfe0c7"/>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#1b2334" />
+      <stop offset="100%" stop-color="#16161d" />
     </linearGradient>
-    <linearGradient id="forest" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#2f6d46"/>
-      <stop offset="100%" stop-color="#163a24"/>
+    <linearGradient id="spark" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ff8f3f" />
+      <stop offset="100%" stop-color="#f2c56b" />
     </linearGradient>
-    <linearGradient id="stone" x1="0" y1="0" x2="0.9" y2="1">
-      <stop offset="0%" stop-color="#b8b3a8"/>
-      <stop offset="100%" stop-color="#6e6b65"/>
-    </linearGradient>
-    <linearGradient id="moss" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#7faa58"/>
-      <stop offset="100%" stop-color="#496f30"/>
-    </linearGradient>
-    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="1.2" result="blur"/>
-      <feOffset dy="1.2" result="off"/>
-      <feMerge>
-        <feMergeNode in="off"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
   </defs>
-  <rect width="64" height="64" rx="12" fill="url(#sky)"/>
-  <ellipse cx="32" cy="53" rx="24" ry="9" fill="#a9c889"/>
-  <ellipse cx="32" cy="54" rx="18" ry="6" fill="#cfe2a2" opacity="0.75"/>
-  <path d="M0 34 C8 24, 14 26, 20 20 C24 25, 28 22, 32 17 C36 22, 41 23, 45 18 C50 24, 56 23, 64 32 L64 44 L0 44 Z" fill="url(#forest)"/>
-  <path d="M0 39 C8 30, 14 31, 20 26 C24 31, 29 28, 33 24 C38 29, 42 31, 46 26 C52 31, 58 30, 64 37 L64 47 L0 47 Z" fill="#234d33"/>
-  <g opacity="0.98">
-    <path d="M3 56 C5 49, 5 40, 7 33 C10 24, 13 17, 18 10 C19 18, 19 24, 17 31 C22 25, 26 22, 31 20 C28 26, 24 30, 21 34 C26 33, 29 33, 33 34 C28 37, 24 39, 20 41 C17 46, 15 52, 15 60 Z" fill="#2e6a3c"/>
-    <path d="M61 56 C59 49, 59 40, 57 33 C54 24, 51 17, 46 10 C45 18, 45 24, 47 31 C42 25, 38 22, 33 20 C36 26, 40 30, 43 34 C38 33, 35 33, 31 34 C36 37, 40 39, 44 41 C47 46, 49 52, 49 60 Z" fill="#2e6a3c"/>
-    <path d="M8 58 C9 49, 12 40, 16 33 C18 39, 18 46, 16 56 Z" fill="#1f4d2d"/>
-    <path d="M56 58 C55 49, 52 40, 48 33 C46 39, 46 46, 48 56 Z" fill="#1f4d2d"/>
-  </g>
-  <g filter="url(#shadow)">
-    <path d="M21 48 L24 24 Q32 15 40 24 L43 48 Q32 53 21 48 Z" fill="url(#stone)" stroke="#5f5b56" stroke-width="1"/>
-    <path d="M24 24 Q32 18 40 24" fill="none" stroke="#d8d2c9" stroke-width="1" opacity="0.6"/>
-    <path d="M24 28 C28 27, 36 26, 40 29" fill="none" stroke="#cbc4b8" stroke-width="0.8" opacity="0.45"/>
-    <path d="M24 35 C29 33, 36 33, 40 36" fill="none" stroke="#cbc4b8" stroke-width="0.8" opacity="0.35"/>
-    <path d="M23 24 C24 22, 26 20, 28 19 C27 22, 26 25, 24 27 Z" fill="url(#moss)"/>
-    <path d="M35 20 C38 20, 40 21, 42 23 C40 23, 38 24, 36 25 C35 23, 35 21, 35 20 Z" fill="url(#moss)"/>
-    <path d="M21 48 Q32 51 43 48" fill="none" stroke="#4d4a45" stroke-width="0.8"/>
-  </g>
-  <g fill="none" stroke="#4e4a45" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M32 27 V36" stroke-width="1.6"/>
-    <path d="M26 30 H38" stroke-width="1.5"/>
-    <path d="M28 31.5 L25.5 36" stroke-width="1.1"/>
-    <path d="M36 31.5 L38.5 36" stroke-width="1.1"/>
-    <path d="M22.8 36 C23.7 38.3 25.3 39.4 27.5 39.4 C29.7 39.4 31.3 38.3 32.2 36" stroke-width="0.9"/>
-    <path d="M31.8 36 C32.7 38.3 34.3 39.4 36.5 39.4 C38.7 39.4 40.3 38.3 41.2 36" stroke-width="0.9"/>
-    <path d="M27.5 42.5 C29 41.3 30.5 40.7 32 40.7 C33.5 40.7 35 41.3 36.5 42.5" stroke-width="1"/>
-  </g>
-  <g>
-    <circle cx="18" cy="50" r="1.1" fill="#f7f1d5"/>
-    <circle cx="46" cy="51" r="1.1" fill="#f7f1d5"/>
-    <circle cx="15" cy="46" r="0.8" fill="#eed7f8"/>
-    <circle cx="49" cy="46.5" r="0.8" fill="#eed7f8"/>
-  </g>
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+  <rect x="14" y="14" width="36" height="36" rx="8" fill="#1f1f28" stroke="#8ea4d2" stroke-width="2" />
+  <path d="M32 10 L37.1 19.3 L47.4 22.4 L39.8 29.7 L41.4 40.4 L32 35.3 L22.6 40.4 L24.2 29.7 L16.6 22.4 L26.9 19.3 Z" fill="url(#spark)" stroke="#8ea4d2" stroke-width="1.6" />
+  <rect x="9" y="22" width="4" height="4" fill="#8ea4d2" />
+  <rect x="9" y="30" width="4" height="4" fill="#8ea4d2" />
+  <rect x="9" y="38" width="4" height="4" fill="#8ea4d2" />
+  <rect x="51" y="22" width="4" height="4" fill="#8ea4d2" />
+  <rect x="51" y="30" width="4" height="4" fill="#8ea4d2" />
+  <rect x="51" y="38" width="4" height="4" fill="#8ea4d2" />
 </svg>

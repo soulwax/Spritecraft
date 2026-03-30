@@ -29,6 +29,8 @@ export async function getStudioPageData() {
         exportDirectory: "",
         projectPackageDirectory: "",
         recoveryDirectory: "",
+        logsDirectory: "",
+        supportBundleDirectory: "",
         lpcProjectRoot: "",
         usesBundledLpcAssets: false,
         hasDotEnvFile: false,

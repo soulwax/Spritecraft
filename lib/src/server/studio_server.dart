@@ -27,6 +27,7 @@ import '../models/sprite_style_helper.dart';
 import '../persistence/history_repository.dart';
 import 'export_support.dart';
 import 'recovery_support.dart';
+import 'support_bundle_support.dart';
 
 class StudioServer {
   static const Duration _historyConnectTimeout = Duration(seconds: 10);
@@ -49,9 +50,11 @@ class StudioServer {
   int _exportJobCounter = 0;
 
   static Future<StudioServer> create(RuntimeConfig config) async {
-    final StructuredLogger logger = StructuredLogger();
+    final StructuredLogger configuredLogger = StructuredLogger(
+      logDirectory: config.logsDirectory,
+    );
     for (final String warning in config.configurationWarnings) {
-      logger.warning(
+      configuredLogger.warning(
         subsystem: 'startup',
         event: 'configuration_warning',
         message: warning,
@@ -66,14 +69,14 @@ class StudioServer {
         if (check.location != null) 'location': check.location,
       };
       if (check.status == 'warning') {
-        logger.warning(
+        configuredLogger.warning(
           subsystem: 'startup',
           event: 'startup_check_warning',
           message: check.detail,
           context: context,
         );
       } else {
-        logger.error(
+        configuredLogger.error(
           subsystem: 'startup',
           event: 'startup_check_failed',
           message: check.detail,
@@ -90,7 +93,7 @@ class StudioServer {
         config.lpcDefinitionsDirectory,
       );
     } on Exception catch (error, stackTrace) {
-      logger.error(
+      configuredLogger.error(
         subsystem: 'startup',
         event: 'catalog_load_failed',
         message: 'Could not load the LPC catalog during backend startup.',
@@ -103,7 +106,7 @@ class StudioServer {
       rethrow;
     }
     for (final String warning in catalog.loadWarnings) {
-      logger.warning(
+      configuredLogger.warning(
         subsystem: 'startup',
         event: 'catalog_definition_warning',
         message: warning,
@@ -116,7 +119,7 @@ class StudioServer {
       ).timeout(_historyConnectTimeout);
     } on Exception catch (error, stackTrace) {
       if (config.hasDatabase) {
-        logger.warning(
+        configuredLogger.warning(
           subsystem: 'database',
           event: 'history_connect_failed',
           message:
@@ -137,7 +140,7 @@ class StudioServer {
         decodedAssetCacheDirectory: config.renderCacheDirectory,
       ),
       historyRepository: historyRepository,
-      logger: logger,
+      logger: configuredLogger,
     );
   }
 
@@ -157,6 +160,7 @@ class StudioServer {
       ..post('/api/ai/brief', _brief)
       ..post('/api/ai/naming', _naming)
       ..post('/api/ai/style-helper', _styleHelper)
+      ..post('/api/support/bundle', _supportBundle)
       ..get('/api/history', _history)
       ..post('/api/history/import', _importHistoryPackage)
       ..post('/api/history/save', _saveHistory)
@@ -212,7 +216,14 @@ class StudioServer {
         'heads_human_male': 'light',
     };
 
-    return _json(200, <String, Object?>{
+    return _json(200, _buildBootstrapPayload(recent: recent, defaults: defaults));
+  }
+
+  Map<String, Object?> _buildBootstrapPayload({
+    required List<StudioHistoryEntry> recent,
+    required Map<String, String> defaults,
+  }) {
+    return <String, Object?>{
       'config': <String, Object?>{
         'hasGemini': config.hasGemini,
         'hasDatabase': config.hasDatabase,
@@ -238,7 +249,7 @@ class StudioServer {
       'recent': recent
           .map((StudioHistoryEntry entry) => entry.toJson())
           .toList(),
-    });
+    };
   }
 
   Map<String, Object> _buildOnboardingPayload(List<StudioHistoryEntry> recent) {
@@ -338,6 +349,8 @@ class StudioServer {
       'exportDirectory': config.exportDirectory.path,
       'projectPackageDirectory': config.projectPackageDirectory.path,
       'recoveryDirectory': config.recoveryDirectory.path,
+      'logsDirectory': config.logsDirectory.path,
+      'supportBundleDirectory': config.supportBundleDirectory.path,
       'lpcProjectRoot': config.lpcProjectRoot.path,
       'usesBundledLpcAssets': !config.expectsLpcSubmoduleMarker,
       'hasDotEnvFile': config.hasDotEnvFile,
@@ -348,6 +361,10 @@ class StudioServer {
   }
 
   Future<Response> _health(Request request) async {
+    return _json(200, _buildHealthPayload());
+  }
+
+  Map<String, Object> _buildHealthPayload() {
     final Map<String, Object> catalogSummary = catalog.toSummaryJson();
     final int categoryCount =
         (catalogSummary['categories'] as List<Object?>?)?.length ?? 0;
@@ -405,11 +422,11 @@ class StudioServer {
       (Map<String, String> check) => check['status'] == 'warning',
     );
 
-    return _json(200, <String, Object>{
+    return <String, Object>{
       'status': hasErrors ? 'error' : (hasWarnings ? 'warning' : 'ok'),
       'timestamp': DateTime.now().toUtc().toIso8601String(),
       'checks': checks,
-    });
+    };
   }
 
   Future<Response> _catalog(Request request) async {
@@ -1046,6 +1063,56 @@ class StudioServer {
       );
       return _json(500, <String, Object>{
         'error': 'Style helper generation failed unexpectedly.',
+      });
+    }
+  }
+
+  Future<Response> _supportBundle(Request request) async {
+    try {
+      final Map<String, dynamic> payload = await request.readAsJson();
+      final List<StudioHistoryEntry> recent =
+          await historyRepository?.listRecent(limit: 8) ??
+          <StudioHistoryEntry>[];
+      final Map<String, String> defaults = <String, String>{
+        if (catalog.itemsById.containsKey('body')) 'body': 'light',
+        if (catalog.itemsById.containsKey('heads_human_male'))
+          'heads_human_male': 'light',
+      };
+      final File bundle = await SupportBundleSupport.createBundle(
+        supportDirectory: config.supportBundleDirectory,
+        logsDirectory: config.logsDirectory,
+        recoveryDirectory: config.recoveryDirectory,
+        bootstrapPayload: _buildBootstrapPayload(
+          recent: recent,
+          defaults: defaults,
+        ),
+        healthPayload: _buildHealthPayload(),
+        userNote: payload['note']?.toString(),
+      );
+
+      logger.info(
+        subsystem: 'support',
+        event: 'support_bundle_created',
+        message: 'Created a support bundle for diagnostics export.',
+        context: <String, Object?>{'bundlePath': path.normalize(bundle.path)},
+      );
+
+      return _json(200, <String, Object?>{
+        'bundlePath': path.normalize(bundle.path),
+        'fileName': path.basename(bundle.path),
+      });
+    } on Exception catch (error, stackTrace) {
+      _logRequestFailure(
+        request,
+        subsystem: 'support',
+        event: 'support_bundle_failed',
+        message: 'Support bundle creation failed unexpectedly.',
+        severity: LogSeverity.error,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return _json(500, <String, Object>{
+        'error': 'Support bundle creation failed unexpectedly.',
       });
     }
   }

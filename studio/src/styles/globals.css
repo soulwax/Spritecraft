@@ -26,6 +26,11 @@
 	--warning: #c0a36e;
 	--destructive: #c34043;
 	--ring: rgb(126 156 216 / 0.55);
+	--brand-ink: #1f1f28;
+	--brand-line: #8ea4d2;
+	--brand-flame: #ff8f3f;
+	--brand-gold: #f2c56b;
+	--brand-grid: #9cabca;
 }
 
 :root[data-theme="paper"] {
@@ -46,6 +51,11 @@
 	--warning: #9b6c1f;
 	--destructive: #b0303c;
 	--ring: rgb(63 93 152 / 0.35);
+	--brand-ink: #f5edd8;
+	--brand-line: #3f5d98;
+	--brand-flame: #d36d2b;
+	--brand-gold: #c79a33;
+	--brand-grid: #7988a8;
 }
 
 html {

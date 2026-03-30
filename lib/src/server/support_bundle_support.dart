@@ -109,7 +109,7 @@ class SupportBundleSupport {
       final List<int> bytes = await entity.readAsBytes();
       archive.add(
         ArchiveFile(
-          path.join(archiveRoot, basename),
+          '$archiveRoot/$basename',
           bytes.length,
           bytes,
         ),

@@ -298,6 +298,8 @@ const bootstrapSchema = z.object({
 		exportDirectory: z.string(),
 		projectPackageDirectory: z.string(),
 		recoveryDirectory: z.string(),
+		logsDirectory: z.string(),
+		supportBundleDirectory: z.string(),
 		lpcProjectRoot: z.string(),
 		usesBundledLpcAssets: z.boolean().default(false),
 		hasDotEnvFile: z.boolean().default(false),
@@ -337,6 +339,13 @@ const bootstrapSchema = z.object({
 
 export type SpriteCraftBootstrap = z.infer<typeof bootstrapSchema>;
 export type SpriteCraftExportPresetOption = SpriteCraftBootstrap["exportPresets"][number];
+
+const supportBundleSchema = z.object({
+	bundlePath: z.string(),
+	fileName: z.string(),
+});
+
+export type SpriteCraftSupportBundle = z.infer<typeof supportBundleSchema>;
 
 const historyListSchema = z.object({
 	items: z.array(historyEntrySchema).default([]),
@@ -625,6 +634,15 @@ export async function saveSpriteCraftHistoryEntry(payload: SpriteCraftSaveReques
 	return fetchJson("/api/history/save", historyEntrySchema, {
 		method: "POST",
 		body: JSON.stringify(saveRequestSchema.parse(payload)),
+	});
+}
+
+export async function createSpriteCraftSupportBundle(note?: string) {
+	return fetchJson("/api/support/bundle", supportBundleSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			note: note ?? "",
+		}),
 	});
 }
 
