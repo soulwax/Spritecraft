@@ -1,3 +1,23 @@
+## 0.22.0 - 2026-03-30
+
+### Added
+
+- Added prompt memory to the AI brief flow so saved prompts, workspace tags, and notes now reinforce style consistency across projects.
+- Exposed prompt-memory feedback inside the Studio builder so creators can see which saved direction is influencing the current brief.
+
+## 0.21.1 - 2026-03-30
+
+### Changed
+
+- Reoriented the Studio routes toward a tool-first LPC character creator flow, reducing overview-style copy and making the overview, projects, and builder pages feel more like working surfaces.
+
+## 0.21.0 - 2026-03-30
+
+### Changed
+
+- Split the Studio into dedicated overview, projects, and builder routes while keeping a shared app shell and in-app navigation.
+- Updated launch, restore, and builder-state URLs to target `/builder` directly so the multi-page app still behaves like one continuous workspace.
+
 ## 0.20.1 - 2026-03-30
 
 ### Fixed

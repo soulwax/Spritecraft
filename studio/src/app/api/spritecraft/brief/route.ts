@@ -8,11 +8,17 @@ export async function POST(request: Request) {
 			prompt?: string;
 			bodyType?: string;
 			animation?: string;
+			promptHistory?: string[];
+			tags?: string[];
+			notes?: string;
 		};
 		const brief = await briefSpriteCraftWorkspace({
 			prompt: payload.prompt ?? "",
 			bodyType: payload.bodyType ?? "male",
 			animation: payload.animation ?? "idle",
+			promptHistory: payload.promptHistory ?? [],
+			tags: payload.tags ?? [],
+			notes: payload.notes ?? "",
 		});
 		return NextResponse.json(brief);
 	} catch (error) {

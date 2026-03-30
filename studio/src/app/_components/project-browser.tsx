@@ -14,6 +14,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -36,6 +37,7 @@ import type { SpriteCraftProjectSummary } from "~/server/spritecraft-backend";
 
 type ProjectBrowserProps = {
   projects: SpriteCraftProjectSummary[];
+  workspaceAvailable?: boolean;
 };
 
 type FeedbackState = {
@@ -76,7 +78,9 @@ async function readJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
 
 export function ProjectBrowser({
   projects: initialProjects,
+  workspaceAvailable = false,
 }: ProjectBrowserProps) {
+  const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -264,15 +268,7 @@ export function ProjectBrowser({
         label: getProjectLabel(project),
       });
     }
-    loadProjectIntoWebWorkspace(project);
-    if (typeof window !== "undefined") {
-      window.history.replaceState({}, "", buildWorkspaceRestoreUrl(project.id));
-      window.requestAnimationFrame(() => {
-        document
-          .getElementById("builder")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
+    router.push(buildWorkspaceRestoreUrl(project.id));
   }
 
   return (
@@ -610,14 +606,16 @@ export function ProjectBrowser({
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                      <Button
-                        onClick={() => loadProjectIntoWebWorkspace(selectedProject)}
-                        type="button"
-                        variant="secondary"
-                      >
-                        <Save className="mr-2 size-4" />
-                        Load Into Web Workspace
-                      </Button>
+                      {workspaceAvailable ? (
+                        <Button
+                          onClick={() => loadProjectIntoWebWorkspace(selectedProject)}
+                          type="button"
+                          variant="secondary"
+                        >
+                          <Save className="mr-2 size-4" />
+                          Load Into Web Workspace
+                        </Button>
+                      ) : null}
                       <Button
                         onClick={() =>
                           void runAction(
@@ -799,19 +797,18 @@ export function ProjectBrowser({
 
             <div className="rounded-2xl border border-(--border) bg-(--surface-soft) p-4 text-sm text-(--muted-foreground)">
               <p className="font-medium text-(--foreground)">
-                Current migration boundary
+                Builder handoff
               </p>
               <p className="mt-2">
-                Select a saved project here, then load it directly into the
-                builder workspace on this page for editing, AI guidance, and
-                export.
+                Select a saved project here, then open it directly in the
+                builder route for editing, AI guidance, and export.
               </p>
               <Button asChild className="mt-4" variant="ghost">
                 <a
-                  href="/#builder"
+                  href="/builder"
                   rel="noreferrer"
                 >
-                  Jump to Builder Workspace
+                  Go to Builder
                 </a>
               </Button>
             </div>

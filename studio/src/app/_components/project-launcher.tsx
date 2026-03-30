@@ -2,16 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { ExternalLink, Sparkles, WandSparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import {
 	buildWorkspaceLaunchUrl,
 	projectTemplates,
 	type SpriteCraftLaunchConfig,
 } from "~/app/_components/project-launching";
-import {
-	type WorkspaceLaunchPayload,
-	workspaceLaunchEventName,
-} from "~/app/_components/web-workspace-bridge";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -45,6 +42,7 @@ export function ProjectLauncher({
 	bodyTypes,
 	animations,
 }: ProjectLauncherProps) {
+	const router = useRouter();
 	const [selectedTemplateId, setSelectedTemplateId] = useState(
 		projectTemplates[0]?.id ?? "",
 	);
@@ -104,26 +102,12 @@ export function ProjectLauncher({
 	};
 
 	function launchIntoBuilder(config: SpriteCraftLaunchConfig) {
-		if (typeof window === "undefined") {
-			return;
-		}
 		if (process.env.NODE_ENV !== "production") {
 			console.info("[spritecraft] Launching builder from project launcher", {
 				config,
 			});
 		}
-
-		window.dispatchEvent(
-			new CustomEvent<WorkspaceLaunchPayload>(workspaceLaunchEventName, {
-				detail: { config },
-			}),
-		);
-		window.history.replaceState({}, "", buildWorkspaceLaunchUrl(config));
-		window.requestAnimationFrame(() => {
-			document
-				.getElementById("builder")
-				?.scrollIntoView({ behavior: "smooth", block: "start" });
-		});
+		router.push(buildWorkspaceLaunchUrl(config));
 	}
 
 	return (

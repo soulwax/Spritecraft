@@ -1,6 +1,26 @@
 import '../models/lpc_models.dart';
 import '../models/sprite_plan.dart';
 
+class SpriteBriefPromptMemory {
+  const SpriteBriefPromptMemory({
+    required this.summary,
+    required this.recentPrompts,
+    required this.inferredTags,
+  });
+
+  final String summary;
+  final List<String> recentPrompts;
+  final List<String> inferredTags;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'summary': summary,
+      'recentPrompts': recentPrompts,
+      'inferredTags': inferredTags,
+    };
+  }
+}
+
 class SpriteBriefGuideStep {
   const SpriteBriefGuideStep({
     required this.slot,
@@ -89,6 +109,7 @@ class SpriteBriefComposer {
     required String prompt,
     required String bodyType,
     required String animation,
+    SpriteBriefPromptMemory? promptMemory,
   }) {
     final SpritePlan basePlan =
         plan ??
@@ -124,9 +145,12 @@ class SpriteBriefComposer {
           : basePlan.frameCount,
       frameWidth: basePlan.frameWidth <= 0 ? 64 : basePlan.frameWidth,
       frameHeight: basePlan.frameHeight <= 0 ? 64 : basePlan.frameHeight,
-      styleTags: basePlan.styleTags.isEmpty
-          ? <String>['lpc-inspired', 'pixel art', '$bodyType body']
-          : basePlan.styleTags,
+      styleTags: _mergeStyleTags(
+        baseTags: basePlan.styleTags.isEmpty
+            ? <String>['lpc-inspired', 'pixel art', '$bodyType body']
+            : basePlan.styleTags,
+        promptMemory: promptMemory,
+      ),
       framePrompts: basePlan.framePrompts.isEmpty
           ? _fallbackFramePrompts(prompt, animation)
           : basePlan.framePrompts,
@@ -139,11 +163,14 @@ class SpriteBriefComposer {
     required String prompt,
     required String bodyType,
     required String animation,
+    SpriteBriefPromptMemory? promptMemory,
   }) {
     return plan.buildPath.map((SpriteBuildPathStep step) {
       final String effectiveQuery = <String>[
         prompt,
+        ...?promptMemory?.recentPrompts.take(2),
         step.query,
+        ...?promptMemory?.inferredTags.take(3),
         ...plan.styleTags.take(3),
       ].where((String value) => value.trim().isNotEmpty).join(' ');
 
@@ -162,6 +189,39 @@ class SpriteBriefComposer {
         recommendations: results,
       );
     }).toList();
+  }
+
+  SpriteBriefPromptMemory? buildPromptMemory({
+    required String prompt,
+    required List<String> promptHistory,
+    required List<String> tags,
+    required String notes,
+  }) {
+    final List<String> recentPrompts = <String>{
+      for (final String entry in promptHistory)
+        if (entry.trim().isNotEmpty && entry.trim() != prompt.trim())
+          entry.trim(),
+    }.take(4).toList(growable: false);
+    final List<String> inferredTags = _inferPromptMemoryTags(
+      prompt: prompt,
+      promptHistory: recentPrompts,
+      tags: tags,
+      notes: notes,
+    );
+
+    if (recentPrompts.isEmpty && inferredTags.isEmpty && notes.trim().isEmpty) {
+      return null;
+    }
+
+    return SpriteBriefPromptMemory(
+      summary: _buildPromptMemorySummary(
+        recentPrompts: recentPrompts,
+        inferredTags: inferredTags,
+        notes: notes,
+      ),
+      recentPrompts: recentPrompts,
+      inferredTags: inferredTags,
+    );
   }
 
   List<LpcItemDefinition> collectTopRecommendations(
@@ -301,5 +361,116 @@ class SpriteBriefComposer {
   String _deriveConcept(String prompt) {
     final String trimmed = prompt.trim();
     return trimmed.isEmpty ? 'Untitled SpriteCraft concept' : trimmed;
+  }
+
+  List<String> _mergeStyleTags({
+    required List<String> baseTags,
+    required SpriteBriefPromptMemory? promptMemory,
+  }) {
+    return <String>{
+      for (final String entry in baseTags)
+        if (entry.trim().isNotEmpty) entry.trim(),
+      ...?promptMemory?.inferredTags,
+    }.take(10).toList(growable: false);
+  }
+
+  List<String> _inferPromptMemoryTags({
+    required String prompt,
+    required List<String> promptHistory,
+    required List<String> tags,
+    required String notes,
+  }) {
+    final Map<String, int> keywordCounts = <String, int>{};
+
+    for (final String tag in tags) {
+      final String normalized = tag.trim().toLowerCase();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      keywordCounts[normalized] = (keywordCounts[normalized] ?? 0) + 3;
+    }
+
+    for (final String text in <String>[prompt, ...promptHistory, notes]) {
+      for (final String keyword in _extractKeywords(text)) {
+        keywordCounts[keyword] = (keywordCounts[keyword] ?? 0) + 1;
+      }
+    }
+
+    final List<MapEntry<String, int>> ranked = keywordCounts.entries.toList()
+      ..sort((MapEntry<String, int> left, MapEntry<String, int> right) {
+        final int byScore = right.value.compareTo(left.value);
+        return byScore != 0 ? byScore : left.key.compareTo(right.key);
+      });
+
+    return ranked
+        .where((MapEntry<String, int> entry) => entry.value >= 2)
+        .map((MapEntry<String, int> entry) => entry.key)
+        .take(6)
+        .toList(growable: false);
+  }
+
+  Iterable<String> _extractKeywords(String text) sync* {
+    const Set<String> stopWords = <String>{
+      'with',
+      'that',
+      'this',
+      'from',
+      'into',
+      'idle',
+      'walk',
+      'attack',
+      'ready',
+      'character',
+      'sprite',
+      'create',
+      'look',
+      'make',
+      'have',
+      'uses',
+      'using',
+      'keep',
+      'very',
+      'more',
+      'less',
+      'than',
+      'then',
+      'they',
+      'their',
+      'them',
+      'neutral',
+      'simple',
+    };
+
+    for (final RegExpMatch match in RegExp(r"[A-Za-z][A-Za-z'-]{2,}")
+        .allMatches(text.toLowerCase())) {
+      final String keyword = match.group(0) ?? '';
+      if (keyword.isEmpty || stopWords.contains(keyword)) {
+        continue;
+      }
+      yield keyword;
+    }
+  }
+
+  String _buildPromptMemorySummary({
+    required List<String> recentPrompts,
+    required List<String> inferredTags,
+    required String notes,
+  }) {
+    final List<String> parts = <String>[];
+    if (recentPrompts.isNotEmpty) {
+      parts.add(
+        'Keeping this build aligned with ${recentPrompts.length} saved prompt${recentPrompts.length == 1 ? '' : 's'}',
+      );
+    }
+    if (inferredTags.isNotEmpty) {
+      parts.add('reusing style cues like ${inferredTags.take(3).join(', ')}');
+    }
+    if (notes.trim().isNotEmpty) {
+      parts.add('respecting saved workspace notes');
+    }
+
+    return parts.isEmpty
+        ? 'No saved prompt memory is influencing this brief yet.'
+        : '${parts.join(' and ')}.';
   }
 }

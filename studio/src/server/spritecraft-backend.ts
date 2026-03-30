@@ -116,8 +116,15 @@ const briefCandidateBuildSchema = z.object({
 	recommendations: z.array(catalogItemSchema).default([]),
 });
 
+const briefPromptMemorySchema = z.object({
+	summary: z.string().default(""),
+	recentPrompts: z.array(z.string()).default([]),
+	inferredTags: z.array(z.string()).default([]),
+});
+
 const briefResponseSchema = z.object({
 	plan: briefPlanSchema.nullable().optional(),
+	promptMemory: briefPromptMemorySchema.nullable().optional(),
 	buildPath: z.array(briefGuideStepSchema).default([]),
 	categorySuggestions: z.array(briefCategorySuggestionSchema).default([]),
 	candidateBuild: briefCandidateBuildSchema.nullable().optional(),
@@ -286,6 +293,9 @@ export async function briefSpriteCraftWorkspace(input: {
 	prompt: string;
 	bodyType: string;
 	animation?: string;
+	promptHistory?: string[];
+	tags?: string[];
+	notes?: string;
 }) {
 	return fetchJson("/api/ai/brief", briefResponseSchema, {
 		method: "POST",
@@ -293,6 +303,9 @@ export async function briefSpriteCraftWorkspace(input: {
 			prompt: input.prompt,
 			bodyType: input.bodyType,
 			animation: input.animation ?? "idle",
+			promptHistory: input.promptHistory ?? [],
+			tags: input.tags ?? [],
+			notes: input.notes ?? "",
 		}),
 	});
 }

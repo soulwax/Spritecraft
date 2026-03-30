@@ -73,7 +73,7 @@ Goal: make AI genuinely helpful instead of decorative.
 - [x] Improve the Gemini brief flow so it suggests coherent build paths, not just free-text prompts
 - [x] Add AI-powered category suggestions like "pick a ranger hood, leather torso, quiver, and short bow"
 - [x] Add prompt-to-build recommendations that can prefill a candidate character setup
-- [ ] Add prompt memory so repeated art direction stays visually consistent across projects
+- [x] Add prompt memory so repeated art direction stays visually consistent across projects
 - [ ] Add AI-assisted naming for projects, animations, and export bundles
 - [ ] Add consistency checks such as missing matching body color, incompatible animation coverage, or likely clipping
 - [ ] Add smart warnings when selected layers have incomplete animation support

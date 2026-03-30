@@ -100,9 +100,9 @@ export function buildWorkspaceLaunchUrl(template: SpriteCraftLaunchConfig) {
 	if (template.seededSelections && Object.keys(template.seededSelections).length) {
 		params.set("selections", JSON.stringify(template.seededSelections));
 	}
-	return `/?${params.toString()}#builder`;
+	return `/builder?${params.toString()}`;
 }
 
 export function buildWorkspaceRestoreUrl(id: string) {
-	return `/?restore=${encodeURIComponent(id)}#builder`;
+	return `/builder?restore=${encodeURIComponent(id)}`;
 }

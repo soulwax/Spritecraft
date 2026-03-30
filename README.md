@@ -8,7 +8,7 @@ Pure Dart tooling for building spritesheets, now with a Next.js-based SpriteCraf
 - A Dart backend API used by `studio`
 - A modern TypeScript web frontend in `studio`
 - LPC catalog loading and layered sprite composition from `./lpc-spritesheet-creator`
-- Gemini-assisted sprite briefs with coherent build paths, category suggestions, candidate builds, and local recommendation search
+- Gemini-assisted sprite briefs with coherent build paths, category suggestions, candidate builds, prompt memory, and local recommendation search
 - Neon/Postgres-backed history for saved sprite projects
 - Structured metadata JSON for every spritesheet export and web-rendered preview/export
 
@@ -77,7 +77,7 @@ What the backend + web app do together:
 
 - searches LPC layer definitions from the submodule
 - composes layered sprite previews from LPC spritesheet assets
-- asks Gemini for a structured sprite brief with ordered build steps, category-level picks, candidate builds, and matched layer recommendations
+- asks Gemini for a structured sprite brief with ordered build steps, category-level picks, candidate builds, prompt-memory consistency cues, and matched layer recommendations
 - saves project history to Neon so a look can be reconstructed later
 - returns render metadata JSON that describes image size, layout mode, selections, layers, and credits
 - exports matched PNG, JSON, zip bundles, and engine companion files such as native Godot `SpriteFrames` `.tres` resources, Unity importer-ready slicing metadata, and Aseprite/generic JSON companions

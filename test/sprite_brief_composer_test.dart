@@ -79,17 +79,28 @@ void main() {
         catalog: catalog,
       );
 
+      final SpriteBriefPromptMemory? promptMemory = composer.buildPromptMemory(
+        prompt: 'forest ranger with bow',
+        promptHistory: const <String>[
+          'forest ranger scout with bow',
+          'hooded ranger in leather with quiver',
+        ],
+        tags: const <String>['ranger', 'forest'],
+        notes: 'Keep the silhouette grounded and outdoorsy.',
+      );
       final SpritePlan plan = composer.normalizePlan(
         plan: null,
         prompt: 'forest ranger with bow',
         bodyType: 'male',
         animation: 'idle',
+        promptMemory: promptMemory,
       );
       final List<SpriteBriefGuideStep> steps = composer.buildGuideSteps(
         plan: plan,
         prompt: 'forest ranger with bow',
         bodyType: 'male',
         animation: 'idle',
+        promptMemory: promptMemory,
       );
       final List<SpriteBriefCategorySuggestion> categorySuggestions = composer
           .buildCategorySuggestions(steps);
@@ -100,6 +111,10 @@ void main() {
       expect(steps, isNotEmpty);
       expect(categorySuggestions, isNotEmpty);
       expect(candidateBuild.selections, isNotEmpty);
+      expect(promptMemory, isNotNull);
+      expect(plan.styleTags, contains('ranger'));
+      expect(promptMemory!.recentPrompts, hasLength(2));
+      expect(promptMemory.inferredTags, contains('forest'));
       expect(
         steps.any(
           (SpriteBriefGuideStep step) => step.recommendations.isNotEmpty,
@@ -112,6 +127,21 @@ void main() {
             .map((LpcItemDefinition item) => item.id),
         contains('short-bow'),
       );
+    });
+
+    test('skips prompt memory when no saved direction exists', () {
+      final SpriteBriefComposer composer = SpriteBriefComposer(
+        catalog: catalog,
+      );
+
+      final SpriteBriefPromptMemory? promptMemory = composer.buildPromptMemory(
+        prompt: 'fresh idea',
+        promptHistory: const <String>[],
+        tags: const <String>[],
+        notes: '',
+      );
+
+      expect(promptMemory, isNull);
     });
   });
 }

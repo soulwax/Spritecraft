@@ -401,6 +401,17 @@ class StudioServer {
     final String prompt = payload['prompt']?.toString().trim() ?? '';
     final String bodyType = payload['bodyType']?.toString() ?? 'male';
     final String animation = payload['animation']?.toString() ?? 'idle';
+    final List<String> promptHistory =
+        (payload['promptHistory'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic entry) => entry.toString().trim())
+            .where((String entry) => entry.isNotEmpty)
+            .toList(growable: false);
+    final List<String> tags =
+        (payload['tags'] as List<dynamic>? ?? <dynamic>[])
+            .map((dynamic entry) => entry.toString().trim())
+            .where((String entry) => entry.isNotEmpty)
+            .toList(growable: false);
+    final String notes = payload['notes']?.toString().trim() ?? '';
     if (prompt.isEmpty) {
       return _json(400, <String, Object>{'error': 'Prompt is required.'});
     }
@@ -408,6 +419,13 @@ class StudioServer {
     final SpriteBriefComposer briefComposer = SpriteBriefComposer(
       catalog: catalog,
     );
+    final SpriteBriefPromptMemory? promptMemory = briefComposer
+        .buildPromptMemory(
+          prompt: prompt,
+          promptHistory: promptHistory,
+          tags: tags,
+          notes: notes,
+        );
     SpritePlan? plan;
     if (config.hasGemini) {
       try {
@@ -415,7 +433,10 @@ class StudioServer {
             .suggestPlan(
               prompt: prompt,
               frameCountHint: animation == 'idle' ? 4 : 8,
-              styleHint: 'LPC-inspired pixel art with modular layers',
+              styleHint: <String>[
+                'LPC-inspired pixel art with modular layers',
+                if (promptMemory != null) promptMemory.summary,
+              ].join('. '),
             );
       } on Exception {
         plan = null;
@@ -427,12 +448,14 @@ class StudioServer {
       prompt: prompt,
       bodyType: bodyType,
       animation: animation,
+      promptMemory: promptMemory,
     );
     final List<SpriteBriefGuideStep> buildPath = briefComposer.buildGuideSteps(
       plan: normalizedPlan,
       prompt: prompt,
       bodyType: bodyType,
       animation: animation,
+      promptMemory: promptMemory,
     );
     final List<SpriteBriefCategorySuggestion> categorySuggestions =
         briefComposer.buildCategorySuggestions(buildPath);
@@ -444,6 +467,7 @@ class StudioServer {
 
     return _json(200, <String, Object?>{
       'plan': normalizedPlan.toJson(),
+      'promptMemory': promptMemory?.toJson(),
       'buildPath': buildPath
           .map((SpriteBriefGuideStep step) => step.toJson())
           .toList(),

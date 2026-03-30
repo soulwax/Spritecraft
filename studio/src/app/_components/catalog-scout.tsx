@@ -1120,6 +1120,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           prompt,
           bodyType,
           animation,
+          promptHistory,
+          tags: workspaceTags,
+          notes: workspaceNotes,
         }),
       });
       const payload = (await response.json()) as SpriteCraftBriefResponse & {
@@ -1551,7 +1554,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     if (Object.keys(config.seededSelections ?? {}).length) {
       params.set("selections", JSON.stringify(config.seededSelections));
     }
-    window.history.replaceState({}, "", `/?${params.toString()}#builder`);
+    window.history.replaceState({}, "", `/builder?${params.toString()}`);
     window.requestAnimationFrame(() => {
       document
         .getElementById("builder")
@@ -2628,6 +2631,47 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                       <li key={`frame-${entry}`}>{entry}</li>
                     ))}
                   </ul>
+                ) : null}
+                {briefResult.promptMemory ? (
+                  <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--muted-foreground)]">
+                          Prompt Memory
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted-foreground)]">
+                          {briefResult.promptMemory.summary}
+                        </p>
+                      </div>
+                      <Badge>
+                        {briefResult.promptMemory.recentPrompts.length} saved prompt
+                        {briefResult.promptMemory.recentPrompts.length === 1
+                          ? ""
+                          : "s"}
+                      </Badge>
+                    </div>
+                    {briefResult.promptMemory.inferredTags.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {briefResult.promptMemory.inferredTags.map((entry) => (
+                          <Badge key={`memory-tag-${entry}`}>
+                            {entry}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                    {briefResult.promptMemory.recentPrompts.length ? (
+                      <div className="mt-3 grid gap-2">
+                        {briefResult.promptMemory.recentPrompts.map((entry) => (
+                          <div
+                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/20 px-3 py-2 text-sm text-[color:var(--muted-foreground)]"
+                            key={`memory-prompt-${entry}`}
+                          >
+                            {entry}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
                 {briefResult.candidateBuild ? (
                   <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/30 p-3">
