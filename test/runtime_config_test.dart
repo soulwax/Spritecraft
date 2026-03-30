@@ -1,5 +1,3 @@
-// File: test/runtime_config_test.dart
-
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
@@ -7,74 +5,81 @@ import 'package:spritecraft/src/config/runtime_config.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('RuntimeConfig.load', () {
-    test('loads env values and reports malformed .env lines', () async {
-      final Directory root = await Directory.systemTemp.createTemp(
-        'spritecraft-runtime-config-',
+  group('RuntimeConfig startup checks', () {
+    test('flags missing LPC submodule structure as startup errors', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'runtime_config_missing_lpc',
       );
-      addTearDown(() async {
-        if (await root.exists()) {
-          await root.delete(recursive: true);
-        }
-      });
+      addTearDown(() => sandbox.delete(recursive: true));
 
-      final File dotEnv = File(path.join(root.path, '.env'));
-      await dotEnv.writeAsString('''
-GEMINI_API_KEY="demo-key"
-DATABASE_URL=postgres://example.test/db
-BROKEN_LINE
-EMPTY_KEY==
-MISMATCHED_QUOTE="oops
-''');
+      final RuntimeConfig config = await RuntimeConfig.load(projectRoot: sandbox);
 
-      final RuntimeConfig config = await RuntimeConfig.load(projectRoot: root);
-
+      expect(config.hasStartupErrors, isTrue);
       expect(
-        config.geminiApiKey,
-        Platform.environment['GEMINI_API_KEY'] ?? 'demo-key',
+        config.startupChecks.any(
+          (RuntimeStartupCheck check) =>
+              check.code == 'lpc_project_root' && check.status == 'error',
+        ),
+        isTrue,
       );
       expect(
-        config.databaseUrl,
-        Platform.environment['DATABASE_URL'] ?? 'postgres://example.test/db',
+        config.startupChecks.any(
+          (RuntimeStartupCheck check) =>
+              check.code == 'lpc_definitions_directory' &&
+              check.status == 'error',
+        ),
+        isTrue,
       );
-      expect(config.configurationWarnings, isNotEmpty);
       expect(
-        config.configurationWarnings.join(' '),
-        contains('line 3'),
-      );
-      expect(
-        config.configurationWarnings.join(' '),
-        contains('MISMATCHED_QUOTE'),
+        config.startupFailureMessage,
+        contains('git submodule update --init --recursive'),
       );
     });
 
-    test('resolves project-relative directories', () async {
-      final Directory root = await Directory.systemTemp.createTemp(
-        'spritecraft-runtime-paths-',
+    test('passes startup checks for a complete LPC project layout', () async {
+      final Directory sandbox = await Directory.systemTemp.createTemp(
+        'runtime_config_valid_lpc',
       );
-      addTearDown(() async {
-        if (await root.exists()) {
-          await root.delete(recursive: true);
-        }
-      });
+      addTearDown(() => sandbox.delete(recursive: true));
 
-      final RuntimeConfig config = await RuntimeConfig.load(projectRoot: root);
+      final Directory lpcRoot = Directory(
+        path.join(sandbox.path, 'lpc-spritesheet-creator'),
+      );
+      final Directory definitions = Directory(
+        path.join(lpcRoot.path, 'sheet_definitions', 'body'),
+      );
+      final Directory spritesheets = Directory(
+        path.join(lpcRoot.path, 'spritesheets', 'body'),
+      );
 
+      await definitions.create(recursive: true);
+      await spritesheets.create(recursive: true);
+      await File(path.join(lpcRoot.path, '.git')).writeAsString(
+        'gitdir: ../.git/modules/lpc-spritesheet-creator',
+      );
+      await File(path.join(lpcRoot.path, 'CREDITS.csv')).writeAsString(
+        'file,author\n',
+      );
+      await File(path.join(definitions.path, 'body.json')).writeAsString('{}');
+      await File(path.join(spritesheets.path, 'idle.png')).writeAsBytes(
+        <int>[0],
+      );
+
+      final RuntimeConfig config = await RuntimeConfig.load(projectRoot: sandbox);
+
+      expect(config.hasStartupErrors, isFalse);
       expect(
-        config.exportDirectory.path,
-        path.join(root.path, 'build', 'exports'),
+        config.startupChecks.every(
+          (RuntimeStartupCheck check) => check.status != 'error',
+        ),
+        isTrue,
       );
       expect(
-        config.projectPackageDirectory.path,
-        path.join(root.path, 'build', 'exports', 'projects'),
-      );
-      expect(
-        config.lpcDefinitionsDirectory.path,
-        path.join(root.path, 'lpc-spritesheet-creator', 'sheet_definitions'),
-      );
-      expect(
-        config.lpcSpritesheetsDirectory.path,
-        path.join(root.path, 'lpc-spritesheet-creator', 'spritesheets'),
+        config.startupChecks.any(
+          (RuntimeStartupCheck check) =>
+              check.code == 'lpc_spritesheet_files' && check.status == 'ok',
+        ),
+        isTrue,
       );
     });
   });

@@ -19,6 +19,7 @@ import '../config/runtime_config.dart';
 import '../lpc/lpc_catalog.dart';
 import '../lpc/lpc_consistency_checker.dart';
 import '../lpc/lpc_renderer.dart';
+import '../logging/structured_logger.dart';
 import '../models/lpc_models.dart';
 import '../models/sprite_name_suggestions.dart';
 import '../models/sprite_plan.dart';
@@ -34,26 +35,88 @@ class StudioServer {
     required this.catalog,
     required this.renderer,
     required this.historyRepository,
+    required this.logger,
   });
 
   final RuntimeConfig config;
   final LpcCatalog catalog;
   final LpcRenderer renderer;
   final HistoryRepository? historyRepository;
+  final StructuredLogger logger;
   final Map<String, LpcRenderResult> _renderCache = <String, LpcRenderResult>{};
   final Map<String, _ExportJob> _exportJobs = <String, _ExportJob>{};
   int _exportJobCounter = 0;
 
   static Future<StudioServer> create(RuntimeConfig config) async {
-    final LpcCatalog catalog = await const LpcCatalogLoader().load(
-      config.lpcDefinitionsDirectory,
-    );
+    final StructuredLogger logger = StructuredLogger();
+    for (final String warning in config.configurationWarnings) {
+      logger.warning(
+        subsystem: 'startup',
+        event: 'configuration_warning',
+        message: warning,
+      );
+    }
+    for (final RuntimeStartupCheck check in config.startupChecks) {
+      if (check.status == 'ok') {
+        continue;
+      }
+      final Map<String, Object?> context = <String, Object?>{
+        'check': check.code,
+        if (check.location != null) 'location': check.location,
+      };
+      if (check.status == 'warning') {
+        logger.warning(
+          subsystem: 'startup',
+          event: 'startup_check_warning',
+          message: check.detail,
+          context: context,
+        );
+      } else {
+        logger.error(
+          subsystem: 'startup',
+          event: 'startup_check_failed',
+          message: check.detail,
+          context: context,
+        );
+      }
+    }
+    if (config.hasStartupErrors) {
+      throw StateError(config.startupFailureMessage);
+    }
+    final LpcCatalog catalog;
+    try {
+      catalog = await const LpcCatalogLoader().load(
+        config.lpcDefinitionsDirectory,
+      );
+    } on Exception catch (error, stackTrace) {
+      logger.error(
+        subsystem: 'startup',
+        event: 'catalog_load_failed',
+        message: 'Could not load the LPC catalog during backend startup.',
+        context: <String, Object?>{
+          'definitionsDirectory': config.lpcDefinitionsDirectory.path,
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
     HistoryRepository? historyRepository;
     try {
       historyRepository = await HistoryRepository.connect(
         config.databaseUrl,
       ).timeout(_historyConnectTimeout);
-    } on Exception {
+    } on Exception catch (error, stackTrace) {
+      if (config.hasDatabase) {
+        logger.warning(
+          subsystem: 'database',
+          event: 'history_connect_failed',
+          message:
+              'DATABASE_URL is configured, but history persistence could not be initialized.',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
       historyRepository = null;
     }
 
@@ -66,6 +129,7 @@ class StudioServer {
         decodedAssetCacheDirectory: config.renderCacheDirectory,
       ),
       historyRepository: historyRepository,
+      logger: logger,
     );
   }
 
@@ -97,19 +161,34 @@ class StudioServer {
     final Handler handler = Pipeline().addMiddleware(logRequests()).addHandler((
       Request request,
     ) async {
-      if (request.url.path == 'health' ||
-          request.url.path == 'bootstrap' ||
-          request.url.path.startsWith('api/')) {
-        final Response response = await router.call(request);
-        if (response.statusCode == 404) {
-          return _json(404, <String, Object>{'error': 'Not found'});
+      try {
+        if (request.url.path == 'health' ||
+            request.url.path == 'bootstrap' ||
+            request.url.path.startsWith('api/')) {
+          final Response response = await router.call(request);
+          if (response.statusCode == 404) {
+            return _json(404, <String, Object>{'error': 'Not found'});
+          }
+          return response;
         }
-        return response;
+        return _json(404, <String, Object>{
+          'error':
+              'SpriteCraft now serves the UI from studio. Start the web app separately and use this Dart server as the backend API.',
+        });
+      } on Exception catch (error, stackTrace) {
+        logger.error(
+          subsystem: 'server',
+          event: 'request_failed',
+          message:
+              'An unhandled backend exception reached the request boundary.',
+          context: _requestContext(request),
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return _json(500, <String, Object>{
+          'error': 'SpriteCraft hit an unexpected backend error.',
+        });
       }
-      return _json(404, <String, Object>{
-        'error':
-            'SpriteCraft now serves the UI from studio. Start the web app separately and use this Dart server as the backend API.',
-      });
     });
 
     return shelf_io.serve(handler, host, port);
@@ -130,7 +209,11 @@ class StudioServer {
         'hasGemini': config.hasGemini,
         'hasDatabase': config.hasDatabase,
         'hasLpcProject': config.hasLpcProject,
+        'hasStartupErrors': config.hasStartupErrors,
       },
+      'startupChecks': config.startupChecks
+          .map((RuntimeStartupCheck check) => check.toJson())
+          .toList(),
       'catalog': catalog.toSummaryJson(),
       'defaults': <String, Object?>{
         'bodyType': catalog.bodyTypes.contains('male')
@@ -149,26 +232,8 @@ class StudioServer {
 
   Future<Response> _health(Request request) async {
     final List<Map<String, String>> checks = <Map<String, String>>[
-      _healthCheck(
-        label: 'LPC project',
-        isOk: config.hasLpcProject,
-        okDetail: 'LPC submodule directory found.',
-        failDetail:
-            'Missing lpc-spritesheet-creator. Run git submodule update --init --recursive.',
-      ),
-      _healthCheck(
-        label: 'Definitions',
-        isOk: config.lpcDefinitionsDirectory.existsSync(),
-        okDetail: 'Sheet definitions directory is present.',
-        failDetail:
-            'Missing sheet definitions at ${config.lpcDefinitionsDirectory.path}.',
-      ),
-      _healthCheck(
-        label: 'Spritesheets',
-        isOk: config.lpcSpritesheetsDirectory.existsSync(),
-        okDetail: 'Spritesheet assets directory is present.',
-        failDetail:
-            'Missing spritesheets at ${config.lpcSpritesheetsDirectory.path}.',
+      ...config.startupChecks.map(
+        (RuntimeStartupCheck check) => check.toJson(),
       ),
       <String, String>{
         'label': 'Gemini',
@@ -214,19 +279,6 @@ class StudioServer {
       'timestamp': DateTime.now().toUtc().toIso8601String(),
       'checks': checks,
     });
-  }
-
-  Map<String, String> _healthCheck({
-    required String label,
-    required bool isOk,
-    required String okDetail,
-    required String failDetail,
-  }) {
-    return <String, String>{
-      'label': label,
-      'status': isOk ? 'ok' : 'error',
-      'detail': isOk ? okDetail : failDetail,
-    };
   }
 
   Future<Response> _catalog(Request request) async {
@@ -294,7 +346,27 @@ class StudioServer {
         result.toApiJson(request: renderRequest, imageName: imageName),
       );
     } on StateError catch (error) {
+      _logRequestFailure(
+        request,
+        subsystem: 'render',
+        event: 'render_rejected',
+        message: error.message,
+        severity: LogSeverity.warning,
+      );
       return _json(400, <String, Object>{'error': error.message});
+    } on Exception catch (error, stackTrace) {
+      _logRequestFailure(
+        request,
+        subsystem: 'render',
+        event: 'render_failed',
+        message: 'Sprite rendering failed unexpectedly.',
+        severity: LogSeverity.error,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return _json(500, <String, Object>{
+        'error': 'Sprite rendering failed unexpectedly.',
+      });
     }
   }
 
@@ -321,7 +393,27 @@ class StudioServer {
 
       return _json(200, await _performExport(payload));
     } on StateError catch (error) {
+      _logRequestFailure(
+        request,
+        subsystem: 'export',
+        event: 'export_rejected',
+        message: error.message,
+        severity: LogSeverity.warning,
+      );
       return _json(400, <String, Object>{'error': error.message});
+    } on Exception catch (error, stackTrace) {
+      _logRequestFailure(
+        request,
+        subsystem: 'export',
+        event: 'export_failed',
+        message: 'Export generation failed unexpectedly.',
+        severity: LogSeverity.error,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return _json(500, <String, Object>{
+        'error': 'Export generation failed unexpectedly.',
+      });
     }
   }
 
@@ -352,7 +444,8 @@ class StudioServer {
       final File imageFile = _resolveLocalFile(imagePath);
       if (!await imageFile.exists()) {
         return _json(404, <String, Object>{
-          'error': 'Spritesheet image not found at ${path.normalize(imageFile.path)}.',
+          'error':
+              'Spritesheet image not found at ${path.normalize(imageFile.path)}.',
         });
       }
 
@@ -443,7 +536,8 @@ class StudioServer {
 
     for (int variantIndex = 0; variantIndex < variants.length; variantIndex++) {
       final Map<String, Object?> variant = variants[variantIndex];
-      final String variantName = variant['name']?.toString().trim().isNotEmpty == true
+      final String variantName =
+          variant['name']?.toString().trim().isNotEmpty == true
           ? variant['name']!.toString().trim()
           : 'variant-${variantIndex + 1}';
       final String variantStem = ExportSupport.sanitizeFileStem(
@@ -548,9 +642,22 @@ class StudioServer {
     } on StateError catch (error) {
       job.status = 'failed';
       job.error = error.message;
+      logger.warning(
+        subsystem: 'export',
+        event: 'export_job_failed',
+        message: error.message,
+        context: <String, Object?>{'jobId': job.id},
+      );
     } on Exception catch (error) {
       job.status = 'failed';
       job.error = error.toString();
+      logger.error(
+        subsystem: 'export',
+        event: 'export_job_failed',
+        message: 'An asynchronous export job failed unexpectedly.',
+        context: <String, Object?>{'jobId': job.id},
+        error: error,
+      );
     } finally {
       job.updatedAt = DateTime.now().toUtc();
     }
@@ -566,11 +673,10 @@ class StudioServer {
             .map((dynamic entry) => entry.toString().trim())
             .where((String entry) => entry.isNotEmpty)
             .toList(growable: false);
-    final List<String> tags =
-        (payload['tags'] as List<dynamic>? ?? <dynamic>[])
-            .map((dynamic entry) => entry.toString().trim())
-            .where((String entry) => entry.isNotEmpty)
-            .toList(growable: false);
+    final List<String> tags = (payload['tags'] as List<dynamic>? ?? <dynamic>[])
+        .map((dynamic entry) => entry.toString().trim())
+        .where((String entry) => entry.isNotEmpty)
+        .toList(growable: false);
     final String notes = payload['notes']?.toString().trim() ?? '';
     if (prompt.isEmpty) {
       return _json(400, <String, Object>{'error': 'Prompt is required.'});
@@ -598,7 +704,19 @@ class StudioServer {
                 if (promptMemory != null) promptMemory.summary,
               ].join('. '),
             );
-      } on Exception {
+      } on Exception catch (error, stackTrace) {
+        logger.warning(
+          subsystem: 'ai',
+          event: 'brief_gemini_failed',
+          message:
+              'Gemini brief generation failed. Falling back to local recommendations.',
+          context: <String, Object?>{
+            'bodyType': bodyType,
+            'animation': animation,
+          },
+          error: error,
+          stackTrace: stackTrace,
+        );
         plan = null;
       }
     }
@@ -652,11 +770,10 @@ class StudioServer {
             .map((dynamic entry) => entry.toString().trim())
             .where((String entry) => entry.isNotEmpty)
             .toList(growable: false);
-    final List<String> tags =
-        (payload['tags'] as List<dynamic>? ?? <dynamic>[])
-            .map((dynamic entry) => entry.toString().trim())
-            .where((String entry) => entry.isNotEmpty)
-            .toList(growable: false);
+    final List<String> tags = (payload['tags'] as List<dynamic>? ?? <dynamic>[])
+        .map((dynamic entry) => entry.toString().trim())
+        .where((String entry) => entry.isNotEmpty)
+        .toList(growable: false);
     final String notes = payload['notes']?.toString().trim() ?? '';
     final int selectionCount = _asInt(payload['selectionCount']) ?? 0;
 
@@ -666,19 +783,51 @@ class StudioServer {
       });
     }
 
-    final SpriteNamingSuggester suggester = SpriteNamingSuggester(
-      apiKey: config.hasGemini ? config.geminiApiKey : null,
-    );
-    final SpriteNamingSuggestions suggestions = await suggester.suggestNames(
-      prompt: prompt,
-      animation: animation,
-      promptHistory: promptHistory,
-      tags: tags,
-      notes: notes,
-      selectionCount: selectionCount,
-    );
+    try {
+      final SpriteNamingSuggester suggester = SpriteNamingSuggester(
+        apiKey: config.hasGemini ? config.geminiApiKey : null,
+      );
+      final SpriteNamingSuggestions suggestions = await suggester.suggestNames(
+        prompt: prompt,
+        animation: animation,
+        promptHistory: promptHistory,
+        tags: tags,
+        notes: notes,
+        selectionCount: selectionCount,
+      );
 
-    return _json(200, suggestions.toJson());
+      return _json(200, suggestions.toJson());
+    } on StateError catch (error) {
+      _logRequestFailure(
+        request,
+        subsystem: 'ai',
+        event: 'naming_rejected',
+        message: error.message,
+        severity: LogSeverity.warning,
+        context: <String, Object?>{
+          'animation': animation,
+          'selectionCount': selectionCount,
+        },
+      );
+      return _json(400, <String, Object>{'error': error.message});
+    } on Exception catch (error, stackTrace) {
+      _logRequestFailure(
+        request,
+        subsystem: 'ai',
+        event: 'naming_failed',
+        message: 'Name suggestion generation failed unexpectedly.',
+        severity: LogSeverity.error,
+        context: <String, Object?>{
+          'animation': animation,
+          'selectionCount': selectionCount,
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return _json(500, <String, Object>{
+        'error': 'Name suggestion generation failed unexpectedly.',
+      });
+    }
   }
 
   Future<Response> _styleHelper(Request request) async {
@@ -690,14 +839,14 @@ class StudioServer {
             .map((dynamic entry) => entry.toString().trim())
             .where((String entry) => entry.isNotEmpty)
             .toList(growable: false);
-    final List<String> tags =
-        (payload['tags'] as List<dynamic>? ?? <dynamic>[])
-            .map((dynamic entry) => entry.toString().trim())
-            .where((String entry) => entry.isNotEmpty)
-            .toList(growable: false);
+    final List<String> tags = (payload['tags'] as List<dynamic>? ?? <dynamic>[])
+        .map((dynamic entry) => entry.toString().trim())
+        .where((String entry) => entry.isNotEmpty)
+        .toList(growable: false);
     final String notes = payload['notes']?.toString().trim() ?? '';
     final Map<String, String> selections =
-        (payload['selections'] as Map<dynamic, dynamic>? ?? <dynamic, dynamic>{})
+        (payload['selections'] as Map<dynamic, dynamic>? ??
+                <dynamic, dynamic>{})
             .map(
               (dynamic key, dynamic value) =>
                   MapEntry(key.toString(), value.toString()),
@@ -713,23 +862,56 @@ class StudioServer {
         tags.isEmpty &&
         stagedItems.isEmpty) {
       return _json(400, <String, Object>{
-        'error': 'A prompt, tags, prompt memory, or staged layers are required.',
+        'error':
+            'A prompt, tags, prompt memory, or staged layers are required.',
       });
     }
 
-    final SpriteStyleHelper helper = SpriteStyleHelper(
-      apiKey: config.hasGemini ? config.geminiApiKey : null,
-    );
-    final SpriteStyleHelperResult result = await helper.build(
-      prompt: prompt,
-      animation: animation,
-      promptHistory: promptHistory,
-      tags: tags,
-      notes: notes,
-      stagedItems: stagedItems,
-    );
+    try {
+      final SpriteStyleHelper helper = SpriteStyleHelper(
+        apiKey: config.hasGemini ? config.geminiApiKey : null,
+      );
+      final SpriteStyleHelperResult result = await helper.build(
+        prompt: prompt,
+        animation: animation,
+        promptHistory: promptHistory,
+        tags: tags,
+        notes: notes,
+        stagedItems: stagedItems,
+      );
 
-    return _json(200, result.toJson());
+      return _json(200, result.toJson());
+    } on StateError catch (error) {
+      _logRequestFailure(
+        request,
+        subsystem: 'ai',
+        event: 'style_helper_rejected',
+        message: error.message,
+        severity: LogSeverity.warning,
+        context: <String, Object?>{
+          'animation': animation,
+          'stagedItemCount': stagedItems.length,
+        },
+      );
+      return _json(400, <String, Object>{'error': error.message});
+    } on Exception catch (error, stackTrace) {
+      _logRequestFailure(
+        request,
+        subsystem: 'ai',
+        event: 'style_helper_failed',
+        message: 'Style helper generation failed unexpectedly.',
+        severity: LogSeverity.error,
+        context: <String, Object?>{
+          'animation': animation,
+          'stagedItemCount': stagedItems.length,
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return _json(500, <String, Object>{
+        'error': 'Style helper generation failed unexpectedly.',
+      });
+    }
   }
 
   Future<Response> _history(Request request) async {
@@ -749,48 +931,72 @@ class StudioServer {
     }
 
     final Map<String, dynamic> payload = await request.readAsJson();
-    final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(payload);
-    final LpcRenderResult result = await renderer.render(renderRequest);
-    final StudioHistoryEntry entry = await historyRepository!.save(
-      request: renderRequest,
-      renderResult: result,
-      details: <String, Object?>{
-        'projectName': payload['projectName']?.toString(),
-        'notes': payload['notes']?.toString(),
-        'enginePreset': payload['enginePreset']?.toString(),
-        'tags': payload['tags'] is List<dynamic>
-            ? (payload['tags'] as List<dynamic>)
-                  .map((dynamic value) => value.toString())
-                  .toList()
-            : <String>[],
-        'renderSettings': payload['renderSettings'] is Map
-            ? Map<String, Object?>.from(
-                payload['renderSettings'] as Map<dynamic, dynamic>,
-              )
-            : <String, Object?>{},
-        'exportSettings': payload['exportSettings'] is Map
-            ? Map<String, Object?>.from(
-                payload['exportSettings'] as Map<dynamic, dynamic>,
-              )
-            : <String, Object?>{},
-        'promptHistory': payload['promptHistory'] is List<dynamic>
-            ? (payload['promptHistory'] as List<dynamic>)
-                  .map((dynamic value) => value.toString())
-                  .toList()
-            : <String>[],
-        'exportHistory': payload['exportHistory'] is List<dynamic>
-            ? (payload['exportHistory'] as List<dynamic>)
-                  .whereType<Map>()
-                  .map(
-                    (Map<dynamic, dynamic> value) =>
-                        Map<String, Object?>.from(value),
-                  )
-                  .toList()
-            : <Map<String, Object?>>[],
-      },
-    );
+    try {
+      final LpcRenderRequest renderRequest = LpcRenderRequest.fromJson(payload);
+      final LpcRenderResult result = await renderer.render(renderRequest);
+      final StudioHistoryEntry entry = await historyRepository!.save(
+        request: renderRequest,
+        renderResult: result,
+        details: <String, Object?>{
+          'projectName': payload['projectName']?.toString(),
+          'notes': payload['notes']?.toString(),
+          'enginePreset': payload['enginePreset']?.toString(),
+          'tags': payload['tags'] is List<dynamic>
+              ? (payload['tags'] as List<dynamic>)
+                    .map((dynamic value) => value.toString())
+                    .toList()
+              : <String>[],
+          'renderSettings': payload['renderSettings'] is Map
+              ? Map<String, Object?>.from(
+                  payload['renderSettings'] as Map<dynamic, dynamic>,
+                )
+              : <String, Object?>{},
+          'exportSettings': payload['exportSettings'] is Map
+              ? Map<String, Object?>.from(
+                  payload['exportSettings'] as Map<dynamic, dynamic>,
+                )
+              : <String, Object?>{},
+          'promptHistory': payload['promptHistory'] is List<dynamic>
+              ? (payload['promptHistory'] as List<dynamic>)
+                    .map((dynamic value) => value.toString())
+                    .toList()
+              : <String>[],
+          'exportHistory': payload['exportHistory'] is List<dynamic>
+              ? (payload['exportHistory'] as List<dynamic>)
+                    .whereType<Map>()
+                    .map(
+                      (Map<dynamic, dynamic> value) =>
+                          Map<String, Object?>.from(value),
+                    )
+                    .toList()
+              : <Map<String, Object?>>[],
+        },
+      );
 
-    return _json(200, entry.toJson());
+      return _json(200, entry.toJson());
+    } on StateError catch (error) {
+      _logRequestFailure(
+        request,
+        subsystem: 'database',
+        event: 'history_save_rejected',
+        message: error.message,
+        severity: LogSeverity.warning,
+      );
+      return _json(400, <String, Object>{'error': error.message});
+    } on Exception catch (error, stackTrace) {
+      _logRequestFailure(
+        request,
+        subsystem: 'database',
+        event: 'history_save_failed',
+        message: 'Saving project history failed unexpectedly.',
+        severity: LogSeverity.error,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return _json(500, <String, Object>{
+        'error': 'Saving project history failed unexpectedly.',
+      });
+    }
   }
 
   Future<Response> _historyEntry(Request request, String id) async {
@@ -947,7 +1153,8 @@ class StudioServer {
                 ),
               )
             : fallbackRequest.selections;
-        final Map<String, String> recolorGroups = variant['recolorGroups'] is Map
+        final Map<String, String> recolorGroups =
+            variant['recolorGroups'] is Map
             ? Map<String, String>.from(
                 (variant['recolorGroups'] as Map<dynamic, dynamic>).map(
                   (dynamic key, dynamic val) =>
@@ -960,9 +1167,10 @@ class StudioServer {
             ? (variant['externalLayers'] as List<dynamic>)
                   .whereType<Map<dynamic, dynamic>>()
                   .map(
-                    (Map<dynamic, dynamic> entry) => ExternalRenderLayer.fromJson(
-                      Map<String, dynamic>.from(entry),
-                    ),
+                    (Map<dynamic, dynamic> entry) =>
+                        ExternalRenderLayer.fromJson(
+                          Map<String, dynamic>.from(entry),
+                        ),
                   )
                   .toList()
             : fallbackRequest.externalLayers;
@@ -1083,7 +1291,8 @@ class StudioServer {
         }
         firstFrameWidth ??= currentWidth;
         firstFrameHeight ??= currentHeight;
-        if (currentWidth != firstFrameWidth || currentHeight != firstFrameHeight) {
+        if (currentWidth != firstFrameWidth ||
+            currentHeight != firstFrameHeight) {
           isUniformFrameSize = false;
         }
       }
@@ -1185,7 +1394,8 @@ class StudioServer {
     Map<dynamic, dynamic> rawFrame, {
     String? name,
   }) {
-    final Map<String, Object?> frame = rawFrame['frame'] is Map<dynamic, dynamic>
+    final Map<String, Object?> frame =
+        rawFrame['frame'] is Map<dynamic, dynamic>
         ? Map<String, Object?>.from(
             (rawFrame['frame'] as Map<dynamic, dynamic>).map(
               (dynamic key, dynamic value) =>
@@ -1340,8 +1550,81 @@ class StudioServer {
         'restored': entry.toJson(),
       });
     } on StateError catch (error) {
+      _logRequestFailure(
+        request,
+        subsystem: 'database',
+        event: 'history_restore_rejected',
+        message: error.message,
+        severity: LogSeverity.warning,
+        context: <String, Object?>{'historyId': id},
+      );
       return _json(400, <String, Object>{'error': error.message});
+    } on Exception catch (error, stackTrace) {
+      _logRequestFailure(
+        request,
+        subsystem: 'database',
+        event: 'history_restore_failed',
+        message: 'Restoring project history failed unexpectedly.',
+        severity: LogSeverity.error,
+        context: <String, Object?>{'historyId': id},
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return _json(500, <String, Object>{
+        'error': 'Restoring project history failed unexpectedly.',
+      });
     }
+  }
+
+  void _logRequestFailure(
+    Request request, {
+    required String subsystem,
+    required String event,
+    required String message,
+    required LogSeverity severity,
+    Map<String, Object?> context = const <String, Object?>{},
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    final Map<String, Object?> logContext = <String, Object?>{
+      ..._requestContext(request),
+      ...context,
+    };
+    switch (severity) {
+      case LogSeverity.info:
+        logger.info(
+          subsystem: subsystem,
+          event: event,
+          message: message,
+          context: logContext,
+        );
+      case LogSeverity.warning:
+        logger.warning(
+          subsystem: subsystem,
+          event: event,
+          message: message,
+          context: logContext,
+          error: error,
+          stackTrace: stackTrace,
+        );
+      case LogSeverity.error:
+        logger.error(
+          subsystem: subsystem,
+          event: event,
+          message: message,
+          context: logContext,
+          error: error,
+          stackTrace: stackTrace,
+        );
+    }
+  }
+
+  Map<String, Object?> _requestContext(Request request) {
+    return <String, Object?>{
+      'method': request.method,
+      'path': '/${request.url.path}',
+      if (request.url.query.isNotEmpty) 'query': request.url.query,
+    };
   }
 
   Future<void> close() async {
@@ -1449,4 +1732,3 @@ class _ExportJob {
     };
   }
 }
-
