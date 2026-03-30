@@ -2,7 +2,13 @@
 
 "use client";
 
-import { useDeferredValue, useMemo, useState, useTransition } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import {
   Download,
   ExternalLink,
@@ -27,7 +33,16 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
+import {
+  StudioActivityStrip,
+  type StudioActivityItem,
+} from "~/app/_components/studio-activity-strip";
+import {
+  getProjectBrowserListEmptyState,
+  getProjectDetailEmptyState,
+} from "~/app/_components/studio-empty-states";
 import { buildWorkspaceRestoreUrl } from "~/app/_components/project-launching";
+import { showStudioToast } from "~/app/_components/studio-toast";
 import {
   getRelatedWorkspaceProjects,
   workspaceLoadEventName,
@@ -103,6 +118,43 @@ export function ProjectBrowser({
     initialProjects[0]?.tags.join(", ") ?? "",
   );
   const [isPending, startTransition] = useTransition();
+  const activityItems = useMemo<StudioActivityItem[]>(() => {
+    const items: StudioActivityItem[] = [];
+
+    if (activeAction === "refresh") {
+      items.push({
+        label: "Refreshing project history",
+        detail: "Reloading saved projects from the Dart backend.",
+        state: "loading" as const,
+      });
+    }
+
+    if (activeAction === "import") {
+      items.push({
+        label: "Importing project package",
+        detail: "Reading a .spritecraft-project.json package into local history.",
+        state: "loading" as const,
+      });
+    }
+
+    if (isPending) {
+      items.push({
+        label: "Syncing project browser",
+        detail: "Applying the latest project changes to the Studio list and editor.",
+        state: "loading" as const,
+      });
+    }
+
+    if (feedback?.tone === "destructive") {
+      items.push({
+        label: "Project action needs attention",
+        detail: feedback.message,
+        state: "error" as const,
+      });
+    }
+
+    return items;
+  }, [activeAction, feedback, isPending]);
 
   const filtered = useMemo(() => {
     const terms = deferredSearch
@@ -159,6 +211,33 @@ export function ProjectBrowser({
     filtered[0] ??
     projects[0] ??
     null;
+  const listEmptyState = getProjectBrowserListEmptyState({
+    search,
+    projectCount: projects.length,
+  });
+  const detailEmptyState = getProjectDetailEmptyState(projects.length);
+
+  useEffect(() => {
+    if (!feedback) {
+      return;
+    }
+
+    showStudioToast({
+      title:
+        feedback.tone === "destructive"
+          ? "Project browser action failed"
+          : "Project browser updated",
+      description: feedback.message,
+      tone:
+        feedback.tone === "default"
+          ? "default"
+          : feedback.tone === "success"
+            ? "success"
+            : feedback.tone === "warning"
+              ? "warning"
+              : "destructive",
+    });
+  }, [feedback]);
 
   function syncEditorFromProject(project: SpriteCraftProjectSummary | null) {
     setEditorProjectName(project?.projectName ?? "");
@@ -330,6 +409,10 @@ export function ProjectBrowser({
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(300px,0.7fr)]">
           <div className="space-y-4">
+            <StudioActivityStrip
+              items={activityItems}
+              title="Browser activity"
+            />
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-(--border) bg-(--surface-soft) p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-(--muted-foreground)">
@@ -449,8 +532,30 @@ export function ProjectBrowser({
                   );
                 })
               ) : (
-                <div className="rounded-2xl border border-dashed border-(--border) p-6 text-sm text-(--muted-foreground)">
-                  No projects match the current search.
+                <div className="rounded-2xl border border-dashed border-(--border) p-6">
+                  <p className="text-sm font-medium text-(--foreground)">
+                    {listEmptyState.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-(--muted-foreground)">
+                    {listEmptyState.description}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {search.trim() ? (
+                      <Button
+                        onClick={() => setSearch("")}
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                      >
+                        Clear search
+                      </Button>
+                    ) : null}
+                    <Button asChild size="sm" variant="secondary">
+                      <a href="/builder" rel="noreferrer">
+                        Open builder
+                      </a>
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -788,8 +893,40 @@ export function ProjectBrowser({
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-(--border) p-6 text-sm text-(--muted-foreground)">
-                    Select a project to inspect its saved SpriteCraft metadata.
+                  <div className="rounded-2xl border border-dashed border-(--border) p-6">
+                    <p className="text-sm font-medium text-(--foreground)">
+                      {detailEmptyState.title}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-(--muted-foreground)">
+                      {detailEmptyState.description}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <Button asChild size="sm" variant="secondary">
+                        <a href="/builder" rel="noreferrer">
+                          Open builder
+                        </a>
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          void runAction(
+                            "refresh",
+                            () => refreshProjects({ keepMessage: true }),
+                            () => {
+                              setFeedback({
+                                tone: "success",
+                                message:
+                                  "Project browser refreshed from the Dart backend.",
+                              });
+                            },
+                          )
+                        }
+                        size="sm"
+                        type="button"
+                        variant="secondary"
+                      >
+                        Refresh history
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -814,12 +951,6 @@ export function ProjectBrowser({
             </div>
           </div>
         </div>
-
-        {isPending ? (
-          <p className="text-sm text-(--muted-foreground)">
-            Synchronizing with the Dart backend...
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   );

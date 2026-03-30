@@ -1,3 +1,25 @@
+## 0.41.0 - 2026-03-30
+
+### Added
+
+- Added shared empty-state copy helpers and focused Bun coverage for recent-work, project-browser, and builder-preview guidance.
+
+### Changed
+
+- Upgraded the home overview, project browser, and builder preview areas so empty states now point users toward the next practical action instead of stopping at placeholder copy.
+
+## 0.40.0 - 2026-03-30
+
+### Added
+
+- Added a shared Studio toast center so builder, project browser, and settings actions can surface success and failure feedback without burying everything inline.
+- Added a reusable Studio activity strip for in-flight catalog, render, export, AI, import, and support-bundle work.
+
+### Changed
+
+- Upgraded the builder and project browser to surface clearer loading and error progress during longer-running backend actions.
+- Extended the settings page so support-bundle export now reports progress and completion through the same shared feedback system.
+
 ## 0.39.0 - 2026-03-30
 
 ### Added

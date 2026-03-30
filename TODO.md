@@ -133,8 +133,8 @@ Goal: make SpriteCraft easy to install and use outside the dev folder.
 Goal: make the app feel finished.
 
 - [x] Create a cohesive icon, favicon, and brand system for SpriteCraft
-- [ ] Add loading states, progress indicators, and toasts everywhere they matter
-- [ ] Improve empty states so new users always know the next useful action
+- [x] Add loading states, progress indicators, and toasts everywhere they matter
+- [x] Improve empty states so new users always know the next useful action
 - [ ] Add keyboard shortcuts for common creator flows
 - [ ] Add better responsive layout behavior for smaller screens and tablets
 - [ ] Improve typography, motion, and visual hierarchy across SpriteCraft Studio

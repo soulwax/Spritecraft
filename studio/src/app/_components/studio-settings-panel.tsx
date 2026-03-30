@@ -11,6 +11,8 @@ import {
 	type StudioPreferences,
 	type StudioTheme,
 } from "~/app/_components/studio-preferences";
+import { StudioActivityStrip } from "~/app/_components/studio-activity-strip";
+import { showStudioToast } from "~/app/_components/studio-toast";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -119,6 +121,32 @@ export function StudioSettingsPanel({
 		setPreferences(loadStudioPreferences());
 	}, []);
 
+	useEffect(() => {
+		if (!supportBundlePath) {
+			return;
+		}
+
+		showStudioToast({
+			title: "Support bundle exported",
+			description: supportBundlePath,
+			tone: "success",
+			durationMs: 5600,
+		});
+	}, [supportBundlePath]);
+
+	useEffect(() => {
+		if (!supportError) {
+			return;
+		}
+
+		showStudioToast({
+			title: "Support bundle failed",
+			description: supportError,
+			tone: "destructive",
+			durationMs: 5600,
+		});
+	}, [supportError]);
+
 	function updatePreferences(
 		partial: Partial<StudioPreferences>,
 	): StudioPreferences {
@@ -169,6 +197,29 @@ export function StudioSettingsPanel({
 	return (
 		<div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_0.95fr]">
 			<div className="grid gap-6">
+				<StudioActivityStrip
+					items={
+						supportStatus === "loading"
+							? [
+									{
+										label: "Building support bundle",
+										detail:
+											"Collecting runtime snapshots, structured logs, and recovery records for support.",
+										state: "loading",
+									},
+								]
+							: supportError
+								? [
+										{
+											label: "Support export needs attention",
+											detail: supportError,
+											state: "error",
+										},
+									]
+								: []
+					}
+					title="Settings activity"
+				/>
 				<Card className="border-[color:var(--border-strong)] bg-[color:var(--hero-surface)]">
 					<CardHeader>
 						<CardTitle className="flex items-center gap-3">

@@ -54,7 +54,7 @@ SpriteCraft's Phase 8 packaging target is a Windows-first local app that keeps t
 
 The full decision and rollout guidance live in [docs/packaging-strategy.md](docs/packaging-strategy.md).
 The concrete Windows bundle workflow lives in [docs/windows-distribution.md](docs/windows-distribution.md), including the packaged LPC asset layout used outside a git submodule checkout.
-Release-specific notes live under [docs/releases](docs/releases), including [0.39.0](docs/releases/0.39.0.md).
+Release-specific notes live under [docs/releases](docs/releases), including [0.41.0](docs/releases/0.41.0.md).
 Support bundle behavior is documented in [docs/support-bundles.md](docs/support-bundles.md).
 The current app icon and wordmark guidance live in [docs/brand-system.md](docs/brand-system.md).
 

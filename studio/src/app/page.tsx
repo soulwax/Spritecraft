@@ -9,6 +9,7 @@ import {
 
 import { FirstRunOnboarding } from "~/app/_components/first-run-onboarding";
 import { ProjectLauncher } from "~/app/_components/project-launcher";
+import { getRecentWorkEmptyState } from "~/app/_components/studio-empty-states";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -49,6 +50,10 @@ export default async function Home() {
 
   const backendHealthUrl = `${backendBaseUrl}/health`;
   const readyChecks = checks.filter((check) => check.status === "ok").length;
+  const recentWorkEmptyState = getRecentWorkEmptyState({
+    historyAvailable: bootstrap?.config.hasDatabase ?? false,
+    onboardingVisible: onboarding.show,
+  });
 
   return (
     <main className="flex flex-col gap-8">
@@ -223,8 +228,21 @@ export default async function Home() {
                 </Link>
               ))}
               {recentProjects.length === 0 ? (
-                <div className="rounded-[22px] border border-dashed border-[color:var(--border)] px-4 py-5 text-sm text-[color:var(--muted-foreground)]">
-                  No saved projects yet.
+                <div className="rounded-[22px] border border-dashed border-[color:var(--border)] px-4 py-5">
+                  <p className="text-sm font-medium text-[color:var(--foreground)]">
+                    {recentWorkEmptyState.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[color:var(--muted-foreground)]">
+                    {recentWorkEmptyState.description}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Button asChild size="sm">
+                      <Link href="/builder">Open builder</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href="/projects">Open projects</Link>
+                    </Button>
+                  </div>
                 </div>
               ) : null}
             </CardContent>

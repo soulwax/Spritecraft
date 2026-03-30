@@ -18,6 +18,12 @@ import {
   type StudioPreferences,
 } from "~/app/_components/studio-preferences";
 import {
+  StudioActivityStrip,
+  type StudioActivityItem,
+} from "~/app/_components/studio-activity-strip";
+import { getWorkspacePreviewEmptyMessage } from "~/app/_components/studio-empty-states";
+import { showStudioToast } from "~/app/_components/studio-toast";
+import {
   type WorkspaceLaunchPayload,
   type WorkspaceLinkedProject,
   type WorkspaceLoadPayload,
@@ -558,6 +564,133 @@ export function CatalogScout({
   }, []);
 
   useEffect(() => {
+    if (!workspaceFeedback) {
+      return;
+    }
+
+    showStudioToast({
+      title:
+        workspaceFeedback.tone === "destructive"
+          ? "Workspace action failed"
+          : workspaceFeedback.tone === "warning"
+            ? "Workspace action needs review"
+            : "Workspace updated",
+      description: workspaceFeedback.message,
+      tone:
+        workspaceFeedback.tone === "success"
+          ? "success"
+          : workspaceFeedback.tone === "warning"
+            ? "warning"
+            : "destructive",
+      durationMs: workspaceFeedback.tone === "warning" ? 4800 : 4200,
+    });
+  }, [workspaceFeedback]);
+
+  useEffect(() => {
+    if (!previewError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "Preview render failed",
+      description: previewError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [previewError]);
+
+  useEffect(() => {
+    if (!consistencyError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "Build check failed",
+      description: consistencyError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [consistencyError]);
+
+  useEffect(() => {
+    if (!comparedPreviewError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "Compared render failed",
+      description: comparedPreviewError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [comparedPreviewError]);
+
+  useEffect(() => {
+    if (!briefError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "AI brief failed",
+      description: briefError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [briefError]);
+
+  useEffect(() => {
+    if (!namingError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "AI naming failed",
+      description: namingError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [namingError]);
+
+  useEffect(() => {
+    if (!styleHelperError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "Style helper failed",
+      description: styleHelperError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [styleHelperError]);
+
+  useEffect(() => {
+    if (!exportError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "Export failed",
+      description: exportError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [exportError]);
+
+  useEffect(() => {
+    if (!nonLpcImportError) {
+      return;
+    }
+
+    showStudioToast({
+      title: "Non-LPC import failed",
+      description: nonLpcImportError,
+      tone: "destructive",
+      durationMs: 5600,
+    });
+  }, [nonLpcImportError]);
+
+  useEffect(() => {
     try {
       const savedAt = new Date().toISOString();
       const payload: CatalogWorkspaceDraft = {
@@ -1040,6 +1173,164 @@ export function CatalogScout({
 
     return recommendations;
   }, [activeStagedItem, activeTypeFocus, replaceByType]);
+
+  const activityItems = useMemo<StudioActivityItem[]>(() => {
+    const items: StudioActivityItem[] = [];
+
+    if (status === "loading") {
+      items.push({
+        label: "Scanning LPC catalog",
+        detail: "Refreshing ranked catalog matches for the current search, body type, and animation.",
+        state: "loading",
+      });
+    } else if (status === "error" && errorMessage) {
+      items.push({
+        label: "Catalog search needs attention",
+        detail: errorMessage,
+        state: "error",
+      });
+    }
+
+    if (previewStatus === "loading") {
+      items.push({
+        label: "Rendering preview",
+        detail: "Composing the current staged workspace into a fresh render preview.",
+        state: "loading",
+      });
+    }
+
+    if (consistencyStatus === "loading") {
+      items.push({
+        label: "Running build check",
+        detail: "Reviewing animation coverage, palette fit, and likely overlaps for the current stack.",
+        state: "loading",
+      });
+    }
+
+    if (isSavingProject) {
+      items.push({
+        label: saveMode === "version" ? "Saving version" : "Saving project",
+        detail:
+          saveMode === "version"
+            ? "Writing a new history version from the current workspace."
+            : "Creating a saved SpriteCraft project from the current workspace.",
+        state: "loading",
+      });
+    }
+
+    if (loadingRelatedProjectId || comparingRelatedProjectId || branchingComparedProject) {
+      items.push({
+        label: "Loading related project",
+        detail:
+          branchingComparedProject && comparedProject
+            ? `Branching from ${comparedProject.projectName ?? "selected project"} into the builder workspace.`
+            : "Preparing a saved project for compare, restore, or branch actions.",
+        state: "loading",
+      });
+    }
+
+    if (comparedPreviewStatus === "loading") {
+      items.push({
+        label: "Rendering comparison view",
+        detail: "Generating the compared snapshot preview for diff review.",
+        state: "loading",
+      });
+    }
+
+    if (briefStatus === "loading") {
+      items.push({
+        label: "Running AI brief",
+        detail: "Drafting build suggestions and catalog guidance from the current art direction.",
+        state: "loading",
+      });
+    } else if (briefStatus === "error" && briefError) {
+      items.push({
+        label: "AI brief needs attention",
+        detail: briefError,
+        state: "error",
+      });
+    }
+
+    if (namingStatus === "loading") {
+      items.push({
+        label: "Generating names",
+        detail: "Asking the backend for project, animation, and export naming ideas.",
+        state: "loading",
+      });
+    } else if (namingStatus === "error" && namingError) {
+      items.push({
+        label: "AI naming needs attention",
+        detail: namingError,
+        state: "error",
+      });
+    }
+
+    if (styleHelperStatus === "loading") {
+      items.push({
+        label: "Generating style guidance",
+        detail: "Collecting palette and consistency suggestions for the current build.",
+        state: "loading",
+      });
+    } else if (styleHelperStatus === "error" && styleHelperError) {
+      items.push({
+        label: "Style helper needs attention",
+        detail: styleHelperError,
+        state: "error",
+      });
+    }
+
+    if (exportStatus === "loading") {
+      items.push({
+        label: "Exporting workspace",
+        detail: "Running backend export jobs and waiting for bundle output to complete.",
+        state: "loading",
+      });
+    } else if (exportStatus === "error" && exportError) {
+      items.push({
+        label: "Export needs attention",
+        detail: exportError,
+        state: "error",
+      });
+    }
+
+    if (nonLpcImportStatus === "loading") {
+      items.push({
+        label: "Importing non-LPC sheet",
+        detail: "Reading an external spritesheet and matching metadata into the workspace.",
+        state: "loading",
+      });
+    } else if (nonLpcImportStatus === "error" && nonLpcImportError) {
+      items.push({
+        label: "Non-LPC import needs attention",
+        detail: nonLpcImportError,
+        state: "error",
+      });
+    }
+
+    return items;
+  }, [
+    status,
+    errorMessage,
+    previewStatus,
+    consistencyStatus,
+    isSavingProject,
+    saveMode,
+    loadingRelatedProjectId,
+    comparingRelatedProjectId,
+    branchingComparedProject,
+    comparedProject,
+    comparedPreviewStatus,
+    briefStatus,
+    briefError,
+    namingStatus,
+    namingError,
+    styleHelperStatus,
+    styleHelperError,
+    exportStatus,
+    exportError,
+    nonLpcImportStatus,
+    nonLpcImportError,
+  ]);
 
   useEffect(() => {
     if (!stagedItems.length) {
@@ -2254,6 +2545,10 @@ export function CatalogScout({
     () => comparedLayerIds.filter((entry) => !currentLayerIds.includes(entry)),
     [comparedLayerIds, currentLayerIds],
   );
+  const workspacePreviewEmptyMessage = getWorkspacePreviewEmptyMessage({
+    stagedLayerCount: stagedItems.length,
+    query,
+  });
 
   return (
     <Card>
@@ -2269,6 +2564,7 @@ export function CatalogScout({
           </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <StudioActivityStrip items={activityItems} title="Workspace activity" />
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
           <Input
             onChange={(event) => setWorkspaceName(event.target.value)}
@@ -2806,7 +3102,7 @@ export function CatalogScout({
                   </Badge>
                 </div>
                 <SpriteFramePreview
-                  emptyMessage="No current render available."
+                  emptyMessage={workspacePreviewEmptyMessage}
                   preview={preview}
                   title="Current Render"
                 />
@@ -3497,7 +3793,7 @@ export function CatalogScout({
           <div>
             <SpriteFramePreview
               editable
-              emptyMessage="Stage some layers to render a workspace preview here."
+              emptyMessage={workspacePreviewEmptyMessage}
               onPivotChange={updatePreviewPivot}
               pivotX={workspaceExportSettings.pivotX}
               pivotY={workspaceExportSettings.pivotY}

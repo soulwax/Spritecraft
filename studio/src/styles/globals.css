@@ -97,6 +97,10 @@ body::before {
 	z-index: 1;
 }
 
+.studio-toast-enter {
+	animation: studio-toast-slide-in 180ms ease-out;
+}
+
 a {
 	color: inherit;
 	text-decoration: none;
@@ -105,5 +109,17 @@ a {
 ::selection {
 	background: rgb(126 156 216 / 0.35);
 	color: #f2ecbc;
+}
+
+@keyframes studio-toast-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(-10px) scale(0.98);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
 }
 

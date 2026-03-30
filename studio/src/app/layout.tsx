@@ -7,6 +7,7 @@ import { Geist } from "next/font/google";
 
 import { SpriteCraftBrand } from "~/app/_components/spritecraft-brand";
 import { StudioNav } from "~/app/_components/studio-nav";
+import { StudioToastCenter } from "~/app/_components/studio-toast-center";
 import { StudioThemeController } from "~/app/_components/studio-theme-controller";
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function RootLayout({
 		<html className={`${geist.variable}`} lang="en">
 			<body className="antialiased">
 				<StudioThemeController />
+				<StudioToastCenter />
 				<div className="studio-shell mx-auto flex min-h-screen w-full max-w-[1400px] flex-col px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
 					<header className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 						<SpriteCraftBrand />
