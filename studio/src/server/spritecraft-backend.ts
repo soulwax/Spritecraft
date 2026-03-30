@@ -282,14 +282,32 @@ const bootstrapSchema = z.object({
 		hasGemini: z.boolean(),
 		hasDatabase: z.boolean(),
 		hasLpcProject: z.boolean(),
+		hasStartupErrors: z.boolean().optional(),
 	}),
 	catalog: z.object({
 		itemCount: z.number(),
 		bodyTypes: z.array(z.string()),
 		animations: z.array(z.string()),
+		categories: z.array(z.string()).default([]),
+		typeNames: z.array(z.string()).default([]),
+		tags: z.array(z.string()).default([]),
+		variants: z.array(z.string()).default([]),
+		loadWarningCount: z.number().default(0),
 	}),
+	exportPresets: z
+		.array(
+			z.object({
+				id: z.string(),
+				label: z.string(),
+				description: z.string().default(""),
+			}),
+		)
+		.default([]),
 	recent: z.array(historyEntrySchema).default([]),
 });
+
+export type SpriteCraftBootstrap = z.infer<typeof bootstrapSchema>;
+export type SpriteCraftExportPresetOption = SpriteCraftBootstrap["exportPresets"][number];
 
 const historyListSchema = z.object({
 	items: z.array(historyEntrySchema).default([]),

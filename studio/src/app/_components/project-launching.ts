@@ -11,6 +11,8 @@ export type SpriteCraftLaunchConfig = {
 	category: string;
 	animationFilter: string;
 	tagFilter: string;
+	typeFilter?: string;
+	variantFilter?: string;
 	catalogSearch?: string;
 	seededSelections?: Record<string, string>;
 };
@@ -94,6 +96,12 @@ export function buildWorkspaceLaunchUrl(template: SpriteCraftLaunchConfig) {
 		animationFilter: template.animationFilter,
 		tagFilter: template.tagFilter,
 	});
+	if (template.typeFilter?.trim()) {
+		params.set("typeFilter", template.typeFilter.trim());
+	}
+	if (template.variantFilter?.trim()) {
+		params.set("variantFilter", template.variantFilter.trim());
+	}
 	if (template.catalogSearch?.trim()) {
 		params.set("catalogSearch", template.catalogSearch.trim());
 	}

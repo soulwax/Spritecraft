@@ -13,7 +13,16 @@ import {
 import { getStudioPageData } from "~/server/studio-page-data";
 
 export default async function BuilderPage() {
-  const { bodyTypes, animations, bootstrap } = await getStudioPageData();
+  const {
+    bodyTypes,
+    animations,
+    bootstrap,
+    exportPresets,
+    categories,
+    typeNames,
+    tags,
+    variants,
+  } = await getStudioPageData();
 
   return (
     <main className="flex flex-col gap-8">
@@ -95,12 +104,22 @@ export default async function BuilderPage() {
           </CardTitle>
           <CardDescription className="text-base leading-7">
             Body types: {bodyTypes.length}. Animation targets: {animations.length}.
-            This is the main working surface.
+            Export presets: {exportPresets.length}. Facets: {categories.length}/
+            {typeNames.length}/{tags.length}/{variants.length}. This is the main
+            working surface.
           </CardDescription>
         </CardHeader>
       </Card>
 
-      <CatalogScout animations={animations} bodyTypes={bodyTypes} />
+      <CatalogScout
+        animations={animations}
+        bodyTypes={bodyTypes}
+        catalogCategories={categories}
+        catalogTypeNames={typeNames}
+        catalogTags={tags}
+        catalogVariants={variants}
+        exportPresets={exportPresets}
+      />
     </main>
   );
 }

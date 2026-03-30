@@ -37,6 +37,11 @@ export default async function Home() {
     recentProjects,
     bodyTypes,
     animations,
+    categories,
+    typeNames,
+    tags,
+    variants,
+    exportPresets,
     checks,
   } = await getStudioPageData();
 
@@ -61,7 +66,7 @@ export default async function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
               <div className="rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-soft)]/70 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
                   Catalog
@@ -83,7 +88,15 @@ export default async function Home() {
                   Modes
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-[color:var(--foreground)]">
-                  {bodyTypes.length}/{animations.length}
+                  {bodyTypes.length}/{animations.length}/{exportPresets.length}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-soft)]/70 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted-foreground)]">
+                  Facets
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-[color:var(--foreground)]">
+                  {categories.length}/{typeNames.length}/{tags.length}/{variants.length}
                 </p>
               </div>
             </div>
@@ -161,7 +174,13 @@ export default async function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ProjectLauncher animations={animations} bodyTypes={bodyTypes} />
+            <ProjectLauncher
+              animations={animations}
+              bodyTypes={bodyTypes}
+              typeNames={typeNames}
+              variants={variants}
+              exportPresets={exportPresets}
+            />
           </CardContent>
         </Card>
 

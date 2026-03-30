@@ -51,9 +51,20 @@ import type {
   SpriteCraftStyleHelperResponse,
 } from "~/server/spritecraft-backend";
 
+type ExportPresetOption = {
+  id: string;
+  label: string;
+  description: string;
+};
+
 type CatalogScoutProps = {
   bodyTypes: string[];
   animations: string[];
+  catalogCategories: string[];
+  catalogTypeNames: string[];
+  catalogTags: string[];
+  catalogVariants: string[];
+  exportPresets: ExportPresetOption[];
 };
 
 type CatalogScoutResponse = {
@@ -77,13 +88,28 @@ const defaultExportSettings = {
   recolorGroups: {} as Record<string, string>,
 };
 
+const fallbackExportPresets: ExportPresetOption[] = [
+  { id: "none", label: "No engine preset", description: "" },
+];
+
 function sleep(milliseconds: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
 }
 
-export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
+export function CatalogScout({
+  bodyTypes,
+  animations,
+  catalogCategories,
+  catalogTypeNames,
+  catalogTags,
+  catalogVariants,
+  exportPresets,
+}: CatalogScoutProps) {
+  const effectiveExportPresets = exportPresets.length
+    ? exportPresets
+    : fallbackExportPresets;
   const didHydrateFromUrl = useRef(false);
   const [workspaceName, setWorkspaceName] = useState("Web Builder Workspace");
   const [query, setQuery] = useState("");
@@ -118,7 +144,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const [bodyType, setBodyType] = useState(bodyTypes[0] ?? "male");
   const [animation, setAnimation] = useState(animations[0] ?? "idle");
   const [category, setCategory] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [tag, setTag] = useState("all");
+  const [variantFilter, setVariantFilter] = useState("all");
   const [items, setItems] = useState<SpriteCraftCatalogItem[]>([]);
   const [stagedSelections, setStagedSelections] = useState<
     Record<string, string>
@@ -233,7 +261,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         : (animations[0] ?? "idle"),
     );
     setCategory(draft.category);
+    setTypeFilter(draft.typeFilter);
     setTag(draft.tag);
+    setVariantFilter(draft.variantFilter);
     setStagedSelections(draft.stagedSelections);
     setVariantChoices(draft.variantChoices);
     setWorkspaceSavedAt(draft.savedAt);
@@ -270,7 +300,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       batchAnimations: [],
       batchVariantPresetNames: [],
       category: params.get("category") ?? "all",
+      typeFilter: params.get("typeFilter") ?? "all",
       tag: params.get("tagFilter") ?? "all",
+      variantFilter: params.get("variantFilter") ?? "all",
       stagedSelections: parsedSelections,
       variantChoices: parsedSelections,
       savedAt: new Date().toISOString(),
@@ -359,7 +391,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
         batchAnimations: [],
         batchVariantPresetNames: [],
         category: detail.config.category,
+        typeFilter: detail.config.typeFilter ?? "all",
         tag: detail.config.tagFilter,
+        variantFilter: detail.config.variantFilter ?? "all",
         stagedSelections: detail.config.seededSelections ?? {},
         variantChoices: detail.config.seededSelections ?? {},
         savedAt: new Date().toISOString(),
@@ -513,14 +547,16 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           .split(",")
           .map((entry) => entry.trim())
           .filter(Boolean),
-        batchVariantPresetNames,
-        bodyType,
-        animation,
-        category,
-        tag,
-        stagedSelections,
-        variantChoices,
-        savedAt,
+      batchVariantPresetNames,
+      bodyType,
+      animation,
+      category,
+      typeFilter,
+      tag,
+      variantFilter,
+      stagedSelections,
+      variantChoices,
+      savedAt,
       };
       window.localStorage.setItem(workspaceStorageKey, JSON.stringify(payload));
       setWorkspaceSavedAt(savedAt);
@@ -826,17 +862,52 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
   const categories = useMemo(
     () =>
       Array.from(
-        new Set(items.map((item) => item.category).filter(Boolean)),
+        new Set(
+          [...catalogCategories, ...items.map((item) => item.category)].filter(
+            Boolean,
+          ),
+        ),
       ).sort(),
-    [items],
+    [catalogCategories, items],
+  );
+
+  const typeNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [...catalogTypeNames, ...items.map((item) => item.typeName)].filter(
+            Boolean,
+          ),
+        ),
+      ).sort(),
+    [catalogTypeNames, items],
   );
 
   const tags = useMemo(
     () =>
       Array.from(
-        new Set(items.flatMap((item) => item.tags ?? []).filter(Boolean)),
+        new Set(
+          [...catalogTags, ...items.flatMap((item) => item.tags ?? [])].filter(
+            Boolean,
+          ),
+        ),
       ).sort(),
-    [items],
+    [catalogTags, items],
+  );
+
+  const variants = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...catalogVariants,
+            ...items.flatMap((item) =>
+              item.variants.length ? item.variants : ["default"],
+            ),
+          ].filter(Boolean),
+        ),
+      ).sort(),
+    [catalogVariants, items],
   );
 
   const stagedItems = useMemo(
@@ -966,7 +1037,16 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       if (category !== "all" && item.category !== category) {
         return false;
       }
+      if (typeFilter !== "all" && item.typeName !== typeFilter) {
+        return false;
+      }
       if (tag !== "all" && !(item.tags ?? []).includes(tag)) {
+        return false;
+      }
+      if (
+        variantFilter !== "all" &&
+        !(item.variants.length ? item.variants : ["default"]).includes(variantFilter)
+      ) {
         return false;
       }
       if (activeTypeFocus && item.typeName !== activeTypeFocus) {
@@ -1037,6 +1117,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     stagedItems,
     stagedSelections,
     tag,
+    typeFilter,
+    variantFilter,
     workspaceTags,
   ]);
 
@@ -1170,7 +1252,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
     setBodyType(bodyTypes[0] ?? "male");
     setAnimation(animations[0] ?? "idle");
     setCategory("all");
+    setTypeFilter("all");
     setTag("all");
+    setVariantFilter("all");
     setStagedSelections({});
     setVariantChoices({});
     setMutedItemIds([]);
@@ -1210,7 +1294,9 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       bodyType,
       animation,
       category,
+      typeFilter,
       tag,
+      variantFilter,
       stagedSelections,
       variantChoices,
       savedAt: new Date().toISOString(),
@@ -1818,6 +1904,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
             category,
             animationFilter: "current",
             tagFilter: tag,
+            typeFilter,
+            variantFilter,
             recolorGroups: workspaceExportSettings.recolorGroups,
             mutedItemIds,
             soloItemId,
@@ -2065,6 +2153,8 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       category,
       animationFilter: "current",
       tagFilter: tag,
+      typeFilter,
+      variantFilter,
       catalogSearch: query.trim(),
       seededSelections: stagedSelections,
     };
@@ -2090,6 +2180,12 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
       animationFilter: config.animationFilter,
       tagFilter: config.tagFilter,
     });
+    if (config.typeFilter) {
+      params.set("typeFilter", config.typeFilter);
+    }
+    if (config.variantFilter) {
+      params.set("variantFilter", config.variantFilter);
+    }
     if (config.catalogSearch) {
       params.set("catalogSearch", config.catalogSearch);
     }
@@ -2324,13 +2420,11 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
                 onChange={(event) => setWorkspaceEnginePreset(event.target.value)}
                 value={workspaceEnginePreset}
               >
-                <option value="none">No engine preset</option>
-                <option value="godot">Godot</option>
-                <option value="unity">Unity</option>
-                <option value="both">Godot + Unity</option>
-                <option value="aseprite">Aseprite JSON</option>
-                <option value="generic">Generic JSON</option>
-                <option value="all">All presets</option>
+                {effectiveExportPresets.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
               </Select>
               <Input
                 onChange={(event) =>
@@ -2763,7 +2857,7 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Select
             onChange={(event) => setCategory(event.target.value)}
             value={category}
@@ -2775,9 +2869,31 @@ export function CatalogScout({ bodyTypes, animations }: CatalogScoutProps) {
               </option>
             ))}
           </Select>
+          <Select
+            onChange={(event) => setTypeFilter(event.target.value)}
+            value={typeFilter}
+          >
+            <option value="all">All layer types</option>
+            {typeNames.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </Select>
           <Select onChange={(event) => setTag(event.target.value)} value={tag}>
             <option value="all">All tags</option>
             {tags.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+          <Select
+            onChange={(event) => setVariantFilter(event.target.value)}
+            value={variantFilter}
+          >
+            <option value="all">All variants</option>
+            {variants.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>

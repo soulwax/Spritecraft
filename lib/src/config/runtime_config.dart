@@ -36,6 +36,8 @@ class RuntimeConfig {
 
   Directory get exportDirectory =>
       Directory(path.join(projectRoot.path, 'build', 'exports'));
+  Directory get recoveryDirectory =>
+      Directory(path.join(projectRoot.path, 'build', 'recovery'));
   Directory get renderCacheDirectory =>
       Directory(path.join(projectRoot.path, 'build', 'cache', 'render-assets'));
   Directory get projectPackageDirectory =>
@@ -62,7 +64,9 @@ class RuntimeConfig {
       ),
       configurationWarnings: dotEnv.warnings,
       startupChecks: await _buildStartupChecks(
-        lpcProjectRoot: Directory(path.join(root.path, 'lpc-spritesheet-creator')),
+        lpcProjectRoot: Directory(
+          path.join(root.path, 'lpc-spritesheet-creator'),
+        ),
       ),
     );
   }
@@ -77,7 +81,9 @@ class RuntimeConfig {
       path.join(lpcProjectRoot.path, 'spritesheets'),
     );
     final File submoduleMarker = File(path.join(lpcProjectRoot.path, '.git'));
-    final File creditsFile = File(path.join(lpcProjectRoot.path, 'CREDITS.csv'));
+    final File creditsFile = File(
+      path.join(lpcProjectRoot.path, 'CREDITS.csv'),
+    );
 
     final List<RuntimeStartupCheck> checks = <RuntimeStartupCheck>[
       RuntimeStartupCheck(
@@ -215,7 +221,9 @@ class RuntimeConfig {
     Directory directory,
     String extension,
   ) async {
-    await for (final FileSystemEntity entity in directory.list(recursive: true)) {
+    await for (final FileSystemEntity entity in directory.list(
+      recursive: true,
+    )) {
       if (entity is File &&
           path.extension(entity.path).toLowerCase() == extension) {
         return true;
@@ -224,9 +232,7 @@ class RuntimeConfig {
     return false;
   }
 
-  static Future<_DotEnvLoadResult> _loadDotEnvIfPresent(
-    Directory root,
-  ) async {
+  static Future<_DotEnvLoadResult> _loadDotEnvIfPresent(Directory root) async {
     final File dotEnv = File(path.join(root.path, '.env'));
     if (!await dotEnv.exists()) {
       return const _DotEnvLoadResult();
@@ -253,17 +259,16 @@ class RuntimeConfig {
       final String key = line.substring(0, separator).trim();
       String value = line.substring(separator + 1).trim();
       if (key.isEmpty) {
-        warnings.add('.env line ${index + 1} has an empty key and was ignored.');
+        warnings.add(
+          '.env line ${index + 1} has an empty key and was ignored.',
+        );
         continue;
       }
 
-      final bool startsQuoted =
-          value.startsWith('"') || value.startsWith("'");
+      final bool startsQuoted = value.startsWith('"') || value.startsWith("'");
       final bool endsQuoted = value.endsWith('"') || value.endsWith("'");
       if (startsQuoted != endsQuoted) {
-        warnings.add(
-          '.env line ${index + 1} has mismatched quotes for $key.',
-        );
+        warnings.add('.env line ${index + 1} has mismatched quotes for $key.');
       }
 
       if ((value.startsWith('"') && value.endsWith('"')) ||
@@ -309,7 +314,7 @@ class RuntimeStartupCheck {
       'label': label,
       'status': status,
       'detail': detail,
-      if (location != null) 'location': location!,
+      if (location case final String location) 'location': location,
     };
   }
 }

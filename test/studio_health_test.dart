@@ -29,11 +29,14 @@ void main() {
 
       final List<dynamic> checks = payload['checks'] as List<dynamic>;
       final List<String> labels = checks
-          .map((dynamic item) => (item as Map<String, dynamic>)['label'] as String)
+          .map(
+            (dynamic item) => (item as Map<String, dynamic>)['label'] as String,
+          )
           .toList();
 
       expect(labels, isNot(contains('Studio assets')));
-      expect(labels, contains('LPC project'));
+      expect(labels, contains('LPC project root'));
+      expect(labels, contains('Catalog content'));
       expect(labels, contains('Gemini'));
       expect(labels, contains('Database'));
       expect(labels, contains('.env configuration'));

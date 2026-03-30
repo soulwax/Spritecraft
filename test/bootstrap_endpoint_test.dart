@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:spritecraft/src/config/runtime_config.dart';
 import 'package:spritecraft/src/server/studio_server.dart';
@@ -20,16 +21,53 @@ void main() {
         }
       });
 
-      await Directory(
-        path.join(root.path, 'lpc-spritesheet-creator', 'sheet_definitions'),
-      ).create(recursive: true);
-      await Directory(
-        path.join(root.path, 'lpc-spritesheet-creator', 'spritesheets'),
-      ).create(recursive: true);
-
-      final RuntimeConfig config = await RuntimeConfig.load(
-        projectRoot: root,
+      final Directory definitions = Directory(
+        path.join(
+          root.path,
+          'lpc-spritesheet-creator',
+          'sheet_definitions',
+          'body',
+        ),
       );
+      final Directory spritesheets = Directory(
+        path.join(
+          root.path,
+          'lpc-spritesheet-creator',
+          'spritesheets',
+          'body',
+          'bodies',
+          'male',
+          'idle',
+        ),
+      );
+      await definitions.create(recursive: true);
+      await spritesheets.create(recursive: true);
+      await File(
+        path.join(root.path, 'lpc-spritesheet-creator', '.git'),
+      ).writeAsString('gitdir: ../.git/modules/lpc-spritesheet-creator');
+      await File(
+        path.join(root.path, 'lpc-spritesheet-creator', 'CREDITS.csv'),
+      ).writeAsString('file,author\n');
+      await File(path.join(definitions.path, 'body.json')).writeAsString('''
+{
+  "name": "Body Color",
+  "type_name": "body",
+  "variants": ["light"],
+  "animations": ["idle"],
+  "layer_1": {
+    "zPos": 10,
+    "male": "body/bodies/male/"
+  },
+  "credits": []
+}
+''');
+      final img.Image image = img.Image(width: 4, height: 4);
+      img.fill(image, color: img.ColorRgb8(255, 0, 0));
+      await File(
+        path.join(spritesheets.path, 'light.png'),
+      ).writeAsBytes(img.encodePng(image));
+
+      final RuntimeConfig config = await RuntimeConfig.load(projectRoot: root);
       final StudioServer studio = await StudioServer.create(config);
       final HttpServer server = await studio.serve(host: '127.0.0.1', port: 0);
       addTearDown(() async {
@@ -58,6 +96,29 @@ void main() {
 
       expect(payload['config'], isA<Map<String, dynamic>>());
       expect(payload['catalog'], isA<Map<String, dynamic>>());
+      expect(payload['catalog']['categories'], isA<List<dynamic>>());
+      expect(payload['catalog']['typeNames'], isA<List<dynamic>>());
+      expect(payload['catalog']['tags'], isA<List<dynamic>>());
+      expect(payload['catalog']['variants'], isA<List<dynamic>>());
+      expect(payload['catalog']['loadWarningCount'], isA<int>());
+      expect(payload['catalog']['categories'], contains('body'));
+      expect(payload['catalog']['typeNames'], contains('body'));
+      expect(payload['catalog']['variants'], contains('light'));
+      expect(payload['exportPresets'], isA<List<dynamic>>());
+      expect(
+        (payload['exportPresets'] as List<dynamic>)
+            .map((dynamic option) => (option as Map<String, dynamic>)['id'])
+            .toList(),
+        containsAll(<String>[
+          'none',
+          'godot',
+          'unity',
+          'both',
+          'aseprite',
+          'generic',
+          'all',
+        ]),
+      );
       expect(payload['recent'], isA<List<dynamic>>());
       expect(payload, compatibilityPayload);
     });

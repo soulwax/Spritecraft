@@ -59,6 +59,8 @@ export type CatalogWorkspaceDraft = {
 	animation: string;
 	category: string;
 	tag: string;
+	typeFilter: string;
+	variantFilter: string;
 	stagedSelections: Record<string, string>;
 	variantChoices: Record<string, string>;
 	savedAt: string;
@@ -262,6 +264,10 @@ export function normalizeWorkspaceDraft(
 		animation: typeof draft.animation === "string" ? draft.animation : "idle",
 		category: typeof draft.category === "string" ? draft.category : "all",
 		tag: typeof draft.tag === "string" ? draft.tag : "all",
+		typeFilter:
+			typeof draft.typeFilter === "string" ? draft.typeFilter : "all",
+		variantFilter:
+			typeof draft.variantFilter === "string" ? draft.variantFilter : "all",
 		stagedSelections:
 			draft.stagedSelections && typeof draft.stagedSelections === "object"
 				? Object.fromEntries(
@@ -304,6 +310,14 @@ export function projectToWorkspaceDraft(
 	const tag =
 		typeof renderSettings.tagFilter === "string"
 			? renderSettings.tagFilter
+			: "all";
+	const typeFilter =
+		typeof renderSettings.typeFilter === "string"
+			? renderSettings.typeFilter
+			: "all";
+	const variantFilter =
+		typeof renderSettings.variantFilter === "string"
+			? renderSettings.variantFilter
 			: "all";
 	const query = project.promptHistory[0] ?? project.prompt ?? "";
 
@@ -395,7 +409,7 @@ export function projectToWorkspaceDraft(
 			recolorGroups:
 				project.exportSettings?.recolorGroups &&
 				typeof project.exportSettings.recolorGroups === "object"
-					? Object.fromEntries(
+					? (Object.fromEntries(
 							Object.entries(project.exportSettings.recolorGroups).filter(
 								([key, value]) =>
 									typeof key === "string" &&
@@ -403,7 +417,7 @@ export function projectToWorkspaceDraft(
 									typeof value === "string" &&
 									value,
 							),
-						)
+						) as Record<string, string>)
 					: {},
 		},
 		batchAnimations: Array.isArray(project.exportSettings?.batchAnimations)
@@ -420,6 +434,8 @@ export function projectToWorkspaceDraft(
 		animation: project.animation,
 		category,
 		tag,
+		typeFilter,
+		variantFilter,
 		stagedSelections: { ...project.selections },
 		variantChoices: { ...project.selections },
 		savedAt: new Date().toISOString(),

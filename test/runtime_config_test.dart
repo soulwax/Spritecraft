@@ -12,7 +12,9 @@ void main() {
       );
       addTearDown(() => sandbox.delete(recursive: true));
 
-      final RuntimeConfig config = await RuntimeConfig.load(projectRoot: sandbox);
+      final RuntimeConfig config = await RuntimeConfig.load(
+        projectRoot: sandbox,
+      );
 
       expect(config.hasStartupErrors, isTrue);
       expect(
@@ -54,18 +56,20 @@ void main() {
 
       await definitions.create(recursive: true);
       await spritesheets.create(recursive: true);
-      await File(path.join(lpcRoot.path, '.git')).writeAsString(
-        'gitdir: ../.git/modules/lpc-spritesheet-creator',
-      );
-      await File(path.join(lpcRoot.path, 'CREDITS.csv')).writeAsString(
-        'file,author\n',
-      );
+      await File(
+        path.join(lpcRoot.path, '.git'),
+      ).writeAsString('gitdir: ../.git/modules/lpc-spritesheet-creator');
+      await File(
+        path.join(lpcRoot.path, 'CREDITS.csv'),
+      ).writeAsString('file,author\n');
       await File(path.join(definitions.path, 'body.json')).writeAsString('{}');
-      await File(path.join(spritesheets.path, 'idle.png')).writeAsBytes(
-        <int>[0],
-      );
+      await File(
+        path.join(spritesheets.path, 'idle.png'),
+      ).writeAsBytes(<int>[0]);
 
-      final RuntimeConfig config = await RuntimeConfig.load(projectRoot: sandbox);
+      final RuntimeConfig config = await RuntimeConfig.load(
+        projectRoot: sandbox,
+      );
 
       expect(config.hasStartupErrors, isFalse);
       expect(

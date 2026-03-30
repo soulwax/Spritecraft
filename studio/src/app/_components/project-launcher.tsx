@@ -20,10 +20,18 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Select } from "~/components/ui/select";
+type ExportPresetOption = {
+	id: string;
+	label: string;
+	description: string;
+};
 
 type ProjectLauncherProps = {
 	bodyTypes: string[];
 	animations: string[];
+	typeNames: string[];
+	variants: string[];
+	exportPresets: ExportPresetOption[];
 };
 
 const fallbackConfig: SpriteCraftLaunchConfig = {
@@ -38,11 +46,21 @@ const fallbackConfig: SpriteCraftLaunchConfig = {
 	tagFilter: "all",
 };
 
+const fallbackExportPresets: ExportPresetOption[] = [
+	{ id: "none", label: "None", description: "" },
+];
+
 export function ProjectLauncher({
 	bodyTypes,
 	animations,
+	typeNames: _typeNames,
+	variants: _variants,
+	exportPresets,
 }: ProjectLauncherProps) {
 	const router = useRouter();
+	const effectiveExportPresets = exportPresets.length
+		? exportPresets
+		: fallbackExportPresets;
 	const [selectedTemplateId, setSelectedTemplateId] = useState(
 		projectTemplates[0]?.id ?? "",
 	);
@@ -225,13 +243,11 @@ export function ProjectLauncher({
 							onChange={(event) => setEnginePreset(event.target.value)}
 							value={enginePreset}
 						>
-							<option value="none">None</option>
-							<option value="godot">Godot</option>
-							<option value="unity">Unity</option>
-							<option value="both">Godot + Unity</option>
-							<option value="aseprite">Aseprite JSON</option>
-							<option value="generic">Generic JSON</option>
-							<option value="all">All presets</option>
+							{effectiveExportPresets.map((option) => (
+								<option key={option.id} value={option.id}>
+									{option.label}
+								</option>
+							))}
 						</Select>
 						<Select
 							onChange={(event) => setPreviewMode(event.target.value)}

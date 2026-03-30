@@ -48,6 +48,12 @@ Supported keys:
 - `GEMINI_API_KEY`
 - `DATABASE_URL`
 
+## Packaging direction
+
+SpriteCraft's Phase 8 packaging target is a Windows-first local app that keeps the current architecture intact: the Dart backend remains the runtime owner, and `studio` remains the main UI. The packaged experience should launch both locally for the user without introducing a second desktop-only UI stack.
+
+The full decision and rollout guidance live in [docs/packaging-strategy.md](docs/packaging-strategy.md).
+
 ## Run SpriteCraft
 
 Start the full app from Dart:
@@ -305,5 +311,11 @@ See [metadata-schema.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/metadata-sc
 - `spritecraft.project` v2
 
 If a consumer depends on SpriteCraft JSON output, it should branch on `schema.name` and `schema.version` rather than assuming an undocumented payload shape.
+
+## Backup And Recovery
+
+SpriteCraft records recovery indexes for export bundles and project package operations under `build/recovery`.
+
+See [backup-recovery.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/backup-recovery.md) for the recovery log format, on-disk behavior, and the recommended restore flow.
 
 

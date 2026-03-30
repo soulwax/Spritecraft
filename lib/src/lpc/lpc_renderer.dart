@@ -38,6 +38,7 @@ class LpcRenderer {
 
     final String bodyColorVariant = _resolveBodyColorVariant(request);
     final List<_ResolvedLayer> layers = <_ResolvedLayer>[];
+    final List<String> missingAssetHints = <String>[];
 
     for (final MapEntry<String, String> entry in request.selections.entries) {
       final LpcItemDefinition? item = catalog.itemsById[entry.key];
@@ -52,15 +53,24 @@ class LpcRenderer {
       for (final LpcLayerDefinition layer in item.layers) {
         final String? basePath = layer.bodyTypePaths[request.bodyType];
         if (basePath == null || basePath.contains(r'${')) {
+          missingAssetHints.add(
+            '${item.id}:${layer.id} has no usable asset path for body type ${request.bodyType}.',
+          );
           continue;
         }
 
+        final String expectedRelativePath = path.posix.normalize(
+          path.posix.join(basePath, request.animation, '$selectedVariant.png'),
+        );
         final String? relativeAssetPath = await _resolveAssetPath(
           basePath: basePath,
           animation: request.animation,
           variant: selectedVariant,
         );
         if (relativeAssetPath == null) {
+          missingAssetHints.add(
+            '${item.id}:${layer.id} could not resolve an asset for ${request.bodyType}/${request.animation}/$selectedVariant. Expected near $expectedRelativePath.',
+          );
           continue;
         }
 
@@ -106,9 +116,7 @@ class LpcRenderer {
 
       final File file = _resolveExternalLayerFile(externalLayer.path);
       if (!await file.exists()) {
-        throw StateError(
-          'External layer was not found at ${file.path}.',
-        );
+        throw StateError('External layer was not found at ${file.path}.');
       }
 
       final img.Image? image = await _loadDecodedImage(file);
@@ -147,8 +155,11 @@ class LpcRenderer {
     }
 
     if (layers.isEmpty) {
+      final String detail = missingAssetHints.isEmpty
+          ? ''
+          : ' Missing asset hints: ${missingAssetHints.take(3).join(' ')}';
       throw StateError(
-        'No renderable layers were found for ${request.bodyType} / ${request.animation}.',
+        'No renderable layers were found for ${request.bodyType} / ${request.animation}.$detail',
       );
     }
 
@@ -283,7 +294,8 @@ class LpcRenderer {
     if (location == null) {
       return null;
     }
-    if (!await location.metadataFile.exists() || !await location.dataFile.exists()) {
+    if (!await location.metadataFile.exists() ||
+        !await location.dataFile.exists()) {
       return null;
     }
 
@@ -321,7 +333,8 @@ class LpcRenderer {
       return false;
     }
 
-    final String prefix = '${_sanitizeCacheStem(path.normalize(sourceFile.path).toLowerCase())}-';
+    final String prefix =
+        '${_sanitizeCacheStem(path.normalize(sourceFile.path).toLowerCase())}-';
     final List<FileSystemEntity> candidates = cacheDirectory.listSync();
     return candidates.any((FileSystemEntity entity) {
       if (entity is! File) {
@@ -339,7 +352,9 @@ class LpcRenderer {
       return;
     }
 
-    final _DiskCacheLocation location = await _buildDiskCacheLocation(sourceFile);
+    final _DiskCacheLocation location = await _buildDiskCacheLocation(
+      sourceFile,
+    );
     await cacheDirectory.create(recursive: true);
     final Uint8List bytes = Uint8List.fromList(
       decoded.getBytes(order: img.ChannelOrder.rgba),
@@ -380,26 +395,29 @@ class LpcRenderer {
 
     final String prefix =
         '${_sanitizeCacheStem(path.normalize(sourceFile.path).toLowerCase())}-';
-    final List<File> metadataFiles = cacheDirectory
-        .listSync()
-        .whereType<File>()
-        .where(
-          (File file) =>
-              path.basename(file.path).startsWith(prefix) &&
-              path.extension(file.path) == '.json',
-        )
-        .toList()
-      ..sort(
-        (File left, File right) =>
-            right.lastModifiedSync().compareTo(left.lastModifiedSync()),
-      );
+    final List<File> metadataFiles =
+        cacheDirectory
+            .listSync()
+            .whereType<File>()
+            .where(
+              (File file) =>
+                  path.basename(file.path).startsWith(prefix) &&
+                  path.extension(file.path) == '.json',
+            )
+            .toList()
+          ..sort(
+            (File left, File right) =>
+                right.lastModifiedSync().compareTo(left.lastModifiedSync()),
+          );
     if (metadataFiles.isEmpty) {
       return null;
     }
 
     final File metadataFile = metadataFiles.first;
     final String baseName = path.basenameWithoutExtension(metadataFile.path);
-    final File dataFile = File(path.join(cacheDirectory.path, '$baseName.rgba'));
+    final File dataFile = File(
+      path.join(cacheDirectory.path, '$baseName.rgba'),
+    );
     if (!dataFile.existsSync()) {
       return null;
     }

@@ -100,16 +100,27 @@ Goal: make the app feel fast and trustworthy as projects grow.
 - [x] Add in-memory and on-disk caching for decoded image assets
 - [x] Move expensive export/render work off the main request path where needed
 - [x] Add structured logging for render, export, AI, and DB failures
-- [ ] Add startup self-checks for submodule integrity and expected asset directories
-- [ ] Add regression tests for representative LPC combinations and export presets
-- [ ] Harden the app against malformed definitions and missing asset files
-- [ ] Define backup/recovery behavior for project history and exports
+- [x] Add startup self-checks for submodule integrity and expected asset directories
+
+### Content completeness
+
+- [x] Wire in all assets and useful metadata, as well as useful code deemed to be so into the app from ./lpc-spritesheet-creator. Fill empty dropdown menus and missing features for the app to work fully within the LPC content scope. This includes:
+  - [x] All body types, heads, torsos, weapons, and accessories
+  - [x] All animation types and variants
+  - [x] All export presets for Godot and Unity
+  - [x] All relevant metadata such as body type compatibility, animation coverage, and tags
+
+### Phase 7.5 — Testing and Hardening
+
+- [x] Add regression tests for representative LPC combinations and export presets
+- [x] Harden the app against malformed definitions and missing asset files
+- [x] Define backup/recovery behavior for project history and exports
 
 ## Phase 8 — Packaging and Distribution
 
 Goal: make SpriteCraft easy to install and use outside the dev folder.
 
-- [ ] Decide on the primary product shape: local web app, desktop shell, or both - user prefers desktop but web is fine too
+- [x] Decide on the primary product shape: local web app, desktop shell, or both - user prefers desktop but web is fine too
 - [ ] Add a proper desktop distribution strategy for Windows first
 - [ ] Bundle required runtime assets cleanly while preserving submodule update workflows for development
 - [ ] Create release builds with versioned changelogs and migration notes

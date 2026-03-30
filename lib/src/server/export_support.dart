@@ -9,6 +9,47 @@ import 'package:path/path.dart' as path;
 class ExportSupport {
   const ExportSupport._();
 
+  static const List<Map<String, String>> enginePresetOptions =
+      <Map<String, String>>[
+        <String, String>{
+          'id': 'none',
+          'label': 'None',
+          'description': 'Export the base PNG, metadata JSON, and bundle only.',
+        },
+        <String, String>{
+          'id': 'godot',
+          'label': 'Godot',
+          'description':
+              'Write native SpriteFrames output plus Godot compatibility JSON.',
+        },
+        <String, String>{
+          'id': 'unity',
+          'label': 'Unity',
+          'description': 'Write importer-ready Unity sprite slicing metadata.',
+        },
+        <String, String>{
+          'id': 'both',
+          'label': 'Godot + Unity',
+          'description': 'Write both Godot and Unity companion files.',
+        },
+        <String, String>{
+          'id': 'aseprite',
+          'label': 'Aseprite JSON',
+          'description': 'Write Aseprite-friendly frame and tag metadata.',
+        },
+        <String, String>{
+          'id': 'generic',
+          'label': 'Generic JSON',
+          'description': 'Write engine-agnostic spritesheet metadata.',
+        },
+        <String, String>{
+          'id': 'all',
+          'label': 'All presets',
+          'description':
+              'Write every supported preset companion file in one export.',
+        },
+      ];
+
   static String buildBaseName({
     required String prompt,
     required DateTime timestamp,
@@ -33,10 +74,7 @@ class ExportSupport {
     return '$stem-$suffix';
   }
 
-  static String sanitizeFileStem(
-    String value, {
-    String namingStyle = 'kebab',
-  }) {
+  static String sanitizeFileStem(String value, {String namingStyle = 'kebab'}) {
     final List<String> tokens = value
         .trim()
         .split(RegExp(r'[^A-Za-z0-9]+'))
@@ -186,16 +224,17 @@ class ExportSupport {
       path.join(exportDirectory.path, '$baseName.LICENSES.txt'),
     );
 
-    final List<String> uniqueLicenses = credits
-        .expand(
-          (Map<String, Object?> credit) =>
-              (credit['licenses'] as List<dynamic>? ?? const <dynamic>[]),
-        )
-        .map((dynamic entry) => entry.toString())
-        .where((String entry) => entry.trim().isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final List<String> uniqueLicenses =
+        credits
+            .expand(
+              (Map<String, Object?> credit) =>
+                  (credit['licenses'] as List<dynamic>? ?? const <dynamic>[]),
+            )
+            .map((dynamic entry) => entry.toString())
+            .where((String entry) => entry.trim().isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
     await jsonFile.writeAsString(
       const JsonEncoder.withIndent('  ').convert(<String, Object?>{
@@ -217,10 +256,7 @@ class ExportSupport {
       ),
     );
     await licensesFile.writeAsString(
-      _buildLicensesText(
-        baseName: baseName,
-        uniqueLicenses: uniqueLicenses,
-      ),
+      _buildLicensesText(baseName: baseName, uniqueLicenses: uniqueLicenses),
     );
 
     return <File>[jsonFile, markdownFile, licensesFile];
@@ -236,31 +272,18 @@ class ExportSupport {
     for (final File file in files) {
       final List<int> bytes = await file.readAsBytes();
       final String fileName = path.basename(file.path);
-      archive.add(
-        ArchiveFile(
-          fileName,
-          bytes.length,
-          bytes,
-        ),
-      );
+      archive.add(ArchiveFile(fileName, bytes.length, bytes));
       archivedNames.add(fileName);
     }
 
     final List<int> manifestBytes = utf8.encode(
       const JsonEncoder.withIndent('  ').convert(<String, Object>{
-        'bundle': <String, Object>{
-          'name': baseName,
-          'version': 1,
-        },
+        'bundle': <String, Object>{'name': baseName, 'version': 1},
         'files': archivedNames,
       }),
     );
     archive.add(
-      ArchiveFile(
-        'bundle-manifest.json',
-        manifestBytes.length,
-        manifestBytes,
-      ),
+      ArchiveFile('bundle-manifest.json', manifestBytes.length, manifestBytes),
     );
 
     final List<int> zippedBytes = ZipEncoder().encode(archive);
@@ -276,13 +299,17 @@ class ExportSupport {
   }) {
     final Map<String, Object?> image =
         metadata['image'] as Map<String, Object?>? ?? <String, Object?>{};
-    final String imagePath =
-        path.basename(image['path']?.toString() ?? '$baseName.png');
+    final String imagePath = path.basename(
+      image['path']?.toString() ?? '$baseName.png',
+    );
     final int imageWidth = _asInt(image['width']) ?? 1;
     final int imageHeight = _asInt(image['height']) ?? 1;
 
-    final List<Map<String, Object?>> frameRecords =
-        _normalizedFrameRecords(metadata, imageWidth: imageWidth, imageHeight: imageHeight);
+    final List<Map<String, Object?>> frameRecords = _normalizedFrameRecords(
+      metadata,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+    );
     final List<Map<String, Object?>> animations = _normalizedAnimations(
       metadata,
       frameRecords: frameRecords,
@@ -311,15 +338,19 @@ class ExportSupport {
 
     buffer.writeln('[resource]');
     buffer.writeln('animations = [');
-    for (int animationIndex = 0;
-        animationIndex < animations.length;
-        animationIndex++) {
+    for (
+      int animationIndex = 0;
+      animationIndex < animations.length;
+      animationIndex++
+    ) {
       final Map<String, Object?> animation = animations[animationIndex];
-      final List<int> frameIndices = (animation['frameIndices'] as List<dynamic>)
-          .map((dynamic value) => _asInt(value) ?? 0)
-          .toList();
+      final List<int> frameIndices =
+          (animation['frameIndices'] as List<dynamic>)
+              .map((dynamic value) => _asInt(value) ?? 0)
+              .toList();
       final bool loop = animation['loop'] == true;
-      final int totalDurationMs = _asInt(animation['totalDurationMs']) ??
+      final int totalDurationMs =
+          _asInt(animation['totalDurationMs']) ??
           frameIndices.fold<int>(
             0,
             (int total, int frameIndex) =>
@@ -327,7 +358,10 @@ class ExportSupport {
           );
       final double speed = frameIndices.isEmpty
           ? 1.0
-          : (1000 / (totalDurationMs / frameIndices.length)).clamp(0.01, 9999.0);
+          : (1000 / (totalDurationMs / frameIndices.length)).clamp(
+              0.01,
+              9999.0,
+            );
 
       buffer
         ..writeln('  {')
@@ -359,8 +393,9 @@ class ExportSupport {
   }) {
     final Map<String, Object?> image =
         metadata['image'] as Map<String, Object?>? ?? <String, Object?>{};
-    final String imagePath =
-        path.basename(image['path']?.toString() ?? '$baseName.png');
+    final String imagePath = path.basename(
+      image['path']?.toString() ?? '$baseName.png',
+    );
     final int imageWidth = _asInt(image['width']) ?? 1;
     final int imageHeight = _asInt(image['height']) ?? 1;
 
@@ -384,8 +419,10 @@ class ExportSupport {
     ) {
       final int width = (_asInt(frame['width']) ?? 1).clamp(1, 1 << 20);
       final int height = (_asInt(frame['height']) ?? 1).clamp(1, 1 << 20);
-      final int pivotX = pivotXOverride ?? _asInt(frame['pivotX']) ?? width ~/ 2;
-      final int pivotY = pivotYOverride ?? _asInt(frame['pivotY']) ?? height ~/ 2;
+      final int pivotX =
+          pivotXOverride ?? _asInt(frame['pivotX']) ?? width ~/ 2;
+      final int pivotY =
+          pivotYOverride ?? _asInt(frame['pivotY']) ?? height ~/ 2;
       return <String, Object?>{
         'name': _frameExportName(frame, settings: settings),
         'rect': <String, Object?>{
@@ -415,10 +452,13 @@ class ExportSupport {
     final List<Map<String, Object?>> clips = animations.map((
       Map<String, Object?> animation,
     ) {
-      final List<int> frameIndices = (animation['frameIndices'] as List<dynamic>)
-          .map((dynamic value) => _asInt(value) ?? 0)
-          .toList();
-      final List<Map<String, Object?>> frames = frameIndices.map((int frameIndex) {
+      final List<int> frameIndices =
+          (animation['frameIndices'] as List<dynamic>)
+              .map((dynamic value) => _asInt(value) ?? 0)
+              .toList();
+      final List<Map<String, Object?>> frames = frameIndices.map((
+        int frameIndex,
+      ) {
         final Map<String, Object?> frame = frameRecords[frameIndex];
         return <String, Object?>{
           'frameIndex': frameIndex,
@@ -426,7 +466,8 @@ class ExportSupport {
           'durationMs': _asInt(frame['durationMs']) ?? 100,
         };
       }).toList();
-      final int totalDurationMs = _asInt(animation['totalDurationMs']) ??
+      final int totalDurationMs =
+          _asInt(animation['totalDurationMs']) ??
           frames.fold<int>(
             0,
             (int total, Map<String, Object?> frame) =>
@@ -474,8 +515,9 @@ class ExportSupport {
   }) {
     final Map<String, Object?> image =
         metadata['image'] as Map<String, Object?>? ?? <String, Object?>{};
-    final String imagePath =
-        path.basename(image['path']?.toString() ?? '$baseName.png');
+    final String imagePath = path.basename(
+      image['path']?.toString() ?? '$baseName.png',
+    );
     final int imageWidth = _asInt(image['width']) ?? 1;
     final int imageHeight = _asInt(image['height']) ?? 1;
     final List<Map<String, Object?>> frameRecords = _normalizedFrameRecords(
@@ -506,17 +548,17 @@ class ExportSupport {
         },
         'rotated': false,
         'trimmed':
-            sourceWidth != width || sourceHeight != height || offsetX != 0 || offsetY != 0,
+            sourceWidth != width ||
+            sourceHeight != height ||
+            offsetX != 0 ||
+            offsetY != 0,
         'spriteSourceSize': <String, Object?>{
           'x': offsetX,
           'y': offsetY,
           'w': width,
           'h': height,
         },
-        'sourceSize': <String, Object?>{
-          'w': sourceWidth,
-          'h': sourceHeight,
-        },
+        'sourceSize': <String, Object?>{'w': sourceWidth, 'h': sourceHeight},
         'duration': _asInt(frame['durationMs']) ?? 100,
       };
     }
@@ -524,9 +566,10 @@ class ExportSupport {
     final List<Map<String, Object?>> frameTags = animations.map((
       Map<String, Object?> animation,
     ) {
-      final List<int> frameIndices = (animation['frameIndices'] as List<dynamic>)
-          .map((dynamic value) => _asInt(value) ?? 0)
-          .toList();
+      final List<int> frameIndices =
+          (animation['frameIndices'] as List<dynamic>)
+              .map((dynamic value) => _asInt(value) ?? 0)
+              .toList();
       return <String, Object?>{
         'name': animation['name']?.toString() ?? 'default',
         'from': frameIndices.isEmpty ? 0 : frameIndices.first,
@@ -542,10 +585,7 @@ class ExportSupport {
         'version': 1,
         'image': imagePath,
         'format': 'RGBA8888',
-        'size': <String, Object?>{
-          'w': imageWidth,
-          'h': imageHeight,
-        },
+        'size': <String, Object?>{'w': imageWidth, 'h': imageHeight},
         'scale': '1',
         'frameTags': frameTags,
         'exportOptions': _normalizedSettings(settings),
@@ -560,8 +600,9 @@ class ExportSupport {
   }) {
     final Map<String, Object?> image =
         metadata['image'] as Map<String, Object?>? ?? <String, Object?>{};
-    final String imagePath =
-        path.basename(image['path']?.toString() ?? '$baseName.png');
+    final String imagePath = path.basename(
+      image['path']?.toString() ?? '$baseName.png',
+    );
     final int imageWidth = _asInt(image['width']) ?? 1;
     final int imageHeight = _asInt(image['height']) ?? 1;
     final List<Map<String, Object?>> frameRecords = _normalizedFrameRecords(
@@ -611,7 +652,9 @@ class ExportSupport {
     return prefix.isEmpty ? fallbackName : '$prefix$fallbackName';
   }
 
-  static Map<String, Object?> _normalizedSettings(Map<String, Object?> settings) {
+  static Map<String, Object?> _normalizedSettings(
+    Map<String, Object?> settings,
+  ) {
     return <String, Object?>{
       'namingStyle': settings['namingStyle']?.toString() ?? 'kebab',
       'customStem': settings['customStem']?.toString() ?? '',
@@ -727,7 +770,8 @@ class ExportSupport {
       ..writeln('Export: `$baseName`')
       ..writeln();
 
-    final Map<String, Object?>? image = metadata['image'] as Map<String, Object?>?;
+    final Map<String, Object?>? image =
+        metadata['image'] as Map<String, Object?>?;
     if (image != null) {
       buffer
         ..writeln('## Image')
@@ -741,21 +785,25 @@ class ExportSupport {
       ..writeln('## Credit Entries')
       ..writeln();
     for (final Map<String, Object?> credit in credits) {
-      final List<String> authors = (credit['authors'] as List<dynamic>? ?? const <dynamic>[])
-          .map((dynamic entry) => entry.toString())
-          .toList();
+      final List<String> authors =
+          (credit['authors'] as List<dynamic>? ?? const <dynamic>[])
+              .map((dynamic entry) => entry.toString())
+              .toList();
       final List<String> licenses =
           (credit['licenses'] as List<dynamic>? ?? const <dynamic>[])
               .map((dynamic entry) => entry.toString())
               .toList();
-      final List<String> urls = (credit['urls'] as List<dynamic>? ?? const <dynamic>[])
-          .map((dynamic entry) => entry.toString())
-          .toList();
+      final List<String> urls =
+          (credit['urls'] as List<dynamic>? ?? const <dynamic>[])
+              .map((dynamic entry) => entry.toString())
+              .toList();
 
       buffer
         ..writeln('### ${credit['file']}')
         ..writeln()
-        ..writeln('- Authors: ${authors.isEmpty ? 'Unknown' : authors.join(', ')}')
+        ..writeln(
+          '- Authors: ${authors.isEmpty ? 'Unknown' : authors.join(', ')}',
+        )
         ..writeln(
           '- Licenses: ${licenses.isEmpty ? 'Unspecified' : licenses.join(', ')}',
         );
@@ -791,7 +839,9 @@ class ExportSupport {
       ..writeln();
 
     if (uniqueLicenses.isEmpty) {
-      buffer.writeln('No explicit licenses were found in the export credit metadata.');
+      buffer.writeln(
+        'No explicit licenses were found in the export credit metadata.',
+      );
       return buffer.toString();
     }
 

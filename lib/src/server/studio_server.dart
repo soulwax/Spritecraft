@@ -26,6 +26,7 @@ import '../models/sprite_plan.dart';
 import '../models/sprite_style_helper.dart';
 import '../persistence/history_repository.dart';
 import 'export_support.dart';
+import 'recovery_support.dart';
 
 class StudioServer {
   static const Duration _historyConnectTimeout = Duration(seconds: 10);
@@ -100,6 +101,13 @@ class StudioServer {
         stackTrace: stackTrace,
       );
       rethrow;
+    }
+    for (final String warning in catalog.loadWarnings) {
+      logger.warning(
+        subsystem: 'startup',
+        event: 'catalog_definition_warning',
+        message: warning,
+      );
     }
     HistoryRepository? historyRepository;
     try {
@@ -215,6 +223,7 @@ class StudioServer {
           .map((RuntimeStartupCheck check) => check.toJson())
           .toList(),
       'catalog': catalog.toSummaryJson(),
+      'exportPresets': ExportSupport.enginePresetOptions,
       'defaults': <String, Object?>{
         'bodyType': catalog.bodyTypes.contains('male')
             ? 'male'
@@ -231,6 +240,11 @@ class StudioServer {
   }
 
   Future<Response> _health(Request request) async {
+    final Map<String, Object> catalogSummary = catalog.toSummaryJson();
+    final int categoryCount =
+        (catalogSummary['categories'] as List<Object?>?)?.length ?? 0;
+    final int tagCount =
+        (catalogSummary['tags'] as List<Object?>?)?.length ?? 0;
     final List<Map<String, String>> checks = <Map<String, String>>[
       ...config.startupChecks.map(
         (RuntimeStartupCheck check) => check.toJson(),
@@ -264,6 +278,15 @@ class StudioServer {
         'label': 'Export directory',
         'status': 'ok',
         'detail': 'Exports will be written to ${config.exportDirectory.path}.',
+      },
+      <String, String>{
+        'label': 'Catalog content',
+        'status': catalog.itemsById.isEmpty
+            ? 'error'
+            : (catalog.loadWarnings.isEmpty ? 'ok' : 'warning'),
+        'detail':
+            'Loaded ${catalog.itemsById.length} items across ${catalog.bodyTypes.length} body types, ${catalog.animations.length} animations, $categoryCount categories, and $tagCount tags.'
+            '${catalog.loadWarnings.isEmpty ? '' : ' ${catalog.loadWarnings.length} content warnings were detected while loading LPC definitions.'}',
       },
     ];
 
@@ -598,8 +621,7 @@ class StudioServer {
     final Map<String, Object?> firstJob = jobs.isNotEmpty
         ? jobs.first
         : <String, Object?>{};
-
-    return <String, Object?>{
+    final Map<String, Object?> result = <String, Object?>{
       'imagePath': firstJob['imagePath'],
       'metadataPath': firstJob['metadataPath'],
       'bundlePath': path.normalize(zipFile.path),
@@ -609,6 +631,12 @@ class StudioServer {
       'jobs': jobs,
       'batch': isBatch,
     };
+    await RecoverySupport.recordExportRecovery(
+      recoveryDirectory: config.recoveryDirectory,
+      exportResult: result,
+      projectName: projectName,
+    );
+    return result;
   }
 
   _ExportJob _createExportJob() {
@@ -1466,6 +1494,13 @@ class StudioServer {
     await packageFile.writeAsString(
       const JsonEncoder.withIndent('  ').convert(entry.toJson()),
     );
+    await RecoverySupport.recordHistoryPackageRecovery(
+      recoveryDirectory: config.recoveryDirectory,
+      operation: 'export',
+      historyId: entry.id,
+      projectName: entry.projectName ?? entry.prompt,
+      packagePath: path.normalize(packageFile.path),
+    );
 
     return _json(200, <String, Object>{
       'id': entry.id,
@@ -1498,6 +1533,13 @@ class StudioServer {
         jsonDecode(await packageFile.readAsString()) as Map<String, dynamic>;
     final StudioHistoryEntry imported = await historyRepository!.importEntry(
       StudioHistoryEntry.fromJson(packageJson),
+    );
+    await RecoverySupport.recordHistoryPackageRecovery(
+      recoveryDirectory: config.recoveryDirectory,
+      operation: 'import',
+      historyId: imported.id,
+      projectName: imported.projectName ?? imported.prompt,
+      packagePath: path.normalize(packageFile.path),
     );
     return _json(200, imported.toJson());
   }

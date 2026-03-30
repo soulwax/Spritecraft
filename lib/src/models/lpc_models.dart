@@ -111,11 +111,13 @@ class LpcCatalog {
     required this.itemsById,
     required this.bodyTypes,
     required this.animations,
+    this.loadWarnings = const <String>[],
   });
 
   final Map<String, LpcItemDefinition> itemsById;
   final List<String> bodyTypes;
   final List<String> animations;
+  final List<String> loadWarnings;
 
   List<LpcItemDefinition> search({
     String query = '',
@@ -187,10 +189,45 @@ class LpcCatalog {
   }
 
   Map<String, Object> toSummaryJson() {
+    final List<String> categories =
+        itemsById.values
+            .map((LpcItemDefinition item) => item.category)
+            .toSet()
+            .toList()
+          ..sort();
+    final List<String> typeNames =
+        itemsById.values
+            .map((LpcItemDefinition item) => item.typeName.trim())
+            .where((String typeName) => typeName.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final List<String> tags =
+        itemsById.values
+            .expand((LpcItemDefinition item) => item.tags)
+            .map((String tag) => tag.trim())
+            .where((String tag) => tag.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final List<String> variants =
+        itemsById.values
+            .expand((LpcItemDefinition item) => item.variants)
+            .map((String variant) => variant.trim())
+            .where((String variant) => variant.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
     return <String, Object>{
       'itemCount': itemsById.length,
       'bodyTypes': bodyTypes,
       'animations': animations,
+      'categories': categories,
+      'typeNames': typeNames,
+      'tags': tags,
+      'variants': variants,
+      'loadWarningCount': loadWarnings.length,
     };
   }
 }
@@ -228,11 +265,10 @@ class LpcRenderRequest {
               .map(
                 (String key, dynamic value) => MapEntry(key, value.toString()),
               ),
-      externalLayers:
-          (json['externalLayers'] as List<dynamic>? ?? <dynamic>[])
-              .whereType<Map<String, dynamic>>()
-              .map(ExternalRenderLayer.fromJson)
-              .toList(),
+      externalLayers: (json['externalLayers'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(ExternalRenderLayer.fromJson)
+          .toList(),
     );
   }
 
@@ -270,11 +306,7 @@ class ExternalRenderLayer {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
-      'path': path,
-      'name': name,
-      'zPos': zPos,
-    };
+    return <String, Object?>{'path': path, 'name': name, 'zPos': zPos};
   }
 }
 
@@ -483,9 +515,10 @@ class StudioHistoryEntry {
         migrated['exportSettings'] as Map<String, dynamic>? ??
             <String, dynamic>{},
       ),
-      promptHistory: (migrated['promptHistory'] as List<dynamic>? ?? <dynamic>[])
-          .map((dynamic value) => value.toString())
-          .toList(),
+      promptHistory:
+          (migrated['promptHistory'] as List<dynamic>? ?? <dynamic>[])
+              .map((dynamic value) => value.toString())
+              .toList(),
       exportHistory:
           (migrated['exportHistory'] as List<dynamic>? ?? <dynamic>[])
               .whereType<Map<String, dynamic>>()
@@ -547,8 +580,7 @@ class SpriteCraftSchemaMigrations {
         'version': kSpriteCraftProjectSchemaVersion,
       },
       'id': working['id']?.toString() ?? '',
-      'createdAt':
-          working['createdAt']?.toString() ?? now.toIso8601String(),
+      'createdAt': working['createdAt']?.toString() ?? now.toIso8601String(),
       'updatedAt':
           working['updatedAt']?.toString() ??
           working['createdAt']?.toString() ??
@@ -591,7 +623,9 @@ class SpriteCraftSchemaMigrations {
     };
   }
 
-  static Map<String, Object?> migrateRenderMetadata(Map<String, dynamic> input) {
+  static Map<String, Object?> migrateRenderMetadata(
+    Map<String, dynamic> input,
+  ) {
     final Map<String, dynamic> working = Map<String, dynamic>.from(input);
     final Map<String, dynamic> content =
         working['content'] as Map<String, dynamic>? ?? <String, dynamic>{};
@@ -623,7 +657,6 @@ class SpriteCraftSchemaMigrations {
       'credits': working['credits'] as List<dynamic>? ?? <dynamic>[],
     };
   }
-
 }
 
 Map<String, int> _inferFrameLayout({
