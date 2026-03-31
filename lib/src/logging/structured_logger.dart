@@ -11,13 +11,11 @@ class StructuredLogger {
   StructuredLogger({
     DateTime Function()? clock,
     StructuredLogWriter? writer,
-    Directory? logDirectory,
-    String logPrefix = 'spritecraft',
+    this._logDirectory,
+    this._logPrefix = 'spritecraft',
   })
     : _clock = clock ?? DateTime.now,
-      _writer = writer ?? _defaultWriter,
-      _logDirectory = logDirectory,
-      _logPrefix = logPrefix;
+      _writer = writer ?? _defaultWriter;
 
   final DateTime Function() _clock;
   final StructuredLogWriter _writer;
