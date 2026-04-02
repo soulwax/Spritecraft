@@ -1,159 +1,219 @@
-# SpriteCraft Roadmap
+# SpriteCraft Action Plan
 
-This roadmap is meant to take SpriteCraft from a promising prototype to a full-fledged, daily-usable desktop-grade sprite workflow tool.
+Last assessed: 2026-04-02
 
-## Guiding principle
+This file is now a live execution plan based on the current codebase, not an aspirational feature dump.
 
-- Build the app in layers: reliable core workflows first, then creator-quality editing, then export and ecosystem depth, then polish and distribution.
-- Keep LPC support as a first-class submodule-backed source, while making SpriteCraft useful for non-LPC spritesheets too.
-- Treat metadata, reproducibility, and export quality as product features, not implementation details.
+## Current state summary
 
-## Phase 1 — Stable Core MVP
+SpriteCraft is already a substantial product at `0.41.0`, not an early prototype.
 
-Goal: make the current app dependable enough for real early use.
+What is present in the repository today:
 
-- [x] Make `dart run bin/spritecraft.dart studio` consistently start without hanging in local environments
-- [x] Add startup diagnostics for missing submodule assets, bad `.env`, DB connection failures, and Gemini failures
-- [x] Add `GET /health` and a simple app status panel in SpriteCraft Studio
-- [x] Normalize render/export error handling and show actionable messages in the UI
-- [x] Add render caching so repeated preview refreshes are fast
-- [x] Add stronger tests for export naming, zip bundles, and engine preset generation
-- [x] Add snapshot-style tests for metadata schema stability
-- [x] Finalize the current `build/exports` bundle flow and verify it end-to-end
+- Dart CLI for deterministic frame-folder packing with `uniform-grid` and `atlas` layout support
+- Dart backend API with health, bootstrap, LPC catalog, render, export, AI, history, non-LPC import, recovery, and support bundle routes
+- Next.js Studio frontend in `studio` with builder, project browser, onboarding, settings, previews, export controls, and non-LPC inspection UI
+- LPC submodule checked out at `lpc-spritesheet-creator`
+- Stable metadata documentation under `docs/metadata-schema.md`
+- Windows packaging scripts and release notes through `0.41.0`
+- A meaningful Dart test suite covering packer, exports, render flows, history, recovery, support bundles, and schema behavior
 
-## Phase 2 — Usable Character Builder
+## Initialization status
 
-Goal: make SpriteCraft Studio genuinely comfortable for building sprites, not just technically capable.
+Verified in this workspace:
 
-- [x] Replace raw item-id selection display with human-friendly selected item cards
-- [x] Group catalog results by category such as body, head, hair, torso, weapons, and accessories
-- [x] Add filters for body type, animation compatibility, tags, and category
-- [x] Add search result ranking that favors likely creator intent, not only keyword hits
-- [x] Add favorites and pinned items for repeated workflows
-- [x] Add clear-all, undo, redo, and restore-last-render actions
-- [x] Add layer reordering controls where override behavior makes sense
-- [x] Add side-by-side preview modes for idle, walk, and combat animation comparisons
+- [x] `git submodule status` shows `lpc-spritesheet-creator` initialized
+- [x] `dart pub get` succeeds
+- [x] `studio/node_modules` already exists
+- [ ] Node.js toolchain is available in this shell
+- [ ] `pnpm install --frozen-lockfile` can be re-run locally from this shell
 
-## Phase 3 — Project Workflow
+Notes:
 
-Goal: turn one-off renders into reusable projects creators can come back to.
+- `pnpm`, `node`, `npm`, and `corepack` are not available in the current shell environment, so web validation is currently blocked here even though `studio/node_modules` is present.
 
-- [x] Introduce a formal SpriteCraft project model with name, notes, tags, created/updated timestamps, and export history
-- [x] Add `findById()`, `delete()`, `restore()`, and `duplicate()` project actions in persistence and API
-- [x] Add project browser UI with search, sorting, and quick previews
-- [x] Store render settings, export settings, chosen presets, and prompt history per project
-- [x] Add import/export of a SpriteCraft project package for sharing between machines
-- [x] Add automatic draft saving and explicit named snapshots
-- [x] Support project templates such as NPC base, player character, enemy, portrait, and animation study
+## Validation snapshot
 
-## Phase 3.5 — Studio Foundation
+Commands run during this assessment:
 
-- [x] Establish `studio` as the primary first-party app with shadcn-style components and the Kanagawa wave theme.
-- [x] Treat SpriteCraft Studio as the product surface directly and continue with Phase 4+ work from there.
+- [x] `dart pub get`
+- [ ] `dart test`
+- [ ] `dart analyze`
+- [ ] Studio typecheck / lint / build
 
-## Phase 4 — Metadata and Export Excellence
+Observed results:
 
-Goal: make SpriteCraft exports production-grade for engines and asset pipelines.
+- `dart pub get` passed
+- `dart test` failed
+- `dart analyze` failed
+- Web validation could not be run because the shell cannot find Node.js tooling
 
-- [x] Lock the metadata schema and document it as a stable contract
-- [x] Add schema version migration handling for older saved projects and exports
-- [x] Export animated spritesheets with explicit frame sequences, timing, pivots, and per-frame tags
-- [x] Add atlas export options beyond uniform fullsheet render output
-- [x] Improve Godot export toward native `SpriteFrames`-oriented output
-- [x] Improve Unity export toward importer-ready sprite slicing metadata
-- [x] Add Aseprite-friendly and generic game-engine JSON formats
-- [x] Add optional trim/crop, pivot editing, margins, spacing, and naming conventions per export
-- [x] Add batch export for multiple animations and variants in one job
-- [x] Add credits/license export formats suitable for shipping games and internal asset tracking
+## Confirmed issues
 
-## Phase 5 — Smart Features and AI Assistance
+### 1. Schema contract drift between implementation, docs, and tests
 
-Goal: make AI genuinely helpful instead of decorative.
+The code defines:
 
-- [x] Improve the Gemini brief flow so it suggests coherent build paths, not just free-text prompts
-- [x] Add AI-powered category suggestions like "pick a ranger hood, leather torso, quiver, and short bow"
-- [x] Add prompt-to-build recommendations that can prefill a candidate character setup
-- [x] Add prompt memory so repeated art direction stays visually consistent across projects
-- [x] Add AI-assisted naming for projects, animations, and export bundles
-- [x] Add consistency checks such as missing matching body color, incompatible animation coverage, or likely clipping
-- [x] Add smart warnings when selected layers have incomplete animation support
-- [x] Explore AI-assisted palette/style helpers once the core builder flow is stable
+- `spritecraft.spritesheet` v1
+- `spritecraft.render` v4
+- `spritecraft.project` v2
 
-## Phase 6 — Editing and Art Workflow Tools
+But the test suite is partially stale:
 
-Goal: support real iteration by artists and designers, not only selection and export.
+- tests still expect render schema version `3` in at least one place
+- several tests reference missing names instead of the exported constants that exist today
 
-- [x] Add palette swapping and controlled recolor workflows
-- [x] Add preview backgrounds, zoom levels, onion-skin views, and frame stepping
-- [x] Add crop guides, anchor editing, and pivot placement tools
-- [x] Add layer visibility toggles and solo/mute controls
-- [x] Add animation strip preview with FPS controls
-- [x] Add sheet diffing between two project snapshots
-- [x] Add support for importing custom external layers on top of LPC assets
-- [x] Add non-LPC spritesheet import workflows so SpriteCraft can serve broader users
+Impact:
 
-## Phase 7 — Performance and Reliability
+- breaks `dart test`
+- breaks `dart analyze`
+- weakens confidence in the documented metadata contract
 
-Goal: make the app feel fast and trustworthy as projects grow.
+### 2. Startup behavior and startup test no longer agree
 
-- [x] Profile render hotspots and reduce repeated disk reads during preview/export
-- [x] Add in-memory and on-disk caching for decoded image assets
-- [x] Move expensive export/render work off the main request path where needed
-- [x] Add structured logging for render, export, AI, and DB failures
-- [x] Add startup self-checks for submodule integrity and expected asset directories
+`StudioServer.create()` now refuses to start when required LPC runtime assets are missing, which is a sensible production default.
 
-### Content completeness
+One startup test still expects the server to boot with no LPC assets at all.
 
-- [x] Wire in all assets and useful metadata, as well as useful code deemed to be so into the app from ./lpc-spritesheet-creator. Fill empty dropdown menus and missing features for the app to work fully within the LPC content scope. This includes:
-  - [x] All body types, heads, torsos, weapons, and accessories
-  - [x] All animation types and variants
-  - [x] All export presets for Godot and Unity
-  - [x] All relevant metadata such as body type compatibility, animation coverage, and tags
+Impact:
 
-### Phase 7.5 — Testing and Hardening
+- test suite no longer reflects actual production behavior
+- startup guarantees are ambiguous unless the contract is documented and enforced consistently
 
-- [x] Add regression tests for representative LPC combinations and export presets
-- [x] Harden the app against malformed definitions and missing asset files
-- [x] Define backup/recovery behavior for project history and exports
+### 3. Web app cannot be validated in the current shell
 
-## Phase 8 — Packaging and Distribution
+The repository contains a real Studio app, but this environment does not expose:
 
-Goal: make SpriteCraft easy to install and use outside the dev folder.
+- `node`
+- `npm`
+- `pnpm`
+- `corepack`
 
-- [x] Decide on the primary product shape: local web app, desktop shell, or both - user prefers desktop but web is fine too
-- [x] Add a proper desktop distribution strategy for Windows first
-- [x] Bundle required runtime assets cleanly while preserving submodule update workflows for development
-- [x] Create release builds with versioned changelogs and migration notes
-- [x] Add first-run onboarding for environment setup, submodule status, and optional Gemini configuration
-- [x] Add settings UI for export paths, DB usage, AI toggle, and theme/preferences
-- [x] Add crash-safe logging and a support bundle export for debugging user issues
+Impact:
 
-## Phase 9 — Polish
+- cannot verify `studio` build health from this shell
+- cannot confirm Next.js app status against the current backend contract
+- cannot trust the old roadmap items that claim frontend polish work is fully done
 
-Goal: make the app feel finished.
+### 4. Roadmap drift
 
-- [x] Create a cohesive icon, favicon, and brand system for SpriteCraft
-- [x] Add loading states, progress indicators, and toasts everywhere they matter
-- [x] Improve empty states so new users always know the next useful action
+The previous `TODO.md` marked almost every phase complete, but the repository state shows that some essential health work is still open:
+
+- failing Dart test suite
+- failing Dart analyzer
+- no current web validation in this environment
+- accessibility, keyboard shortcut, and responsive polish work still open
+- contributor and compatibility documentation still incomplete
+
+Impact:
+
+- the old roadmap is not useful for execution
+- priority needs to shift from feature accumulation back to contract alignment and system verification
+
+## Recommended course of action
+
+Execution order matters. We should stabilize the repository before adding more product surface.
+
+## Phase A - Restore green quality gates
+
+Goal: make the current product trustworthy again.
+
+- [ ] Fix schema-version drift across [lib/src/models/metadata_schema.dart](/d:/Workspace/Dart/Spritesheet-Creator/lib/src/models/metadata_schema.dart), [docs/metadata-schema.md](/d:/Workspace/Dart/Spritesheet-Creator/docs/metadata-schema.md), and schema-related tests
+- [ ] Update stale tests to use the exported schema constants instead of missing identifiers
+- [ ] Decide and document whether missing LPC assets are a hard startup failure or a degraded-but-bootable mode
+- [ ] Align [test/studio_server_startup_test.dart](/d:/Workspace/Dart/Spritesheet-Creator/test/studio_server_startup_test.dart) with the intended startup contract
+- [ ] Re-run `dart analyze`
+- [ ] Re-run `dart test`
+
+Definition of done:
+
+- `dart analyze` passes
+- `dart test` passes
+- startup behavior is explicit and documented
+
+## Phase B - Re-establish local web reproducibility
+
+Goal: make Studio validation repeatable on a fresh machine.
+
+- [ ] Ensure Node.js and package manager setup is documented for Windows contributors, not just assumed
+- [ ] Add a single authoritative web bootstrap path for `studio`
+- [ ] Verify `pnpm install --frozen-lockfile`, `pnpm typecheck`, and `pnpm build`
+- [ ] Confirm `dart run bin/spritecraft.dart app` works end to end with the web app and backend together
+- [ ] Document the expected developer prerequisites in [README.md](/d:/Workspace/Dart/Spritesheet-Creator/README.md) and [AGENT.md](/d:/Workspace/Dart/Spritesheet-Creator/AGENT.md)
+
+Definition of done:
+
+- a clean Windows environment can bring up backend + Studio without guesswork
+- the web app has at least one verified build path
+
+## Phase C - Clarify product scope: LPC builder vs general spritesheet generator
+
+Goal: stop mixing two product stories without an explicit boundary.
+
+Current reality:
+
+- general spritesheet packing is strong in the Dart CLI
+- Studio is strongest for LPC composition and non-LPC inspection
+- Studio does not yet appear to be the primary UI for a full arbitrary multi-image spritesheet assembly workflow
+
+Next steps:
+
+- [ ] Define the primary product promise in docs and UI copy
+- [ ] Decide whether Studio should gain a first-class general spritesheet assembly workflow
+- [ ] If yes, design a domain model for arbitrary uploaded source frames separate from LPC selections
+- [ ] Add typed contracts for uploaded frames, ordering, trimming, padding, packing mode, scaling, and export presets
+- [ ] Keep the deterministic packer as the engine and avoid duplicating packing rules in TypeScript
+
+Definition of done:
+
+- the app has a clear story for both LPC and non-LPC users
+- architecture boundaries stay explicit between UI orchestration and Dart processing
+
+## Phase D - Build the general spritesheet workflow in Studio
+
+Only start this once Phases A-C are complete.
+
+- [ ] Add multi-file image import into Studio
+- [ ] Add deterministic frame ordering with rename and reorder controls
+- [ ] Add validation for dimensions, duplicate names, unsupported files, and oversized inputs
+- [ ] Add pack settings UI for padding, margin, trim, layout mode, power-of-two, pivot, and frame timing
+- [ ] Add preview rendering of the generated atlas and frame metadata before download
+- [ ] Add export/download flow for PNG + JSON + engine companions from the general workflow
+- [ ] Add recoverable async job handling for large packs instead of tying everything to one request
+
+Definition of done:
+
+- Studio can act as a real spritesheet generator for arbitrary frame folders, not only an LPC composer
+
+## Phase E - Product polish that still matters
+
+These are still meaningful open items after the repo is healthy.
+
 - [ ] Add keyboard shortcuts for common creator flows
-- [ ] Add better responsive layout behavior for smaller screens and tablets
-- [ ] Improve typography, motion, and visual hierarchy across SpriteCraft Studio
-- [ ] Add accessibility passes for contrast, focus handling, labels, and keyboard navigation
+- [ ] Improve smaller-screen and tablet behavior
+- [ ] Run an accessibility pass for focus handling, labels, contrast, and keyboard-only operation
+- [ ] Tighten information hierarchy and reduce dense control clusters where the builder feels overloaded
+- [ ] Add explicit failure UX for long-running export jobs and missing runtime dependencies
 
-## Phase 10 — Ecosystem and Community
+## Phase F - Documentation and contributor sanity
 
-Goal: make SpriteCraft sustainable as a real project.
+- [ ] Write a contributor guide that explains the Dart backend, Studio frontend, LPC submodule, and runtime boundaries
+- [ ] Document safe LPC submodule update workflow
+- [ ] Publish compatibility policy for metadata schemas and project files
+- [ ] Add issue templates for export bugs, asset mismatches, runtime setup problems, and regression reports
+- [ ] Add a concise architecture document covering domain, application, infrastructure, and processing boundaries
 
-- [ ] Write formal metadata and export documentation
-- [ ] Publish a clear contributor guide for SpriteCraft-specific architecture
-- [ ] Document how LPC submodule updates should be handled safely
-- [ ] Add issue templates for bug reports, asset mismatches, and export problems
-- [ ] Define compatibility policy for metadata schema and project files
-- [ ] Create example projects and demo exports for Godot and Unity
+## Immediate next three tasks
 
-## Suggested execution order
+If work starts right away, the most leverage comes from this order:
 
-- [ ] Finish Phase 1 before adding much more feature surface
-- [ ] Prioritize Phase 2 and Phase 3 next so the app becomes truly usable
-- [ ] Use Phase 4 and Phase 5 to turn usability into production value
-- [ ] Treat Phase 8 and Phase 9 as the bridge from tool to product
+1. [ ] Fix the schema/test drift and get `dart analyze` + `dart test` green
+2. [ ] Restore local web validation by making the Node toolchain reproducible
+3. [ ] Decide whether the next major feature investment is Studio-based general spritesheet assembly or continued LPC-centric depth
+
+## Explicit non-goals until the repo is green
+
+- [ ] Do not add more AI surface area yet
+- [ ] Do not expand export formats further yet
+- [ ] Do not add more packaging complexity yet
+- [ ] Do not mark additional roadmap phases complete without validation evidence
